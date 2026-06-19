@@ -3,98 +3,1304 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>NaNoodle — a tiny node playground for AI</title>
-<meta name="description" content="Wire AI like Lego. Drag text, image, video, music and LLM nodes together, connect them, and hit run — all in your browser, bring your own NanoGPT key." />
-<link rel="canonical" href="https://nanoodle.com/" />
-<meta property="og:url" content="https://nanoodle.com/" />
-<meta property="og:type" content="website" />
-<meta property="og:title" content="NaNoodle — a tiny node playground for AI" />
-<meta property="og:description" content="Drag nodes, connect them, hit run. Text · Image · Edit · Vision · Video · Music · Speech — 100% in your browser." />
+<title>NaNoodle UI — a tiny node playground</title>
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 <style>
   :root{
     --bg:#0b0d12; --panel:#12151d; --panel2:#171b25; --ink:#eef1f7; --dim:#9aa3b2;
-    --line:#262c3a; --accent:#7c8cff; --accent2:#ff79c6; --cyan:#67e8f9;
+    --line:#262c3a; --accent:#7c8cff; --accent2:#ff79c6; --good:#3ddc97; --bad:#ff6b6b; --warn:#ffcf6b;
+    --text-port:#7c8cff; --image-port:#ff79c6; --video-port:#5ad1e6; --audio-port:#3ddc97;
   }
   *{box-sizing:border-box}
   html,body{margin:0; height:100%}
-  body{ background:radial-gradient(1100px 540px at 70% -10%, #1a1f3a55, transparent), var(--bg);
-        color:var(--ink); font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-        min-height:100vh; display:flex; flex-direction:column; }
-  a{color:var(--accent); text-decoration:none}
-  a:hover{text-decoration:underline}
-  .wrap{ max-width:860px; margin:0 auto; padding:1.4rem 1.2rem; flex:1; display:flex; flex-direction:column; }
+  body{ background:var(--bg); color:var(--ink);
+        font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; overflow:hidden; }
+  button,select,textarea,input{font:inherit; color:var(--ink)}
+  button,.btn{cursor:pointer; border-radius:.5rem; border:1px solid var(--line); background:var(--panel2); padding:.4rem .7rem;}
+  button:hover:not(:disabled){border-color:#3a425a}
+  button:disabled{opacity:.45; cursor:default}
+  button.primary{ background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#0b0d12; font-weight:700;}
+  button.link{background:none;border:none;color:var(--accent);padding:0;font-size:.8rem}
 
-  header{ display:flex; align-items:center; gap:.5rem; }
-  .logo{ font-weight:800; letter-spacing:-.02em; font-size:1.25rem; }
-  .logo .nano{ background:linear-gradient(90deg,var(--cyan),var(--accent) 70%); -webkit-background-clip:text; background-clip:text;
+  /* ---------- top bar ---------- */
+  #top{ position:fixed; inset:0 0 auto 0; height:52px; z-index:30; display:flex; align-items:center; gap:.6rem;
+        padding:0 .9rem; background:rgba(18,21,29,.85); backdrop-filter:blur(8px); border-bottom:1px solid var(--line);}
+  #top .logo{font-weight:800; letter-spacing:-.02em; font-size:1.15rem; margin-right:.3rem;}
+  #top .logo .nano{ background:linear-gradient(90deg,#67e8f9,#7c8cff 70%); -webkit-background-clip:text; background-clip:text;
         color:transparent; font-weight:900; filter:drop-shadow(0 0 9px #7c8cff77); }
-  .spacer{flex:1}
-  .ghost{ font:inherit; font-size:.85rem; color:var(--dim); border:1px solid var(--line); border-radius:.55rem; padding:.35rem .7rem; }
-  .ghost:hover{ border-color:#3a425a; color:var(--ink); text-decoration:none }
+  #top .logo .ui{ color:var(--dim); font-weight:700; font-size:.72rem; letter-spacing:.12em; margin-left:.3rem; vertical-align:.08em; text-transform:uppercase; }
+  #top .sep{width:1px; height:24px; background:var(--line); margin:0 .2rem}
+  #top .spacer{flex:1}
+  #addmenu{position:relative}
+  #addpop{ position:absolute; top:110%; left:0; background:var(--panel); border:1px solid var(--line); border-radius:.6rem;
+           padding:.35rem; display:none; flex-direction:column; gap:.15rem; min-width:200px; box-shadow:0 12px 40px #0008; z-index:40;}
+  #addpop.open{display:flex}
+  #addpop button{ text-align:left; border:none; background:none; display:flex; gap:.55rem; align-items:center; padding:.45rem .55rem; border-radius:.45rem;}
+  #addpop button:hover{background:var(--panel2)}
+  #addpop .k{ font-size:1.1rem; width:1.4rem; text-align:center }
+  #addpop .d{font-size:.74rem; color:var(--dim)}
+  #status{font-size:.78rem; color:var(--dim)}
+  #cost{font-family:ui-monospace,monospace; font-size:.78rem; color:var(--dim)}
+  #cost b{color:var(--ink)}
 
-  main{ flex:1; display:flex; flex-direction:column; justify-content:center; padding:3rem 0; }
-  h1{ font-size:clamp(2.1rem, 6vw, 3.4rem); line-height:1.05; letter-spacing:-.03em; margin:0 0 1rem; font-weight:850; }
-  h1 .grad{ background:linear-gradient(90deg,var(--cyan),var(--accent) 55%,var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent; }
-  .lede{ font-size:1.15rem; color:var(--dim); max-width:42rem; margin:0 0 1.8rem; }
-  .lede b{ color:var(--ink); font-weight:600 }
+  /* ---------- editor surface ---------- */
+  #editor{ position:fixed; inset:52px 0 0 0; overflow:hidden; cursor:grab;
+           background-color:#0b0d12;
+           background-image:radial-gradient(circle, #ffffff0d 1px, transparent 1px);
+           background-size:22px 22px; }
+  #editor.panning{cursor:grabbing}
+  #world{ position:absolute; top:0; left:0; transform-origin:0 0; }
+  #wires{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:5; overflow:visible }
+  #wires path.wire{ fill:none; stroke-width:2.5; pointer-events:stroke; cursor:pointer; }
+  #wires path.hit{ fill:none; stroke:transparent; stroke-width:14; pointer-events:stroke; cursor:pointer; }
+  #wires path.temp{ fill:none; stroke:#ffffff88; stroke-width:2.5; stroke-dasharray:5 4; pointer-events:none }
 
-  .chips{ display:flex; flex-wrap:wrap; gap:.45rem; margin:0 0 2rem; }
-  .chip{ font-size:.82rem; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
-         padding:.32rem .65rem; border-radius:2rem; }
-  .chip .d{ width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:.4rem; vertical-align:-1px; }
+  /* ---------- node ---------- */
+  .node{ position:absolute; min-width:210px; max-width:300px; background:var(--panel); border:1px solid var(--line);
+         border-radius:.7rem; box-shadow:0 10px 30px #0006; z-index:10; user-select:none; }
+  .node.sel{ border-color:var(--accent); box-shadow:0 0 0 1px var(--accent), 0 14px 36px #0008 }
+  .node[data-status=run]{ border-color:var(--warn) }
+  .node[data-status=done]{ border-color:var(--good) }
+  .node[data-status=error]{ border-color:var(--bad) }
+  .node header{ display:flex; align-items:center; gap:.4rem; padding:.45rem .55rem; cursor:grab;
+                border-bottom:1px solid var(--line); border-radius:.7rem .7rem 0 0; }
+  .node header.t-image{ background:linear-gradient(90deg,#ff79c622,transparent) }
+  .node header.t-text{ background:linear-gradient(90deg,#7c8cff22,transparent) }
+  .node header.t-llm{ background:linear-gradient(90deg,#3ddc9722,transparent) }
+  .node header.t-vision{ background:linear-gradient(90deg,#ffcf6b22,transparent) }
+  .node header.t-edit{ background:linear-gradient(90deg,#ff79c622,#7c8cff14,transparent) }
+  .node header.t-tvideo, .node header.t-ivideo{ background:linear-gradient(90deg,#5ad1e622,transparent) }
+  .node header.t-music, .node header.t-tts{ background:linear-gradient(90deg,#3ddc9722,transparent) }
+  .node header.t-join{ background:linear-gradient(90deg,#9aa3b222,transparent) }
+  .node header .em{font-size:1rem}
+  .node header .ttl{font-weight:700; font-size:.85rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .node header .hbtn{ border:none; background:none; padding:2px 4px; color:var(--dim); font-size:.85rem; border-radius:.35rem }
+  .node header .hbtn:hover{ background:#ffffff14; color:var(--ink) }
+  .node header .dot{ width:8px;height:8px;border-radius:50%; background:var(--dim); flex:0 0 auto }
+  .node[data-status=run] .dot{ background:var(--warn); animation:pulse 1s infinite }
+  .node[data-status=done] .dot{ background:var(--good) }
+  .node[data-status=error] .dot{ background:var(--bad) }
+  @keyframes pulse{50%{opacity:.3}}
 
-  .cta{ display:flex; gap:.8rem; flex-wrap:wrap; align-items:center; }
-  .btn{ font:inherit; font-weight:700; cursor:pointer; border-radius:.7rem; padding:.85rem 1.5rem; font-size:1.05rem;
-        background:linear-gradient(90deg,var(--accent),var(--accent2)); color:#0b0d12; border:none; }
-  .btn:hover{ filter:brightness(1.06); text-decoration:none }
-  .cta .note{ color:var(--dim); font-size:.85rem }
+  .ports{ display:flex; justify-content:space-between; padding:.45rem 0 .2rem; }
+  .col{ display:flex; flex-direction:column; gap:.35rem }
+  .prow{ display:flex; align-items:center; gap:.4rem; font-size:.74rem; color:var(--dim) }
+  .col.out .prow{ flex-direction:row-reverse }
+  .port{ width:13px; height:13px; border-radius:50%; border:2px solid var(--bg); background:var(--dim);
+         cursor:crosshair; flex:0 0 auto; transition:transform .1s }
+  .col.in{ margin-left:-7px } .col.out{ margin-right:-7px }
+  .port:hover{ transform:scale(1.35) }
+  .port.text{ background:var(--text-port) } .port.image{ background:var(--image-port) }
+  .port.video{ background:var(--video-port) } .port.audio{ background:var(--audio-port) }
+  .port.filled{ box-shadow:0 0 0 3px #ffffff22 }
+  /* magnetism: every valid destination glows, the closest one grabs the wire */
+  .port.compatible{ transform:scale(1.25); box-shadow:0 0 0 4px #ffffff26; animation:portpulse 1.1s ease-in-out infinite }
+  .port.snap{ transform:scale(1.7); box-shadow:0 0 0 5px #ffffff66, 0 0 12px #fff6; animation:none }
+  @keyframes portpulse{ 50%{ box-shadow:0 0 0 6px #ffffff14 } }
 
-  footer{ border-top:1px solid var(--line); color:var(--dim); font-size:.82rem; padding:1.1rem 0 .3rem;
-          display:flex; gap:.4rem 1rem; flex-wrap:wrap; align-items:center; }
-  footer .spacer{flex:1}
+  .body{ padding:.1rem .6rem .6rem; display:flex; flex-direction:column; gap:.5rem }
+  .body label{ font-size:.68rem; text-transform:uppercase; letter-spacing:.05em; color:var(--dim); display:block; margin-bottom:.2rem }
+  .body textarea{ width:100%; resize:vertical; min-height:54px; background:var(--panel2); border:1px solid var(--line);
+                  border-radius:.45rem; padding:.4rem .5rem; line-height:1.35 }
+  .body select{ width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.35rem .4rem }
+  .body input{ width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.35rem .5rem }
+  .body input[type=checkbox]{ width:auto }
+  .body .chk{ display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--ink); text-transform:none; letter-spacing:0 }
+  .body .fhint{ font-size:.68rem; color:var(--dim); margin-top:.2rem; text-transform:none; letter-spacing:0 }
+  .body .two{ display:flex; gap:.4rem } .body .two > *{ flex:1; min-width:0 }
+  .body details.adv{ margin-top:.1rem } .body details.adv summary{ cursor:pointer; font-size:.72rem; color:var(--dim) }
+  .body details.adv textarea{ margin-top:.35rem; font-family:ui-monospace,monospace; font-size:.76rem }
+  .result{ display:none; margin-top:.1rem; border-top:1px dashed var(--line); padding-top:.5rem }
+  .result.show{ display:block }
+  .result img, .result video{ width:100%; border-radius:.45rem; display:block }
+  .result audio{ width:100%; margin-top:.2rem }
+  .result .rtext{ font-size:.82rem; white-space:pre-wrap; max-height:160px; overflow:auto; color:var(--ink) }
+  .result .err{ color:var(--bad); font-size:.8rem; white-space:pre-wrap }
+  .result .acts{ display:flex; gap:.35rem; margin-top:.4rem }
+  .result .acts button{ padding:.25rem .5rem; font-size:.74rem }
+  .spin{ display:inline-block; width:16px;height:16px; border:2px solid #ffffff22; border-top-color:var(--warn); border-radius:50%; animation:sp .8s linear infinite; vertical-align:middle }
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  /* key entry */
+  #keyrow{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:50; display:none; gap:.5rem;
+           background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.6rem; align-items:center; box-shadow:0 12px 40px #0008}
+  #keyrow.open{display:flex}
+  #keyrow input{ width:330px; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.45rem .55rem }
+  .pill{ font-size:.66rem; padding:.05rem .4rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff }
+  .dim{ color:var(--dim) }
+
+  /* ---------- model picker ---------- */
+  #mpickback{ position:fixed; inset:0; z-index:55; background:#0008; display:none }
+  #mpickback.show{ display:block }
+  #mpick{ position:fixed; top:64px; left:50%; transform:translateX(-50%); z-index:60; display:none;
+          width:min(560px,92vw); max-height:74vh; flex-direction:column; background:var(--panel);
+          border:1px solid var(--line); border-radius:.8rem; box-shadow:0 18px 60px #000a; overflow:hidden }
+  #mpick.open{ display:flex }
+  #mpick .mphead{ display:flex; align-items:center; gap:.5rem; padding:.6rem .7rem; border-bottom:1px solid var(--line) }
+  #mpick .mphead .spacer{ flex:1 }
+  #mpicksearch{ margin:.6rem .7rem .2rem; background:var(--panel2); border:1px solid var(--line); border-radius:.5rem; padding:.5rem .6rem }
+  #mpicklist{ overflow:auto; padding:.4rem .5rem .6rem; display:flex; flex-direction:column; gap:.1rem }
+  #mpicklist button{ display:flex; justify-content:space-between; gap:1rem; width:100%; text-align:left;
+                     border:none; background:none; padding:.4rem .55rem; border-radius:.45rem; font-size:.82rem }
+  #mpicklist button:hover{ background:var(--panel2) }
+  #mpicklist button.sel{ background:#7c8cff22; font-weight:600 }
+  #mpicklist .mname{ display:flex; align-items:center; gap:.4rem; min-width:0; word-break:break-all }
+  #mpicklist .price{ opacity:.6; white-space:nowrap; font-family:ui-monospace,monospace; font-size:.74rem }
+  .tag{ font-size:.62rem; padding:.02rem .35rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff; white-space:nowrap }
+  .tag.edit{ background:#ff79c622; color:#ffb4e2 }
+
+  .modelpick{ width:100%; text-align:left; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem;
+              padding:.35rem .5rem; font-size:.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .modelpick:hover{ border-color:var(--accent) }
+  .mprice{ font-family:ui-monospace,monospace; font-size:.68rem; color:var(--dim); margin-top:.2rem; min-height:.8rem }
 </style>
 </head>
 <body>
-<div class="wrap">
 
-  <header>
-    <span class="logo"><span class="nano">NaNo</span>odle</span>
-    <div class="spacer"></div>
-    <a class="ghost" href="/app">Open editor →</a>
-  </header>
-
-  <main>
-    <h1>Wire AI like <span class="grad">Lego.</span></h1>
-    <p class="lede">
-      Drag nodes onto a canvas, connect them, and hit run. Chain <b>text → image → video</b>,
-      caption a picture, score a song — a tiny <b>ComfyUI for everything</b>. Runs 100% in your
-      browser; bring your own NanoGPT key.
-    </p>
-
-    <div class="chips">
-      <span class="chip"><span class="d" style="background:var(--accent)"></span>Text</span>
-      <span class="chip"><span class="d" style="background:var(--accent)"></span>LLM</span>
-      <span class="chip"><span class="d" style="background:var(--accent2)"></span>Image</span>
-      <span class="chip"><span class="d" style="background:var(--accent2)"></span>Edit</span>
-      <span class="chip"><span class="d" style="background:#ffcf6b"></span>Vision</span>
-      <span class="chip"><span class="d" style="background:var(--cyan)"></span>Video</span>
-      <span class="chip"><span class="d" style="background:#3ddc97"></span>Music</span>
-      <span class="chip"><span class="d" style="background:#3ddc97"></span>Speech</span>
-    </div>
-
-    <div class="cta">
-      <a class="btn" href="/app">▶ Launch NaNoodle</a>
-      <span class="note">no install · no signup to look around · open-ended</span>
-    </div>
-  </main>
-
-  <footer>
-    <span>Made with <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">NanoGPT</a></span>
-    <span>· 100% in your browser, no server</span>
-    <div class="spacer"></div>
-    <a href="/app">Editor</a>
-  </footer>
-
+<div id="top">
+  <div class="logo"><span class="nano">NaNo</span>odle<span class="ui">UI</span></div>
+  <div id="addmenu">
+    <button id="addbtn">＋ Add node ▾</button>
+    <div id="addpop"></div>
+  </div>
+  <button id="run" class="primary">▶ Run all</button>
+  <button id="share" title="copy a shareable link to this graph">🔗 Share</button>
+  <button id="save" title="download this graph as JSON">⭳ Save</button>
+  <button id="load" title="open a graph JSON file">⭱ Load</button>
+  <input id="loadfile" type="file" accept="application/json,.json" hidden />
+  <button id="clear">Clear</button>
+  <div class="sep"></div>
+  <span id="cost"></span>
+  <div class="spacer"></div>
+  <span id="status">checking…</span>
+  <button id="signin" class="link" style="display:none">sign in</button>
+  <button id="pastebtn" class="link" style="display:none">paste key</button>
+  <button id="signout" class="link" style="display:none">sign out</button>
 </div>
+
+<div id="keyrow">
+  <input id="keyinput" type="text" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" />
+  <button id="keysave" class="btn">save</button>
+  <span class="dim" style="font-size:.72rem;color:var(--dim)">nano-gpt.com → Settings → API</span>
+</div>
+
+<div id="mpickback"></div>
+<div id="mpick">
+  <div class="mphead">
+    <b id="mpicktitle">model</b>
+    <span id="mpickcount" class="dim"></span>
+    <div class="spacer"></div>
+    <button id="mpickclose" class="hbtn">✕</button>
+  </div>
+  <input id="mpicksearch" placeholder="filter the full list, or type an exact id + Enter…" autocomplete="off" />
+  <div id="mpicklist"></div>
+</div>
+
+<div id="editor">
+  <svg id="wires"></svg>
+  <div id="world"></div>
+</div>
+
+<script>
+const NANOGPT = "https://nano-gpt.com";
+const IMG_ENDPOINT  = `${NANOGPT}/v1/images/generations`;
+const CHAT_ENDPOINT = `${NANOGPT}/api/v1/chat/completions`;
+const $ = (id) => document.getElementById(id);
+const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
+const esc = (s)=> String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ======================================================================
+   MODEL CATALOGS  (the FULL live lists, fetched from NanoGPT + cached)
+     chat  -> /api/v1/models?detailed=true   (628+ text models, vision flag)
+     image -> /api/v1/image-models           (200+ image models, edit flag)
+   Picked through one shared searchable popover (see openPicker()).
+   ====================================================================== */
+const SIZES = [["1024x1024","square"],["1024x1536","portrait"],["1536x1024","landscape"],["auto","auto"]];
+const optsHTML = (items, def)=> items.map(([v,l])=>`<option value="${esc(v)}"${v===def?" selected":""}>${esc(l)}</option>`).join("");
+
+function normChat(m){
+  const p = m.pricing||{};
+  return { id:m.id, name:m.name||m.id, created:m.created, vision:!!m.capabilities?.vision,
+    price: p.prompt!=null ? `$${(+p.prompt).toFixed(2)}/$${(+p.completion).toFixed(2)} ·1M` : "" };
+}
+function normImg(m){
+  const per = m.pricing?.per_image||{};
+  const v = per.square ?? per.square_hd ?? Object.values(per)[0];
+  return { id:m.id, name:m.name||m.id, created:m.created, edit:!!m.capabilities?.image_to_image,
+    price: v!=null ? `$${(+v).toFixed(3)}/img` : "" };
+}
+function normVideo(m){
+  const p=m.pricing||{}, c=m.capabilities||{}; let price="";
+  if(p.per_second_by_resolution){
+    const r=p.default_resolution||Object.keys(p.per_second_by_resolution)[0], d=p.default_duration||5;
+    price=`~$${(p.per_second_by_resolution[r]*d).toFixed(2)}/clip`;
+  } else if(p.per_video!=null) price=`$${(+p.per_video).toFixed(2)}/clip`;
+  else if(p.per_second!=null) price=`~$${(+p.per_second*(p.default_duration||5)).toFixed(2)}/clip`;
+  else if(p.base_price!=null) price=`~$${(+p.base_price).toFixed(2)}/clip`;
+  return { id:m.id, name:m.name||m.id, created:m.created, t2v:!!c.text_to_video, i2v:!!c.image_to_video, price };
+}
+function normAudio(m){
+  const p=m.pricing||{}, c=m.capabilities||{}, arch=m.architecture||{}; let price="";
+  if(p.per_thousand_chars!=null) price=`$${(+p.per_thousand_chars).toFixed(3)}/1k`;
+  else if(p.per_second!=null) price=`$${(+p.per_second).toFixed(3)}/s`;
+  else if(p.per_minute!=null) price=`$${(+p.per_minute).toFixed(2)}/min`;
+  else if(p.per_generation!=null) price=`$${(+p.per_generation).toFixed(2)}/gen`;
+  const mod = arch.modality||"", out = mod.split("->")[1]||"";
+  const sp = m.supported_parameters || {};
+  const voices = Array.isArray(sp.voices) ? sp.voices.filter(v=>typeof v==="string") : [];
+  const gen = mod.startsWith("text") && /audio|music/.test(out);   // text-driven audio (speech / music / sfx)
+  const tts = !!c.text_to_speech || m.category==="audio_tts";
+  return { id:m.id, name:m.name||m.id, created:m.created, owner:m.owned_by||"", voices, params:sp,
+    tts, gen, music: gen && !tts, price };
+}
+
+const CATALOG = {
+  chat:  { url:"/api/v1/models?detailed=true", norm:normChat  },
+  image: { url:"/api/v1/image-models",         norm:normImg   },
+  video: { url:"/api/v1/video-models",         norm:normVideo },
+  audio: { url:"/api/v1/audio-models",         norm:normAudio },
+};
+const catalogs = { chat:null, image:null, video:null, audio:null };
+async function loadCatalog(kind){
+  if(catalogs[kind]) return catalogs[kind];
+  const cfg = CATALOG[kind];
+  const headers={}; const k=getKey(); if(k) headers.Authorization=`Bearer ${k}`;
+  let raw=[];
+  try{ raw = (await (await fetch(`${NANOGPT}${cfg.url}`,{headers})).json()).data || []; }
+  catch{ /* offline — leave empty, ids still typeable */ }
+  const list = raw.map(cfg.norm).filter(m=>m.id);
+  list.sort((a,b)=> (b.created||0)-(a.created||0) || a.id.localeCompare(b.id));   // newest first
+  catalogs[kind]=list;
+  return list;
+}
+const catItem = (kind,id)=> (catalogs[kind]||[]).find(m=>m.id===id);
+const KIND_LABEL = { chat:"Chat", image:"Image", video:"Video", audio:"Audio" };
+// capability filter shared by the picker and the default-model resolver — metadata only, no model names
+function passesFilter(m, filter){
+  if(!filter) return true;
+  return !!m[filter];   // vision | edit | t2v | i2v | music | tts are all boolean flags on the catalog item
+}
+// a node's default model = newest catalog entry of the right kind that passes the node's filter (or none yet)
+function defModelFor(type){
+  const t = NODE_TYPES[type]; if(!t.modelKind) return "";
+  const m = (catalogs[t.modelKind]||[]).find(x=> passesFilter(x, t.modelFilter));
+  return m ? m.id : "";
+}
+
+/* one model-row in a node body — a button that opens the shared picker */
+function modelFieldHTML(node){
+  return `<div><label>model</label>
+    <button class="modelpick" type="button">${esc(node.fields.model||"pick a model…")} ▾</button>
+    <div class="mprice" data-mp></div></div>`;
+}
+function updateNodePrice(n){
+  const t = NODE_TYPES[n.type]; if(!t.modelKind || !n.el) return;
+  const el = n.el.querySelector("[data-mp]"); if(!el) return;
+  el.textContent = catItem(t.modelKind, n.fields.model)?.price || "";
+}
+/* ---------- dynamic audio parameters (from the model catalog + a researched spec) ----------
+   Music & Speech both POST to /api/v1/audio/speech with { model, input, ...extra }. Every extra key is
+   optional and sent only-when-nonempty, so a provider that doesn't accept a key simply ignores its absence.
+   Fields are chosen per-model from supported_parameters (voices/max_chars/durations/generation_count) plus a
+   small set of well-known pass-through params — no model names are hardcoded; appliesTo is metadata-driven. */
+// appliesTo is metadata-only: "all" (every model of that node), or "cat:*" resolved from the live
+// supported_parameters. No model names. Undocumented-but-common keys (lyrics/seed/…) are "all" and sent
+// only-when-nonempty, so providers that don't accept them just never receive the key.
+const AUDIO_PARAMS = {
+  music: [
+    { id:"lyrics",          label:"Lyrics",          type:"textarea", appliesTo:"all", hint:"required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM" },
+    { id:"instrumental",    label:"Instrumental",    type:"boolean",  appliesTo:"all" },
+    { id:"duration",        label:"Duration (sec)",  type:"number",   appliesTo:"cat:duration" },
+    { id:"number_of_songs", label:"Number of songs", type:"number",   appliesTo:"cat:gencount", default:1 },
+    { id:"negative_prompt", label:"Negative prompt", type:"textarea", appliesTo:"all" },
+    { id:"seed",            label:"Seed",            type:"number",   appliesTo:"all" },
+    { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3" },
+  ],
+  tts: [
+    { id:"voice",           label:"Voice",           type:"select",   appliesTo:"cat:voices" },
+    { id:"speed",           label:"Speed",           type:"number",   appliesTo:"all", min:0.25, max:2, default:1 },
+    { id:"instructions",    label:"Instructions",    type:"textarea", appliesTo:"all" },
+    { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3" },
+  ],
+};
+// resolve a param's appliesTo against the selected model's live catalog entry (catalog metadata only)
+function audioApplies(at, it){
+  const p = it.params||{};
+  switch(at){
+    case "all":          return true;
+    case "cat:voices":   return it.voices.length>0;
+    case "cat:duration": return p.min_duration!=null && p.max_duration!=null;
+    case "cat:gencount": return !!p.generation_count_parameter;
+  }
+  return false;
+}
+// concrete field list for a node, with per-model jsonKey / range / options resolved from the catalog entry
+function audioFields(kind, it){
+  const out=[];
+  for(const p of (AUDIO_PARAMS[kind]||[])){
+    if(!audioApplies(p.appliesTo, it)) continue;
+    const f = { ...p, jsonKey:p.id };
+    if(p.appliesTo==="cat:voices")   f.options = it.voices;
+    if(p.appliesTo==="cat:duration"){ f.min = it.params.min_duration; f.max = it.params.max_duration; }
+    if(p.appliesTo==="cat:gencount"){ f.jsonKey = it.params.generation_count_parameter || p.id; f.min=1; f.max = it.params.max_generations || 3; }
+    out.push(f);
+  }
+  return out;
+}
+function audioFieldHTML(n, f){
+  const cur = n.fields[f.id];
+  const hint = f.hint ? `<div class="fhint">${esc(f.hint)}</div>` : "";
+  if(f.type==="select"){
+    const opts = f.options || [];
+    const val = opts.includes(cur) ? cur : (f.default ?? opts[0] ?? "");
+    return `<div><label>${esc(f.label)}</label><select data-pf="${f.id}">${
+      opts.map(o=>`<option${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
+  }
+  if(f.type==="boolean")
+    return `<label class="chk"><input type="checkbox" data-pf="${f.id}"${(cur===true||cur==="true")?" checked":""}/> ${esc(f.label)}</label>${hint}`;
+  if(f.type==="number"){
+    const rng = (f.min!=null&&f.max!=null) ? ` (${f.min}–${f.max})` : "";
+    return `<div><label>${esc(f.label)}${rng}</label><input type="number" data-pf="${f.id}" step="any"${
+      f.min!=null?` min="${f.min}"`:""}${f.max!=null?` max="${f.max}"`:""} value="${cur??""}" placeholder="${f.default??""}"/>${hint}</div>`;
+  }
+  const v = cur!=null ? cur : "";
+  if(f.type==="textarea")
+    return `<div><label>${esc(f.label)}</label><textarea data-pf="${f.id}" style="min-height:40px" placeholder="${esc(f.label)}">${esc(v)}</textarea>${hint}</div>`;
+  return `<div><label>${esc(f.label)}</label><input data-pf="${f.id}" value="${esc(v)}" placeholder="${esc(f.label)}"/>${hint}</div>`;
+}
+// rebuild the parameter block for an audio node from its current model
+function refreshAudioParams(n){
+  if((n.type!=="music" && n.type!=="tts") || !n.el) return;
+  const box = n.el.querySelector("[data-params]"); if(!box) return;
+  const it = catItem("audio", n.fields.model);
+  if(!it){ box.innerHTML=""; return; }
+  const fields = audioFields(n.type, it);
+  for(const f of fields)   // normalize selects so a switched model lands on a valid value
+    if(f.type==="select" && !(f.options||[]).includes(n.fields[f.id])) n.fields[f.id] = f.default ?? (f.options||[])[0];
+  box.innerHTML = fields.map(f=>audioFieldHTML(n,f)).join("");
+  box.querySelectorAll("[data-pf]").forEach(inp=>{
+    const id = inp.dataset.pf;
+    const ev = (inp.tagName==="SELECT" || inp.type==="checkbox") ? "change" : "input";
+    inp.addEventListener(ev, ()=>{ n.fields[id] = inp.type==="checkbox" ? inp.checked : inp.value; save(); });
+    inp.addEventListener("pointerdown", e=>e.stopPropagation());
+  });
+  const ta = n.el.querySelector('[data-f="prompt"]'), mc = it.params?.max_chars;
+  if(ta){ mc ? ta.setAttribute("maxlength", mc) : ta.removeAttribute("maxlength"); }
+}
+// shared body + run for the Music and Speech nodes
+function audioBody(n, promptLabel, ph){
+  return `${modelFieldHTML(n)}
+    <div data-params></div>
+    <div><label>${promptLabel} (used if no input wired)</label><textarea data-f="prompt" placeholder="${esc(ph)}">${esc(n.fields.prompt||"")}</textarea></div>
+    <details class="adv"><summary>advanced params (JSON)</summary>
+      <textarea data-f="extraJson" style="min-height:34px" placeholder='{"any_extra_key": 123}'>${esc(n.fields.extraJson||"")}</textarea></details>`;
+}
+function collectAudioParams(n){
+  const it = catItem("audio", n.fields.model); const body = {};
+  if(it){
+    for(const f of audioFields(n.type, it)){
+      let v = n.fields[f.id];
+      if(f.type==="boolean"){ if(v===true||v==="true") body[f.jsonKey]=true; continue; }
+      if(v==null || v==="") continue;
+      if(f.type==="number"){ const num=Number(v); if(isNaN(num)) continue; if(f.default!=null && num===f.default) continue; body[f.jsonKey]=num; continue; }
+      if(f.default!=null && v===f.default) continue;       // e.g. response_format=mp3 → omit
+      body[f.jsonKey] = v;
+    }
+  }
+  if((n.fields.extraJson||"").trim()){                      // escape hatch: merge any extra keys verbatim
+    try{ Object.assign(body, JSON.parse(n.fields.extraJson)); }catch{ throw new Error("advanced params: invalid JSON"); }
+  }
+  return body;
+}
+async function audioRun(n, inp, ctx){
+  const text = (inp.text ?? n.fields.prompt ?? "").trim();
+  if(!text) throw new Error("no text");
+  return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n)) };
+}
+function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshAudioParams(n); backfillModel(n); }); }
+function backfillModel(n){   // once a catalog arrives, give model nodes a sensible default if none chosen yet
+  const t = NODE_TYPES[n.type];
+  if(t.modelKind && !n.fields.model){
+    const id = defModelFor(n.type);
+    if(id){ n.fields.model = id; const mp = n.el?.querySelector(".modelpick"); if(mp) mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); }
+  }
+}
+
+/* ---------- shared searchable model picker ---------- */
+let picker = null; // { kind, filter, current, onPick }
+function openPicker(kind, opts){
+  picker = { kind, filter:opts.filter, current:opts.current, onPick:opts.onPick };
+  $("mpicktitle").textContent = `${KIND_LABEL[kind]||"Model"} model` + (opts.filter ? ` · ${opts.filter}` : "");
+  $("mpick").classList.add("open");
+  $("mpickback").classList.add("show");
+  $("mpicksearch").value = "";
+  $("mpicklist").innerHTML = "<div class='dim' style='padding:.6rem'>loading the full list…</div>";
+  $("mpicksearch").focus();
+  loadCatalog(kind).then(()=> renderPicker());
+}
+function closePicker(){ $("mpick").classList.remove("open"); $("mpickback").classList.remove("show"); picker=null; }
+function renderPicker(){
+  if(!picker) return;
+  const q = $("mpicksearch").value.trim().toLowerCase();
+  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
+  const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+  $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · newest first"}`;
+  const frag = document.createDocumentFragment();
+  for(const m of matches.slice(0,400)){
+    const b = document.createElement("button");
+    if(m.id===picker.current) b.className = "sel";
+    const tags = `${m.vision?'<span class="tag">vision</span>':''}${m.edit?'<span class="tag edit">edit</span>':''}`
+      + `${m.t2v?'<span class="tag">t2v</span>':''}${m.i2v?'<span class="tag edit">i2v</span>':''}`
+      + `${m.tts?'<span class="tag">tts</span>':''}${m.music?'<span class="tag edit">music</span>':''}`;
+    b.innerHTML = `<span class="mname">${esc(m.id)} ${tags}</span><span class="price">${esc(m.price)}</span>`;
+    b.onclick = ()=>{ picker.onPick(m.id); closePicker(); };
+    frag.appendChild(b);
+  }
+  $("mpicklist").replaceChildren(frag);
+}
+
+/* ======================================================================
+   NODE TYPE REGISTRY
+   Each type declares its ports, body UI, and an async run() that maps
+   input values -> output values. Ports are typed ('text' | 'image') and
+   only matching types can connect.
+   ====================================================================== */
+const mdl = (n)=>{ if(!n.fields.model) throw new Error("pick a model first"); return n.fields.model; };
+const NODE_TYPES = {
+  text: {
+    em:"📝", title:"Text", desc:"A string source",
+    inputs:[], outputs:[{name:"text", type:"text"}], preview:"none",
+    body:(n)=>`<div><textarea data-f="text" placeholder="type some text…">${esc(n.fields.text||"")}</textarea></div>`,
+    async run(n){ return { text: n.fields.text||"" }; }
+  },
+
+  join: {
+    em:"🔗", title:"Join", desc:"Glue two texts together",
+    inputs:[{name:"a", type:"text"},{name:"b", type:"text"}],
+    outputs:[{name:"text", type:"text"}], preview:"text",
+    body:(n)=>`<div><label>separator</label>
+      <input data-f="sep" value="${esc(n.fields.sep ?? " ")}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem"/></div>`,
+    async run(n, inp){
+      const sep = (n.fields.sep ?? " ").replace(/\\n/g,"\n");
+      return { text: [inp.a, inp.b].filter(v=>v!=null && v!=="").join(sep) };
+    }
+  },
+
+  llm: {
+    em:"🧠", title:"LLM", desc:"Text → text (any chat model)",
+    modelKind:"chat",
+    inputs:[{name:"prompt", type:"text"}],
+    outputs:[{name:"text", type:"text"}], preview:"text",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div><label>system (optional)</label><textarea data-f="system" style="min-height:40px" placeholder="you are a helpful…">${esc(n.fields.system||"")}</textarea></div>
+      <div><label>prompt (used if no input wired)</label><textarea data-f="prompt" placeholder="ask something…">${esc(n.fields.prompt||"")}</textarea></div>`,
+    async run(n, inp, ctx){
+      const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
+      if(!prompt) throw new Error("no prompt");
+      const messages = [];
+      if((n.fields.system||"").trim()) messages.push({role:"system", content:n.fields.system.trim()});
+      messages.push({role:"user", content:prompt});
+      return { text: await ctx.genChat(messages, mdl(n)) };
+    }
+  },
+
+  image: {
+    em:"🖼", title:"Image", desc:"Text → image",
+    modelKind:"image",
+    inputs:[{name:"prompt", type:"text"}],
+    outputs:[{name:"image", type:"image"}], preview:"image",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div><label>size</label><select data-f="size">${optsHTML(SIZES, n.fields.size||SIZES[0][0])}</select></div>
+      <div><label>prompt (used if no input wired)</label><textarea data-f="prompt" placeholder="a red panda astronaut…">${esc(n.fields.prompt||"")}</textarea></div>`,
+    async run(n, inp, ctx){
+      const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
+      if(!prompt) throw new Error("no prompt");
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
+    }
+  },
+
+  edit: {
+    em:"✂️", title:"Edit", desc:"Image + text → image",
+    modelKind:"image", modelFilter:"edit",
+    inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
+    outputs:[{name:"image", type:"image"}], preview:"image",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div><label>size</label><select data-f="size">${optsHTML(SIZES, n.fields.size||SIZES[0][0])}</select></div>
+      <div><label>edit instruction (used if no input wired)</label><textarea data-f="prompt" placeholder="make it night-time, add neon…">${esc(n.fields.prompt||"")}</textarea></div>`,
+    async run(n, inp, ctx){
+      if(!inp.image) throw new Error("no image input");
+      const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
+      if(!prompt) throw new Error("no edit instruction");
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
+    }
+  },
+
+  vision: {
+    em:"👁", title:"Vision", desc:"Image → text (describe / ask)",
+    modelKind:"chat", modelFilter:"vision",
+    inputs:[{name:"image", type:"image"}],
+    outputs:[{name:"text", type:"text"}], preview:"text",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div><label>question</label><textarea data-f="q" placeholder="Describe this image.">${esc(n.fields.q || "Describe this image in vivid detail.")}</textarea></div>`,
+    async run(n, inp, ctx){
+      if(!inp.image) throw new Error("no image input");
+      const q = (n.fields.q||"Describe this image.").trim();
+      const messages = [{ role:"user", content:[
+        {type:"text", text:q},
+        {type:"image_url", image_url:{url:inp.image}}
+      ]}];
+      return { text: await ctx.genChat(messages, mdl(n)) };
+    }
+  },
+
+  tvideo: {
+    em:"🎬", title:"Text→Video", desc:"Text → video (renders ~1 min)",
+    modelKind:"video", modelFilter:"t2v",
+    inputs:[{name:"prompt", type:"text"}],
+    outputs:[{name:"video", type:"video"}], preview:"video",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div class="two">
+        <div><label>duration</label><select data-f="duration">${optsHTML([["5","5 sec"],["10","10 sec"]], n.fields.duration||"5")}</select></div>
+        <div><label>aspect</label><select data-f="aspect">${optsHTML([["16:9","16:9"],["9:16","9:16"],["1:1","1:1"]], n.fields.aspect||"16:9")}</select></div>
+      </div>
+      <div><label>prompt (used if no input wired)</label><textarea data-f="prompt" placeholder="a drone shot over neon Tokyo at night…">${esc(n.fields.prompt||"")}</textarea></div>`,
+    async run(n, inp, ctx){
+      const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
+      if(!prompt) throw new Error("no prompt");
+      const url = await ctx.genVideo(mdl(n), prompt,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
+        (st,ms)=> setNodeProgress(n, `rendering video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
+      return { video: url };
+    }
+  },
+
+  ivideo: {
+    em:"📽️", title:"Image→Video", desc:"Image (+text) → video",
+    modelKind:"video", modelFilter:"i2v",
+    inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
+    outputs:[{name:"video", type:"video"}], preview:"video",
+    body:(n)=>`
+      ${modelFieldHTML(n)}
+      <div class="two">
+        <div><label>duration</label><select data-f="duration">${optsHTML([["5","5 sec"],["10","10 sec"]], n.fields.duration||"5")}</select></div>
+        <div><label>aspect</label><select data-f="aspect">${optsHTML([["16:9","16:9"],["9:16","9:16"],["1:1","1:1"]], n.fields.aspect||"16:9")}</select></div>
+      </div>
+      <div><label>motion prompt (optional)</label><textarea data-f="prompt" placeholder="slow push-in, hair blowing in the wind…">${esc(n.fields.prompt||"")}</textarea></div>`,
+    async run(n, inp, ctx){
+      if(!inp.image) throw new Error("no image input");
+      const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
+      const url = await ctx.genVideo(mdl(n), prompt,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
+        (st,ms)=> setNodeProgress(n, `animating… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
+      return { video: url };
+    }
+  },
+
+  music: {
+    em:"🎵", title:"Music", desc:"Text → music",
+    modelKind:"audio", modelFilter:"music",
+    inputs:[{name:"text", type:"text"}],
+    outputs:[{name:"audio", type:"audio"}], preview:"audio",
+    body:(n)=> audioBody(n, "style / prompt", "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM"),
+    run: audioRun,
+  },
+
+  tts: {
+    em:"🗣️", title:"Speech", desc:"Text → speech (TTS)",
+    modelKind:"audio", modelFilter:"tts",
+    inputs:[{name:"text", type:"text"}],
+    outputs:[{name:"audio", type:"audio"}], preview:"audio",
+    body:(n)=> audioBody(n, "text to speak", "Hello! This is a test."),
+    run: audioRun,
+  },
+};
+
+/* ======================================================================
+   GRAPH STATE
+   ====================================================================== */
+let graph = { nodes:[], links:[] };   // node:{id,type,x,y,fields,el,out}  link:{id,from:{node,port},to:{node,port}}
+let nid = 1, lid = 1;
+let selected = null;
+const byId = (id)=> graph.nodes.find(n=>n.id===id);
+
+/* ---------- view transform ---------- */
+let panX = 40, panY = 30, scale = 1;
+const world = $("world"), editor = $("editor"), svg = $("wires");
+function applyWorld(){ world.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`; }
+
+/* ======================================================================
+   NODE CREATION / RENDERING
+   ====================================================================== */
+function addNode(type, x, y, fields){
+  const t = NODE_TYPES[type];
+  const n = { id:"n"+(nid++), type, x, y, fields:Object.assign({}, fields), out:{}, el:null };
+  if(t.modelKind && !n.fields.model) n.fields.model = defModelFor(type);
+  graph.nodes.push(n);
+  buildNodeEl(n);
+  save();
+  return n;
+}
+
+function buildNodeEl(n){
+  const t = NODE_TYPES[n.type];
+  const el = document.createElement("div");
+  el.className = "node"; el.dataset.id = n.id; el.dataset.status = "idle";
+  el.style.left = n.x+"px"; el.style.top = n.y+"px";
+  const inRows  = t.inputs.map(p=>`<div class="prow"><i class="port ${p.type}" data-node="${n.id}" data-port="${p.name}" data-dir="in" data-ptype="${p.type}"></i><span>${p.name}</span></div>`).join("");
+  const outRows = t.outputs.map(p=>`<div class="prow"><i class="port ${p.type}" data-node="${n.id}" data-port="${p.name}" data-dir="out" data-ptype="${p.type}"></i><span>${p.name}</span></div>`).join("");
+  el.innerHTML = `
+    <header class="t-${n.type}">
+      <span class="em">${t.em}</span><span class="ttl">${t.title}</span>
+      <span class="dot"></span>
+      <button class="hbtn" data-act="run" title="run this branch">▶</button>
+      <button class="hbtn" data-act="del" title="delete">✕</button>
+    </header>
+    <div class="ports">
+      <div class="col in">${inRows}</div>
+      <div class="col out">${outRows}</div>
+    </div>
+    <div class="body">${t.body(n)}<div class="result"></div></div>`;
+  world.appendChild(el);
+  n.el = el;
+
+  // field bindings
+  el.querySelectorAll("[data-f]").forEach(inp=>{
+    const f = inp.dataset.f;
+    const ev = inp.tagName==="SELECT" ? "change" : "input";
+    inp.addEventListener(ev, ()=>{ n.fields[f] = inp.value; save(); });
+    inp.addEventListener("pointerdown", e=>e.stopPropagation()); // don't drag node when editing
+  });
+  // model picker button
+  const mp = el.querySelector(".modelpick");
+  if(mp){
+    mp.addEventListener("pointerdown", e=>e.stopPropagation());
+    mp.onclick = (e)=>{
+      e.stopPropagation();
+      openPicker(t.modelKind, { current:n.fields.model, filter:t.modelFilter, onPick:(id)=>{
+        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); save();
+      }});
+    };
+    updateNodePrice(n);
+  }
+  refreshAudioParams(n);
+  // header buttons
+  el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
+  el.querySelector('[data-act=run]').onclick  = (e)=>{ e.stopPropagation(); runGroup([n.id]); };
+  // selection + drag
+  const header = el.querySelector("header");
+  header.addEventListener("pointerdown", e=>{
+    if(e.target.closest(".hbtn")) return;
+    select(n); startNodeDrag(n, e);
+  });
+  el.addEventListener("pointerdown", ()=> select(n));
+  // ports
+  el.querySelectorAll(".port").forEach(p=> p.addEventListener("pointerdown", e=>startWire(p, e)));
+  refreshPortFills();
+}
+
+function removeNode(id){
+  graph.links = graph.links.filter(l=> l.from.node!==id && l.to.node!==id);
+  const n = byId(id); if(n?.el) n.el.remove();
+  graph.nodes = graph.nodes.filter(x=>x.id!==id);
+  if(selected===n) selected=null;
+  redraw(); save();
+}
+
+function select(n){
+  if(selected===n) return;
+  if(selected?.el) selected.el.classList.remove("sel");
+  selected = n;
+  if(n?.el) n.el.classList.add("sel");
+}
+
+function setStatus(n, status, msg){
+  if(!n?.el) return;
+  n.el.dataset.status = status;
+  if(status==="run"){
+    const r = n.el.querySelector(".result");
+    r.classList.add("show"); r.innerHTML = `<span class="spin"></span> running…`;
+  }
+  if(status==="error"){
+    const r = n.el.querySelector(".result");
+    r.classList.add("show"); r.innerHTML = `<div class="err">⚠ ${esc(msg||"error")}</div>`;
+  }
+}
+
+function setNodeProgress(n, msg){
+  if(!n.el) return;
+  const r = n.el.querySelector(".result");
+  r.classList.add("show"); r.innerHTML = `<span class="spin"></span> ${esc(msg)}`;
+}
+function openUrl(url){ window.open(url, "_blank", "noopener"); }
+function showResult(n){
+  const t = NODE_TYPES[n.type], r = n.el.querySelector(".result");
+  if(t.preview==="none"){ r.classList.remove("show"); r.innerHTML=""; return; }
+  r.classList.add("show");
+  if(t.preview==="image" && n.out.image){
+    r.innerHTML = `<img src="${n.out.image}" alt="output"/><div class="acts"><button data-dl>⬇ save</button></div>`;
+    r.querySelector("[data-dl]").onclick = ()=>{ const a=document.createElement("a"); a.href=n.out.image; a.download=`noodle-${n.id}.png`; a.click(); };
+  } else if(t.preview==="video" && n.out.video){
+    r.innerHTML = `<video src="${n.out.video}" controls loop muted playsinline></video><div class="acts"><button data-open>↗ open</button></div>`;
+    r.querySelector("[data-open]").onclick = ()=> openUrl(n.out.video);
+  } else if(t.preview==="audio" && n.out.audio){
+    r.innerHTML = `<audio src="${n.out.audio}" controls></audio><div class="acts"><button data-open>↗ open</button></div>`;
+    r.querySelector("[data-open]").onclick = ()=> openUrl(n.out.audio);
+  } else {
+    r.innerHTML = `<div class="rtext">${esc(n.out.text ?? "")}</div>`;
+  }
+}
+
+/* ======================================================================
+   WIRES  (drawn in screen space from live port positions)
+   ====================================================================== */
+function portCenter(el){
+  const r = el.getBoundingClientRect(), e = editor.getBoundingClientRect();
+  return { x: r.left + r.width/2 - e.left, y: r.top + r.height/2 - e.top };
+}
+function wirePath(x1,y1,x2,y2){
+  const dx = Math.max(40, Math.abs(x2-x1)*0.5);
+  return `M ${x1} ${y1} C ${x1+dx} ${y1}, ${x2-dx} ${y2}, ${x2} ${y2}`;
+}
+function colorForType(tp){ return tp==="image" ? getCss("--image-port") : getCss("--text-port"); }
+function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+let tempWire = null; // {x1,y1,type}
+function redraw(){
+  let html = "";
+  for(const l of graph.links){
+    const a = document.querySelector(`.port[data-node="${l.from.node}"][data-port="${l.from.port}"][data-dir="out"]`);
+    const b = document.querySelector(`.port[data-node="${l.to.node}"][data-port="${l.to.port}"][data-dir="in"]`);
+    if(!a||!b) continue;
+    const p1 = portCenter(a), p2 = portCenter(b);
+    const d = wirePath(p1.x,p1.y,p2.x,p2.y);
+    const col = colorForType(a.dataset.ptype);
+    html += `<path class="hit" data-link="${l.id}" d="${d}"></path>`;
+    html += `<path class="wire" data-link="${l.id}" d="${d}" stroke="${col}"></path>`;
+  }
+  if(tempWire){
+    const d = wirePath(tempWire.x1, tempWire.y1, tempWire.x2, tempWire.y2);
+    html += `<path class="temp" d="${d}"></path>`;
+  }
+  svg.innerHTML = html;
+  svg.querySelectorAll("path[data-link]").forEach(p=>{
+    p.addEventListener("click", e=>{ e.stopPropagation(); removeLink(p.dataset.link); });
+  });
+}
+function removeLink(id){ graph.links = graph.links.filter(l=>l.id!==id); redraw(); refreshPortFills(); save(); }
+function refreshPortFills(){
+  document.querySelectorAll(".port").forEach(p=> p.classList.remove("filled"));
+  for(const l of graph.links){
+    document.querySelector(`.port[data-node="${l.to.node}"][data-port="${l.to.port}"][data-dir="in"]`)?.classList.add("filled");
+    document.querySelector(`.port[data-node="${l.from.node}"][data-port="${l.from.port}"][data-dir="out"]`)?.classList.add("filled");
+  }
+}
+
+/* ======================================================================
+   POINTER INTERACTIONS  (node drag · pan · zoom · wire connect)
+   ====================================================================== */
+function startNodeDrag(n, e){
+  e.preventDefault();
+  const sx=e.clientX, sy=e.clientY, ox=n.x, oy=n.y;
+  const move = (ev)=>{
+    n.x = ox + (ev.clientX-sx)/scale;
+    n.y = oy + (ev.clientY-sy)/scale;
+    n.el.style.left = n.x+"px"; n.el.style.top = n.y+"px";
+    redraw();
+  };
+  const up = ()=>{ window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); save(); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+}
+
+const MAG = 80; // snap radius (px, screen space) — lets people aim loosely
+function compatiblePorts(dir, ptype, skipNode){
+  return [...document.querySelectorAll(".port")].filter(p=>
+    p.dataset.dir!==dir && p.dataset.ptype===ptype && p.dataset.node!==skipNode);
+}
+function nearestPort(x, y, ports){
+  let best=null, bd=MAG*MAG;
+  for(const p of ports){ const c=portCenter(p); const d=(c.x-x)**2+(c.y-y)**2; if(d<bd){ bd=d; best={p,c}; } }
+  return best;
+}
+function startWire(port, e){
+  e.preventDefault(); e.stopPropagation();
+  const dir = port.dataset.dir, ptype = port.dataset.ptype, node = port.dataset.node;
+  const fixed = portCenter(port);
+  const targets = compatiblePorts(dir, ptype, node);
+  targets.forEach(p=> p.classList.add("compatible"));   // glow every valid destination, by type
+  tempWire = { x1:fixed.x, y1:fixed.y, x2:fixed.x, y2:fixed.y };
+  let snap = null;
+  const move = (ev)=>{
+    const ed = editor.getBoundingClientRect();
+    let mx = ev.clientX-ed.left, my = ev.clientY-ed.top;
+    if(snap) snap.p.classList.remove("snap");
+    snap = nearestPort(mx, my, targets);             // magnetism: pull toward the closest compatible port
+    if(snap){ snap.p.classList.add("snap"); mx = snap.c.x; my = snap.c.y; }
+    tempWire.x2 = mx; tempWire.y2 = my;
+    redraw();
+  };
+  const up = (ev)=>{
+    window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up);
+    tempWire = null;
+    targets.forEach(p=> p.classList.remove("compatible","snap"));
+    let other = snap?.p;                              // prefer the magnetically-snapped port
+    if(!other){ const tgt = document.elementFromPoint(ev.clientX, ev.clientY); other = tgt && tgt.closest(".port"); }
+    if(other && other!==port){
+      const odir = other.dataset.dir, otype = other.dataset.ptype;
+      if(odir!==dir && otype===ptype){
+        const out = dir==="out" ? port : other;
+        const inn = dir==="in"  ? port : other;
+        connect(out.dataset.node, out.dataset.port, inn.dataset.node, inn.dataset.port);
+      }
+    }
+    redraw();
+  };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+}
+
+function connect(fromNode, fromPort, toNode, toPort){
+  if(fromNode===toNode) return;
+  // each input takes a single link — drop any existing one
+  graph.links = graph.links.filter(l=> !(l.to.node===toNode && l.to.port===toPort));
+  graph.links.push({ id:"l"+(lid++), from:{node:fromNode, port:fromPort}, to:{node:toNode, port:toPort} });
+  redraw(); refreshPortFills(); save();
+}
+
+// pan + zoom on the editor background
+editor.addEventListener("pointerdown", e=>{
+  if(e.target!==editor && e.target!==world && e.target!==svg) return;
+  select(null);
+  const sx=e.clientX, sy=e.clientY, px=panX, py=panY;
+  editor.classList.add("panning");
+  const move=(ev)=>{ panX=px+(ev.clientX-sx); panY=py+(ev.clientY-sy); applyWorld(); redraw(); };
+  const up=()=>{ editor.classList.remove("panning"); window.removeEventListener("pointermove",move); window.removeEventListener("pointerup",up); };
+  window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
+});
+editor.addEventListener("wheel", e=>{
+  e.preventDefault();
+  const rect=editor.getBoundingClientRect();
+  const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+  const wx=(mx-panX)/scale, wy=(my-panY)/scale;
+  scale = clamp(scale * (e.deltaY<0 ? 1.1 : 1/1.1), 0.4, 1.8);
+  panX = mx - wx*scale; panY = my - wy*scale;
+  applyWorld(); redraw();
+}, {passive:false});
+
+// delete selected node with keyboard (when not typing)
+window.addEventListener("keydown", e=>{
+  if((e.key==="Delete"||e.key==="Backspace") && selected && !/^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName)){
+    removeNode(selected.id);
+  }
+});
+window.addEventListener("resize", redraw);
+
+/* ======================================================================
+   EXECUTION  (topological evaluation)
+   ====================================================================== */
+const stats = { count:0, cost:0, exact:true, balance:null };
+function paintCost(){
+  if(!stats.count){ $("cost").textContent=""; return; }
+  const bal = stats.balance!=null ? ` · bal $${stats.balance.toFixed(2)}` : "";
+  $("cost").innerHTML = `${stats.exact?"":"~"}$<b>${stats.cost.toFixed(4)}</b> · ${stats.count} call${stats.count===1?"":"s"}${bal}`;
+}
+
+function ancestors(targets){
+  const keep = new Set(targets);
+  const stack = [...targets];
+  while(stack.length){
+    const n = stack.pop();
+    for(const l of graph.links) if(l.to.node===n && !keep.has(l.from.node)){ keep.add(l.from.node); stack.push(l.from.node); }
+  }
+  return keep;
+}
+function topoOrder(ids){
+  const indeg={}, adj={};
+  ids.forEach(id=>{ indeg[id]=0; adj[id]=[]; });
+  for(const l of graph.links) if(ids.has(l.from.node) && ids.has(l.to.node)){ adj[l.from.node].push(l.to.node); indeg[l.to.node]++; }
+  const q=[...ids].filter(id=>indeg[id]===0), order=[];
+  while(q.length){ const n=q.shift(); order.push(n); for(const m of adj[n]) if(--indeg[m]===0) q.push(m); }
+  return { order, cyclic:[...ids].filter(id=>!order.includes(id)) };
+}
+
+// the connected component (links treated as undirected) containing a node — i.e. its "group"
+function componentOf(id){
+  const seen = new Set([id]), stack = [id];
+  while(stack.length){
+    const n = stack.pop();
+    for(const l of graph.links){
+      if(l.from.node===n && !seen.has(l.to.node)){ seen.add(l.to.node); stack.push(l.to.node); }
+      if(l.to.node===n && !seen.has(l.from.node)){ seen.add(l.from.node); stack.push(l.from.node); }
+    }
+  }
+  return seen;
+}
+function components(){
+  const seen = new Set(), out = [];
+  for(const n of graph.nodes){ if(seen.has(n.id)) continue; const c = componentOf(n.id); c.forEach(x=>seen.add(x)); out.push(c); }
+  return out;
+}
+
+const runningNodes = new Set();   // nodes whose group is currently executing — play is disabled for these
+function groupBusy(ids){ for(const id of ids) if(runningNodes.has(id)) return true; return false; }
+function updateRunButtons(){
+  for(const n of graph.nodes){ const b = n.el?.querySelector("[data-act=run]"); if(b) b.disabled = runningNodes.has(n.id); }
+  const idle = graph.nodes.some(n=> !runningNodes.has(n.id));
+  $("run").disabled = graph.nodes.length>0 && !idle;
+}
+
+// Run one group: lock its whole connected component, execute the ancestors of `seedIds` in topo order.
+// Multiple groups run concurrently because callers don't await each other.
+async function runGroup(seedIds){
+  if(!getKey()){ flash("sign in or paste an API key first"); return; }
+  const lock = new Set();
+  for(const id of seedIds) for(const x of componentOf(id)) lock.add(x);
+  if(!lock.size || groupBusy(lock)) return;         // empty, or this group is already running
+  const ids = ancestors(seedIds);                    // what we actually compute (seed + upstream)
+  lock.forEach(id=>runningNodes.add(id)); updateRunButtons();
+  try{
+    const { order, cyclic } = topoOrder(ids);
+    cyclic.forEach(id=> setStatus(byId(id), "error", "cycle detected"));
+    ids.forEach(id=>{ if(order.includes(id) && byId(id)?.el) byId(id).el.dataset.status="idle"; });
+    for(const id of order){
+      const n = byId(id); if(!n) continue;
+      const t = NODE_TYPES[n.type], inp = {};
+      for(const port of t.inputs){
+        const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
+        if(l) inp[port.name] = byId(l.from.node)?.out?.[l.from.port];
+      }
+      setStatus(n, "run");
+      try{ n.out = await t.run(n, inp, CTX) || {}; showResult(n); setStatus(n, "done"); }
+      catch(err){ setStatus(n, "error", err.message); }
+    }
+  } finally {
+    lock.forEach(id=>runningNodes.delete(id)); updateRunButtons();
+  }
+}
+// Run every idle group at once (busy ones keep going untouched).
+function runAll(){
+  if(!getKey()){ flash("sign in or paste an API key first"); return; }
+  if(!graph.nodes.length){ flash("nothing to run — add a node"); return; }
+  for(const c of components()) if(!groupBusy(c)) runGroup([...c]);   // fire-and-forget → groups run in parallel
+}
+
+/* ---------- NanoGPT calls (browser → NanoGPT directly) ---------- */
+const CTX = {
+  async genImage(prompt, model, size, imageDataUrl){
+    const body = { model, prompt, size, n:1, response_format:"b64_json" };
+    if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
+    const r = await fetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
+    const j = await r.json();
+    const d = (j.data||[])[0]||{};
+    const url = d.b64_json ? `data:image/png;base64,${d.b64_json}` : d.url;
+    if(!url) throw new Error("no image in response");
+    accrue(j); return url;
+  },
+  async genChat(messages, model){
+    const r = await fetch(CHAT_ENDPOINT, {method:"POST", headers:authHeaders(),
+      body:JSON.stringify({ model, messages, temperature:0.8 })});
+    if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
+    const j = await r.json();
+    accrue(j);
+    const txt = j.choices?.[0]?.message?.content;
+    if(txt==null) throw new Error("no text in response");
+    return typeof txt==="string" ? txt : txt.map(p=>p.text||"").join("");
+  },
+  // async video: submit → poll /api/video/status until COMPLETED (up to 5 min)
+  async genVideo(model, prompt, opts, imageDataUrl, onProgress){
+    const body = { model, prompt, duration:opts.duration, aspect_ratio:opts.aspect_ratio };
+    if(imageDataUrl) body.imageDataUrl = imageDataUrl;
+    const r = await fetch(`${NANOGPT}/api/generate-video`, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
+    const j = await r.json(); accrue(j);
+    const runId = j.runId || j.id;
+    if(!runId) throw new Error("no runId returned");
+    const t0 = Date.now();
+    while(Date.now()-t0 < 300000){
+      await sleep(5000);
+      let s; try{ s = await (await fetch(`${NANOGPT}/api/video/status?requestId=${encodeURIComponent(runId)}`, {headers:authHeaders()})).json(); }
+      catch{ continue; }
+      const st = String(s.data?.status || s.status || "").toUpperCase();
+      onProgress && onProgress(st, Date.now()-t0);
+      if(st==="COMPLETED" || st==="SUCCEEDED"){
+        const out = s.data?.output || s.output || {};
+        const url = out.video?.url || out.url || (Array.isArray(out.video) ? out.video[0]?.url : null);
+        if(!url) throw new Error("completed but no video url");
+        return url;
+      }
+      if(["FAILED","ERROR","CANCELED"].includes(st)) throw new Error("video failed: " + (s.data?.error || st));
+    }
+    throw new Error("video timed out (5 min)");
+  },
+  // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
+  // extra = the dynamic, model-specific params already resolved by the node (lyrics, voice, duration, …).
+  async genAudio(model, input, extra){
+    const body = Object.assign({ model, input }, extra||{});
+    const r = await fetch(`${NANOGPT}/api/v1/audio/speech`, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+    if(!r.ok){
+      const t = (await r.text()).slice(0,220);
+      if(/lyric/i.test(t)) throw new Error("This model needs lyrics — fill the Lyrics field (vocal models require them; leave empty / use a BGM model for instrumentals).");
+      const req = t.match(/["']?([a-z_]+)["']?\s+(?:is\s+)?required|missing[^a-z]+["']?([a-z_]+)/i);
+      const field = req && (req[1]||req[2]);
+      if(field) throw new Error(`This model requires "${field}" — set it in the node, or add it under advanced params.`);
+      throw new Error(`${r.status}: ${t}`);
+    }
+    const ct = r.headers.get("content-type") || "";
+    if(ct.includes("application/json")){
+      const j = await r.json(); accrue(j);
+      const url = j.url || j.audioUrl || j.data?.url || j.data?.audioUrl;
+      if(!url) throw new Error("no audio url in response");
+      return url;
+    }
+    const blob = await r.blob();
+    const hc = parseFloat(r.headers.get("x-cost") || r.headers.get("x-nano-cost") || "");
+    stats.count++; if(hc>0) stats.cost += hc; else stats.exact = false;
+    const bal = parseFloat(r.headers.get("x-remaining-balance") || ""); if(!isNaN(bal)) stats.balance = bal;
+    paintCost();
+    return URL.createObjectURL(blob);
+  }
+};
+const sleep = (ms)=> new Promise(res=> setTimeout(res, ms));
+function authHeaders(){ const k=getKey(); return { Authorization:`Bearer ${k}`, "x-api-key":k, "Content-Type":"application/json" }; }
+function accrue(j){
+  stats.count++;
+  if(typeof j.cost==="number" && j.cost>0) stats.cost += j.cost; else stats.exact=false;
+  if(typeof j.remainingBalance==="number") stats.balance = j.remainingBalance;
+  paintCost();
+}
+function flash(msg){ $("status").textContent = msg; setTimeout(renderAuth, 2200); }
+
+/* ======================================================================
+   ADD-NODE MENU
+   ====================================================================== */
+function buildAddMenu(){
+  const pop = $("addpop");
+  pop.innerHTML = Object.entries(NODE_TYPES).map(([k,t])=>
+    `<button data-type="${k}"><span class="k">${t.em}</span><span><div>${t.title}</div><div class="d">${t.desc}</div></span></button>`).join("");
+  pop.querySelectorAll("button").forEach(b=> b.onclick=()=>{
+    spawnCenter(b.dataset.type); pop.classList.remove("open");
+  });
+}
+let spawnN = 0;
+function spawnCenter(type){
+  const cx = (editor.clientWidth/2 - panX)/scale - 105 + (spawnN%4)*26;
+  const cy = (editor.clientHeight/2 - panY)/scale - 60  + (spawnN%4)*26;
+  spawnN++;
+  const n = addNode(type, Math.round(cx), Math.round(cy));
+  select(n); redraw();
+}
+$("addbtn").onclick = (e)=>{ e.stopPropagation(); $("addpop").classList.toggle("open"); };
+document.addEventListener("click", e=>{ if(!$("addmenu").contains(e.target)) $("addpop").classList.remove("open"); });
+$("run").onclick = runAll;
+$("clear").onclick = ()=>{ if(confirm("Clear the whole graph?")){ graph={nodes:[],links:[]}; world.innerHTML=""; redraw(); save(); } };
+
+// picker interactions
+$("mpicksearch").addEventListener("input", renderPicker);
+$("mpicksearch").addEventListener("keydown", e=>{
+  if(e.key==="Enter"){ const v=$("mpicksearch").value.trim(); if(v && picker){ picker.onPick(v); closePicker(); } }
+  if(e.key==="Escape") closePicker();
+});
+$("mpickclose").onclick = closePicker;
+$("mpickback").onclick = closePicker;
+
+/* ======================================================================
+   PERSISTENCE
+   ====================================================================== */
+function serializeGraph(){
+  return {
+    v:1,
+    nodes: graph.nodes.map(n=>({id:n.id,type:n.type,x:n.x,y:n.y,fields:n.fields})),
+    links: graph.links, nid, lid, view:{panX,panY,scale}
+  };
+}
+function applyGraphData(d){
+  world.innerHTML=""; selected=null;
+  graph = { nodes:[], links:[] };
+  if(d.view){ panX=d.view.panX??panX; panY=d.view.panY??panY; scale=d.view.scale??scale; applyWorld(); }
+  const ALIAS = { audio:"tts" };                  // older graphs had a single combined audio node
+  for(const sn of (d.nodes||[])){
+    const type = ALIAS[sn.type] || sn.type;
+    if(!NODE_TYPES[type]) continue;               // skip unknown node types gracefully
+    const n={ ...sn, type, out:{}, el:null }; graph.nodes.push(n); buildNodeEl(n);
+  }
+  // keep only links whose endpoints survived
+  const ids = new Set(graph.nodes.map(n=>n.id));
+  graph.links = (d.links||[]).filter(l=> ids.has(l.from?.node) && ids.has(l.to?.node));
+  // rebuild id counters so new nodes/links never collide with loaded ones
+  const num = (s)=> parseInt(String(s).replace(/\D/g,""),10) || 0;
+  nid = Math.max(d.nid||0, 0, ...graph.nodes.map(n=>num(n.id))) + 1;
+  lid = Math.max(d.lid||0, 0, ...graph.links.map(l=>num(l.id))) + 1;
+  redraw(); refreshPortFills(); refreshAllPrices();
+}
+
+let saveT=null;
+function save(){
+  clearTimeout(saveT);
+  saveT = setTimeout(()=>{
+    localStorage.setItem("noodle_graph", JSON.stringify(serializeGraph()));
+    if(location.hash) history.replaceState({}, "", location.pathname + location.search); // a local edit supersedes a shared link
+  }, 250);
+}
+function load(){
+  const raw = localStorage.getItem("noodle_graph");
+  if(!raw) return false;
+  try{ applyGraphData(JSON.parse(raw)); return true; }catch{ return false; }
+}
+async function loadDefault(){   // noodle-graph.json shipped alongside the page = the starting point
+  try{
+    const r = await fetch("noodle-graph.json", {cache:"no-store"});
+    if(!r.ok) return false;
+    applyGraphData(await r.json());
+    return true;
+  }catch{ return false; }      // e.g. opened via file:// — fall back to the built-in seed
+}
+function saveFile(){
+  const blob = new Blob([JSON.stringify(serializeGraph(), null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "noodle-graph.json"; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+}
+function loadFile(file){
+  if(!file) return;
+  const r = new FileReader();
+  r.onload = ()=>{ try{ applyGraphData(JSON.parse(r.result)); save(); }catch(e){ alert("Couldn’t load that file: "+e.message); } };
+  r.readAsText(file);
+}
+$("save").onclick = saveFile;
+$("load").onclick = ()=> $("loadfile").click();
+$("loadfile").onchange = (e)=>{ loadFile(e.target.files[0]); e.target.value=""; };
+
+/* ---------- shareable link: graph packed into the URL hash ---------- */
+function bytesToB64url(bytes){
+  let bin=""; const CH=0x8000;
+  for(let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+function b64urlToBytes(s){
+  s = s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="=";
+  const bin=atob(s), out=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i);
+  return out;
+}
+async function gzip(str){
+  if(typeof CompressionStream==="undefined") return null;
+  const stream = new Blob([new TextEncoder().encode(str)]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function gunzip(bytes){
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+}
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }catch{}
+  try{ const ta=document.createElement("textarea"); ta.value=t; ta.style.cssText="position:fixed;opacity:0";
+       document.body.appendChild(ta); ta.select(); const ok=document.execCommand("copy"); ta.remove(); return ok; }catch{ return false; }
+}
+async function shareUrl(){
+  const json = JSON.stringify(serializeGraph());
+  let hash;
+  const packed = await gzip(json).catch(()=>null);
+  hash = packed ? "#g="+bytesToB64url(packed) : "#j="+bytesToB64url(new TextEncoder().encode(json));
+  const url = location.origin + location.pathname + location.search + hash;
+  history.replaceState({}, "", url);                 // surface it in the address bar too
+  const big = url.length > 8000 ? ` (long link, ${(url.length/1024).toFixed(0)}kB)` : "";
+  flash(await copyText(url) ? `share link copied ✓${big}` : `link is in the address bar${big}`);
+}
+async function loadFromHash(){
+  const h = location.hash; let json=null;
+  try{
+    if(h.startsWith("#g=")) json = await gunzip(b64urlToBytes(h.slice(3)));
+    else if(h.startsWith("#j=")) json = new TextDecoder().decode(b64urlToBytes(h.slice(3)));
+  }catch{ /* bad link */ }
+  if(!json) return false;
+  try{
+    applyGraphData(JSON.parse(json));
+    history.replaceState({}, "", location.pathname + location.search); // consume the link; edits now win
+    save();
+    return true;
+  }catch{ return false; }
+}
+$("share").onclick = ()=> shareUrl().catch(e=> flash("share failed: "+e.message));
+function seed(){
+  const a = addNode("text", 60, 80, { text:"a cozy ramen shop on a rainy neon street, cinematic" });
+  const b = addNode("image", 360, 60);
+  connect(a.id, "text", b.id, "prompt");
+}
+
+/* ======================================================================
+   AUTH  (OAuth PKCE + paste key — identical pattern to the other examples)
+   ====================================================================== */
+const getKey = ()=> localStorage.getItem("ngpt_key");
+const setKey = (k)=>{ k ? localStorage.setItem("ngpt_key",k) : localStorage.removeItem("ngpt_key"); renderAuth(); };
+function renderAuth(){
+  const ok = !!getKey();
+  $("status").textContent = ok ? "ready ✓" : "not signed in";
+  $("signin").style.display = ok?"none":""; $("pastebtn").style.display = ok?"none":""; $("signout").style.display = ok?"":"none";
+}
+const REDIRECT_URI = location.origin + location.pathname;
+if (location.hostname === "127.0.0.1") location.hostname = "localhost";
+const b64url = (b)=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rand = (n)=>b64url(crypto.getRandomValues(new Uint8Array(n)));
+const sha256url = async (s)=>b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+async function clientId(){
+  const cached = JSON.parse(localStorage.getItem("ngpt_client")||"null");
+  if (cached && cached.redirect===REDIRECT_URI) return cached.id;
+  const r = await fetch(`${NANOGPT}/oauth/register`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({client_name:"Noodle",redirect_uris:[REDIRECT_URI],grant_types:["authorization_code"],response_types:["code"],token_endpoint_auth_method:"none"})});
+  if(!r.ok) throw new Error("register "+r.status);
+  const id=(await r.json()).client_id;
+  localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
+  return id;
+}
+async function signIn(){
+  const id = await clientId();
+  const verifier=rand(32), state=rand(16);
+  sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+  const u=new URL(`${NANOGPT}/oauth/authorize`);
+  u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256",invitation_code:"W3x83yU3"}).toString();
+  location.assign(u.toString());
+}
+async function handleRedirect(){
+  const p=new URLSearchParams(location.search);
+  if(!p.has("code")&&!p.has("error")) return;
+  history.replaceState({},"",REDIRECT_URI);
+  const saved=JSON.parse(sessionStorage.getItem("pkce")||"null"); sessionStorage.removeItem("pkce");
+  if(p.get("error")) throw new Error(p.get("error"));
+  if(!saved||p.get("state")!==saved.state) throw new Error("state mismatch");
+  const r=await fetch(`${NANOGPT}/oauth/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"authorization_code",client_id:saved.id,redirect_uri:REDIRECT_URI,code:p.get("code"),code_verifier:saved.verifier})});
+  if(!r.ok) throw new Error("token: "+(await r.text()));
+  setKey((await r.json()).access_token);
+}
+$("signin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
+$("pastebtn").onclick = ()=>{ $("keyrow").classList.add("open"); $("keyinput").focus(); };
+$("keysave").onclick = ()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("keyrow").classList.remove("open"); } };
+$("signout").onclick = ()=> setKey(null);
+
+/* ======================================================================
+   BOOT
+   ====================================================================== */
+(async ()=>{
+  buildAddMenu();
+  applyWorld();
+  let restored = false;
+  if(location.hash.length > 3) restored = await loadFromHash();   // opened a shared link
+  if(!restored) restored = load();                                // else last local graph
+  if(!restored) restored = await loadDefault();                   // else noodle-graph.json
+  if(!restored) seed();                                           // else built-in starter
+  redraw();
+  try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
+  renderAuth();
+  // pull the full model catalogs in the background, then show per-node prices
+  Promise.all([loadCatalog("chat"), loadCatalog("image"), loadCatalog("video"), loadCatalog("audio")]).then(refreshAllPrices);
+})();
+</script>
 </body>
 </html>

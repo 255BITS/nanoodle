@@ -1,3 +1,6 @@
-# Cloudflare Pages clean URLs (200 = rewrite, keeps the address bar)
-/app         /noodle.html       200
+# Cloudflare Pages routing (200 = rewrite, keeps the address bar)
+# / serves the editor (index.html). Aliases:
+/app         /index.html        200
+/editor      /index.html        200
+/landing     /landing.html      200
 /pictureme   /pictureme.html    200
