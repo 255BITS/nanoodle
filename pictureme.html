@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Picture Me As…</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151d; --panel2:#171b25; --ink:#eef1f7; --dim:#9aa3b2;
+    --line:#262c3a; --accent:#7c8cff; --accent2:#ff79c6; --good:#3ddc97; --bad:#ff6b6b;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{ background:radial-gradient(1200px 600px at 70% -10%, #1a1f3a44, transparent), var(--bg);
+        color:var(--ink); font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+        min-height:100vh; }
+  a{color:var(--accent)}
+  .wrap{max-width:1040px; margin:0 auto; padding:1.4rem 1.1rem 4rem;}
+  header{display:flex; align-items:center; gap:.7rem; flex-wrap:wrap; margin-bottom:.2rem;}
+  .logo{font-size:1.5rem; font-weight:800; letter-spacing:-.02em; margin:0; flex:0 0 auto;}
+  .logo .as{background:linear-gradient(90deg,var(--accent),var(--accent2)); -webkit-background-clip:text; background-clip:text; color:transparent;}
+  .tagline{color:var(--dim); font-size:.92rem; margin:.1rem 0 1.1rem;}
+  .spacer{flex:1}
+  #status{font-size:.78rem; color:var(--dim);}
+  button, .btn{font:inherit; cursor:pointer; border-radius:.6rem; border:1px solid var(--line);
+        background:var(--panel2); color:var(--ink); padding:.5rem .85rem;}
+  button:hover:not(:disabled), .btn:hover{border-color:#3a425a}
+  button:disabled{opacity:.45; cursor:default}
+  button.link{background:none; border:none; color:var(--accent); padding:0; font-size:.8rem;}
+  button.primary{ background:linear-gradient(90deg,var(--accent),var(--accent2)); border:none; color:#0b0d12;
+        font-weight:700; padding:.7rem 1.3rem; font-size:1rem;}
+  .card{background:var(--panel); border:1px solid var(--line); border-radius:1rem; padding:1.1rem;}
+  label{display:block; font-size:.78rem; color:var(--dim); margin:0 0 .35rem; text-transform:uppercase; letter-spacing:.04em;}
+  select, input[type=text]{ width:100%; font:inherit; padding:.5rem .6rem; border-radius:.55rem;
+        border:1px solid var(--line); background:var(--panel2); color:var(--ink);}
+  .row{display:flex; gap:.8rem; flex-wrap:wrap}
+  .row > div{flex:1 1 220px; min-width:0}
+
+  /* drop zone */
+  #drop{ border:1.5px dashed var(--line); border-radius:1rem; padding:1.4rem; text-align:center;
+        background:var(--panel); transition:.15s; cursor:pointer;}
+  #drop.drag{border-color:var(--accent); background:#171c2e}
+  #drop.has{padding:.8rem}
+  #drop .hint{color:var(--dim); font-size:.9rem}
+  #preview{max-height:240px; max-width:100%; border-radius:.7rem; display:block; margin:0 auto;}
+  .uploadbtns{display:flex; gap:.5rem; justify-content:center; margin-top:.7rem; flex-wrap:wrap}
+
+  /* style chips */
+  #styles{display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.2rem}
+  .chip{ user-select:none; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
+        padding:.4rem .7rem; border-radius:2rem; font-size:.9rem; display:inline-flex; align-items:center; gap:.4rem;}
+  .chip:hover{border-color:#3a425a}
+  .chip.on{ background:linear-gradient(90deg,#7c8cff33,#ff79c633); border-color:var(--accent); color:#fff;}
+  .chip .em{font-size:1rem}
+
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:.6rem; overflow:hidden}
+  .seg button{border:none; border-radius:0; background:var(--panel2); padding:.5rem .7rem; border-left:1px solid var(--line); color:var(--dim); font-variant-numeric:tabular-nums}
+  .seg button:first-child{border-left:none}
+  .seg button.on{background:linear-gradient(90deg,#7c8cff33,#ff79c633); color:#fff; font-weight:700}
+  .seg .lbl{font-size:.72rem; color:var(--dim); padding:.5rem .55rem .5rem .65rem; text-transform:uppercase; letter-spacing:.04em; background:var(--panel2)}
+  #bar{display:flex; align-items:center; gap:1rem; flex-wrap:wrap; margin:1rem 0 .3rem; min-height:1.5rem}
+  #bar .meter{font-family:ui-monospace,monospace; font-size:.85rem; color:var(--dim)}
+  #bar .meter b{color:var(--ink)}
+  .err{color:var(--bad)}
+
+  /* results */
+  #grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); gap:1rem; margin-top:1.2rem;}
+  .tile{ background:var(--panel); border:1px solid var(--line); border-radius:.9rem; overflow:hidden; position:relative; display:flex; flex-direction:column;}
+  .tile .imgwrap{position:relative; aspect-ratio:4/5; background:#0e1118; display:flex; align-items:center; justify-content:center;}
+  .tile img{width:100%; height:100%; object-fit:cover; display:block; cursor:zoom-in}
+  .tile .load{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; color:var(--dim); font-size:.85rem; text-align:center; padding:1rem;}
+  .tile .meta{padding:.6rem .7rem .7rem;}
+  .tile .name{font-weight:700; font-size:.9rem}
+  .tile .cap{color:var(--dim); font-size:.85rem; margin-top:.2rem; min-height:1.1rem}
+  .tile .acts{display:flex; gap:.4rem; padding:0 .7rem .7rem; flex-wrap:wrap}
+  .tile .acts button{padding:.32rem .55rem; font-size:.8rem}
+  .tile.fail{border-color:#5a2a2a}
+  .spin{display:inline-block; width:22px; height:22px; border:2.5px solid #ffffff22; border-top-color:var(--accent); border-radius:50%; animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .footer{margin-top:2.4rem; padding-top:1.1rem; border-top:1px solid var(--line); color:var(--dim); font-size:.82rem}
+  .muted{color:var(--dim)}
+  .pill{font-size:.7rem; padding:.1rem .45rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff; margin-left:.4rem}
+  #keyrow{display:none; margin:.6rem 0; gap:.5rem; align-items:center; flex-wrap:wrap}
+  #keyrow input{max-width:340px}
+  details.adv{margin-top:1rem}
+  details.adv summary{cursor:pointer; color:var(--dim); font-size:.85rem}
+  .advbody{margin-top:.7rem}
+  canvas#stage{display:none}
+  /* zoom modal */
+  #zoom{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+        background:#05060ae6; backdrop-filter:blur(4px); padding:2.5rem 1rem;}
+  #zoom.open{display:flex}
+  #zoom img{ max-width:100%; max-height:100%; border-radius:.7rem; box-shadow:0 20px 60px #000a; cursor:zoom-out;}
+  #zoom .bar{ position:fixed; top:14px; right:16px; display:flex; gap:.5rem;}
+  #zoom .bar button{ background:#0009; border:1px solid #ffffff33; color:#fff; padding:.45rem .8rem; backdrop-filter:blur(4px);}
+  #zoom .bar button:hover{ border-color:#fff8;}
+  #zoom .cap{ position:fixed; bottom:18px; left:0; right:0; text-align:center; color:#cfd5e2; font-size:.95rem; padding:0 1rem;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1 class="logo">Picture Me <span class="as">As…</span></h1>
+    <div class="spacer"></div>
+    <span id="status">checking…</span>
+    <button id="signin" class="link" style="display:none">sign in</button>
+    <button id="pastebtn" class="link" style="display:none">paste key</button>
+    <button id="signout" class="link" style="display:none">sign out</button>
+  </header>
+  <p class="tagline">Drop in one photo and see yourself reimagined — a Renaissance oil painting, a cyberpunk hero, a claymation toy. Runs entirely in your browser; pick any model you like.</p>
+
+  <div id="keyrow">
+    <input id="keyinput" type="text" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" />
+    <button id="keysave" class="btn">save</button>
+    <span class="muted" style="font-size:.78rem">from <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">nano-gpt.com</a> → Settings → API</span>
+  </div>
+
+  <!-- step 1: photo -->
+  <div id="drop" tabindex="0">
+    <input id="file" type="file" accept="image/*" capture="user" hidden />
+    <div id="dropEmpty">
+      <div style="font-size:2rem">📷</div>
+      <div><b>Drop a photo here</b> or click to choose</div>
+      <div class="hint">a clear selfie or portrait works best · stays on your device until you transform it</div>
+    </div>
+    <img id="preview" alt="your photo" style="display:none" />
+  </div>
+  <div class="uploadbtns">
+    <button id="camBtn" class="btn">📸 use camera</button>
+    <button id="clearBtn" class="btn" style="display:none">✕ remove photo</button>
+  </div>
+
+  <!-- step 2: styles -->
+  <div style="margin-top:1.4rem">
+    <label>Pick your looks <span class="muted" style="text-transform:none;letter-spacing:0">— tap a few</span></label>
+    <div id="styles"></div>
+    <div style="margin-top:.9rem">
+      <label>…or describe your own <span class="muted" style="text-transform:none;letter-spacing:0">— renders on its own; Fuse is for the chips above</span></label>
+      <input id="custom" type="text" placeholder="e.g. as a 1920s silent-film star in black and white" />
+    </div>
+  </div>
+
+  <!-- bar -->
+  <div id="bar">
+    <button id="fuse" class="primary" disabled title="blend every selected look into one hybrid">🧬 Fuse selected</button>
+    <div class="seg" id="fuseCount" title="how many fused takes to generate at once">
+      <span class="lbl">takes</span>
+      <button data-n="1" class="on">1</button>
+      <button data-n="2">2</button>
+      <button data-n="4">4</button>
+      <button data-n="8">8</button>
+    </div>
+    <button id="go" class="btn" disabled title="render each selected look separately">✨ Transform each</button>
+    <span class="meter" id="meter"></span>
+    <span class="meter err" id="errmsg"></span>
+  </div>
+
+  <div id="grid"></div>
+
+  <!-- advanced: model pickers -->
+  <details class="adv">
+    <summary>⚙︎ models &amp; options — pick any of NanoGPT's models</summary>
+    <div class="advbody card">
+      <div class="row">
+        <div>
+          <label>Image model <span class="pill">does the art</span></label>
+          <select id="imgModel"></select>
+          <input id="imgModelCustom" type="text" placeholder="…or type an exact image-model id" style="margin-top:.4rem" />
+        </div>
+        <div>
+          <label>Fusion writer <span class="pill">art-directs the blend</span></label>
+          <select id="fuseModel"></select>
+          <input id="fuseModelCustom" type="text" placeholder="…or type an exact chat-model id" style="margin-top:.4rem" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:.9rem">
+        <div style="flex:0 0 auto">
+          <label>Output size</label>
+          <select id="imgSize" style="width:auto">
+            <option value="1024x1024">square</option>
+            <option value="832x1216" selected>portrait</option>
+            <option value="1216x832">landscape</option>
+          </select>
+        </div>
+      </div>
+      <p class="muted" style="font-size:.8rem;margin:.8rem 0 0">
+        Every call goes straight from your browser to NanoGPT — no server in between. You pay per image (the exact cost shows up above) on your own key.
+      </p>
+    </div>
+  </details>
+
+  <div class="footer">
+    Made with <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">NanoGPT</a> · runs 100% in your browser, no server, no upload of your photo anywhere but the model you choose.
+  </div>
+</div>
+
+<canvas id="stage"></canvas>
+
+<div id="zoom">
+  <div class="bar">
+    <button id="zoomDl">⬇ download</button>
+    <button id="zoomClose">✕ close (Esc)</button>
+  </div>
+  <img id="zoomImg" alt="" />
+  <div class="cap" id="zoomCap"></div>
+</div>
+
+<script>
+const NANOGPT = "https://nano-gpt.com";
+const IMG_ENDPOINT = `${NANOGPT}/v1/images/generations`;
+const CHAT_ENDPOINT = `${NANOGPT}/api/v1/chat/completions`;
+const $ = (id) => document.getElementById(id);
+
+// ---------- styles ----------
+const STYLES = [
+  { key:"renaissance", em:"🎨", name:"Renaissance", prompt:"a museum-quality Renaissance oil painting portrait, chiaroscuro lighting, fine cracked-varnish detail, rich dark background" },
+  { key:"cyberpunk",   em:"🌃", name:"Cyberpunk",   prompt:"a cinematic cyberpunk hero, neon rim light, rain-soaked night city bokeh behind, glowing holographic UI, moody teal-and-magenta grade" },
+  { key:"anime",       em:"🌀", name:"90s Anime",   prompt:"a hand-drawn 1990s anime cel, bold ink lineart, flat cel shading, dramatic speed-line background, retro film grain" },
+  { key:"clay",        em:"🧸", name:"Claymation",  prompt:"an adorable handmade claymation / stop-motion character, soft studio lighting, visible fingerprints in the clay, shallow depth of field" },
+  { key:"statue",      em:"🗿", name:"Marble",      prompt:"a flawless white Carrara marble statue bust, museum plinth, soft gallery lighting, subtle subsurface translucency" },
+  { key:"pixar",       em:"✨", name:"3D Toon",     prompt:"a charming Pixar-style 3D animated character, big expressive eyes, soft global illumination, glossy render, vibrant colors" },
+  { key:"pixel",       em:"👾", name:"Pixel Art",   prompt:"crisp 32-bit pixel-art portrait, limited retro palette, clean dithering, video-game character select screen" },
+  { key:"noir",        em:"🎬", name:"Film Noir",   prompt:"a 1940s film-noir portrait, high-contrast black and white, venetian-blind shadow stripes, cigarette smoke, dramatic key light" },
+  { key:"watercolor",  em:"💧", name:"Watercolor",  prompt:"a loose, luminous watercolor portrait, bleeding pigments, visible paper texture, soft white margins" },
+  { key:"fantasy",     em:"⚔️", name:"Fantasy Hero",prompt:"an epic fantasy RPG hero, ornate armor, glowing magical atmosphere, painterly concept-art lighting, dramatic sky" },
+  { key:"popart",      em:"💥", name:"Pop Art",     prompt:"a bold Warhol-style pop-art screenprint, flat saturated color blocks, halftone dots, thick comic outlines" },
+  { key:"vaporwave",   em:"🌴", name:"Vaporwave",   prompt:"an 80s vaporwave aesthetic, pink-and-cyan gradient, chrome text vibes, retro grid sunset, VHS glow" },
+];
+const selectedStyles = new Set(["renaissance","cyberpunk","clay"]);
+
+function renderStyles(){
+  const wrap = $("styles"); wrap.innerHTML = "";
+  for(const s of STYLES){
+    const b = document.createElement("button");
+    b.className = "chip" + (selectedStyles.has(s.key) ? " on" : "");
+    b.innerHTML = `<span class="em">${s.em}</span>${s.name}`;
+    b.onclick = () => { selectedStyles.has(s.key) ? selectedStyles.delete(s.key) : selectedStyles.add(s.key); renderStyles(); updateGo(); };
+    wrap.appendChild(b);
+  }
+}
+
+// ---------- model lists ----------
+const IMG_MODELS = [
+  ["gemini-flash-edit","Gemini Flash edit · fast & cheap"],
+  ["flux-kontext","FLUX Kontext · strong likeness"],
+  ["flux-dev-image-to-image","FLUX dev img2img"],
+  ["hidream-edit","HiDream edit"],
+  ["ghiblify","Ghiblify · everything Ghibli"],
+  ["gpt-image-2","gpt-image-2 · premium, best prompt-following"],
+  ["gpt-image-1","gpt-image-1 · premium"],
+];
+const FUSE_MODELS = [
+  ["google/gemini-3.5-flash","Gemini 3.5 Flash · fast"],
+  ["x-ai/grok-4.20","Grok 4.20 · witty"],
+  ["zai-org/glm-5.2","GLM-5.2"],
+  ["anthropic/claude-haiku-latest","Claude Haiku"],
+  ["moonshotai/kimi-k2.7-code-highspeed","Kimi K2.7 · highspeed"],
+];
+function fillSelect(sel, items, def){
+  sel.innerHTML = "";
+  for(const [v,label] of items){ const o=document.createElement("option"); o.value=v; o.textContent=label; sel.appendChild(o); }
+  sel.value = def;
+}
+const imgModel = () => $("imgModelCustom").value.trim() || $("imgModel").value;
+const fuseModel = () => $("fuseModelCustom").value.trim() || $("fuseModel").value;
+
+// ---------- key + auth ----------
+const getKey = () => localStorage.getItem("ngpt_key");
+const setKey = (k) => { k ? localStorage.setItem("ngpt_key",k) : localStorage.removeItem("ngpt_key"); renderAuth(); };
+function renderAuth(){
+  const ok = !!getKey();
+  $("status").textContent = ok ? "ready ✓" : "not signed in";
+  $("signin").style.display = ok ? "none" : "";
+  $("pastebtn").style.display = ok ? "none" : "";
+  $("signout").style.display = ok ? "" : "none";
+  updateGo();
+}
+
+// browser OAuth (PKCE) — NanoGPT auth endpoints are CORS-open
+const REDIRECT_URI = location.origin + location.pathname;
+if (location.hostname === "127.0.0.1") location.hostname = "localhost";
+const b64url = (b)=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rand = (n)=>b64url(crypto.getRandomValues(new Uint8Array(n)));
+const sha256url = async (s)=>b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+async function clientId(){
+  const cached = JSON.parse(localStorage.getItem("ngpt_client")||"null");
+  if (cached && cached.redirect===REDIRECT_URI) return cached.id;
+  const r = await fetch(`${NANOGPT}/oauth/register`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({client_name:"Picture Me As",redirect_uris:[REDIRECT_URI],grant_types:["authorization_code"],response_types:["code"],token_endpoint_auth_method:"none"})});
+  if(!r.ok) throw new Error("register "+r.status);
+  const id=(await r.json()).client_id;
+  localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
+  return id;
+}
+async function signIn(){
+  const id = await clientId();
+  const verifier=rand(32), state=rand(16);
+  sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+  const u=new URL(`${NANOGPT}/oauth/authorize`);
+  u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256"}).toString();
+  location.assign(u.toString());
+}
+async function handleRedirect(){
+  const p=new URLSearchParams(location.search);
+  if(!p.has("code")&&!p.has("error")) return;
+  history.replaceState({},"",REDIRECT_URI);
+  const saved=JSON.parse(sessionStorage.getItem("pkce")||"null"); sessionStorage.removeItem("pkce");
+  if(p.get("error")) throw new Error(p.get("error"));
+  if(!saved||p.get("state")!==saved.state) throw new Error("state mismatch");
+  const r=await fetch(`${NANOGPT}/oauth/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"authorization_code",client_id:saved.id,redirect_uri:REDIRECT_URI,code:p.get("code"),code_verifier:saved.verifier})});
+  if(!r.ok) throw new Error("token: "+(await r.text()));
+  setKey((await r.json()).access_token);
+}
+$("signin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
+$("pastebtn").onclick = ()=>{ $("keyrow").style.display="flex"; $("keyinput").focus(); };
+$("keysave").onclick = ()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("keyrow").style.display="none"; } };
+$("signout").onclick = ()=> setKey(null);
+
+// ---------- photo handling ----------
+let photoDataUrl = null;
+function downscale(file, max=1024){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let {width:w,height:h}=img;
+      const scale=Math.min(1, max/Math.max(w,h));
+      w=Math.round(w*scale); h=Math.round(h*scale);
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      res(c.toDataURL("image/jpeg",0.92));
+    };
+    img.onerror=rej;
+    img.src=URL.createObjectURL(file);
+  });
+}
+async function setPhoto(file){
+  if(!file || !file.type.startsWith("image/")) return;
+  photoDataUrl = await downscale(file);
+  $("preview").src = photoDataUrl;
+  $("preview").style.display = "block";
+  $("dropEmpty").style.display = "none";
+  $("drop").classList.add("has");
+  $("clearBtn").style.display = "";
+  updateGo();
+}
+function clearPhoto(){
+  photoDataUrl=null; $("preview").src=""; $("preview").style.display="none";
+  $("dropEmpty").style.display=""; $("drop").classList.remove("has"); $("clearBtn").style.display="none"; updateGo();
+}
+const drop=$("drop"), file=$("file");
+drop.onclick = (e)=>{ if(e.target.id!=="preview"||!photoDataUrl) file.click(); };
+drop.onkeydown = (e)=>{ if(e.key==="Enter"||e.key===" ") file.click(); };
+file.onchange = ()=> setPhoto(file.files[0]);
+$("clearBtn").onclick = clearPhoto;
+["dragenter","dragover"].forEach(ev=> drop.addEventListener(ev,(e)=>{e.preventDefault(); drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=> drop.addEventListener(ev,(e)=>{e.preventDefault(); drop.classList.remove("drag");}));
+drop.addEventListener("drop",(e)=>{ const f=e.dataTransfer.files[0]; if(f) setPhoto(f); });
+addEventListener("paste",(e)=>{ const it=[...(e.clipboardData?.items||[])].find(i=>i.type.startsWith("image/")); if(it) setPhoto(it.getAsFile()); });
+
+// camera
+$("camBtn").onclick = async ()=>{
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
+    const v=document.createElement("video"); v.srcObject=stream; v.playsInline=true; await v.play();
+    // simple capture: wait a tick then grab a frame
+    await new Promise(r=>setTimeout(r,400));
+    const c=document.createElement("canvas"); c.width=v.videoWidth; c.height=v.videoHeight;
+    c.getContext("2d").drawImage(v,0,0);
+    stream.getTracks().forEach(t=>t.stop());
+    photoDataUrl = c.toDataURL("image/jpeg",0.92);
+    $("preview").src=photoDataUrl; $("preview").style.display="block"; $("dropEmpty").style.display="none";
+    $("drop").classList.add("has"); $("clearBtn").style.display=""; updateGo();
+  }catch(e){ $("errmsg").textContent = "camera unavailable: "+e.message; }
+};
+
+// ---------- run ----------
+const customText = () => $("custom").value.trim();
+function chipStyles(){ return STYLES.filter(s=>selectedStyles.has(s.key)); }   // the selected chips (what Fuse blends)
+function activeStyles(){                                                       // chips + your-own (what Transform renders)
+  const out = chipStyles();
+  const c = customText();
+  if(c) out.push({ key:"custom", em:"📝", name:"Your idea", prompt:c, custom:true });
+  return out;
+}
+
+// how many fused takes to generate at once (1 / 2 / 4 / 8)
+let fuseCount = 1;
+for(const b of document.querySelectorAll("#fuseCount button")){
+  b.onclick = ()=>{ fuseCount = +b.dataset.n; document.querySelectorAll("#fuseCount button").forEach(x=>x.classList.toggle("on", x===b)); updateGo(); };
+}
+
+// rough per-image price (USD) by edit model — exact cost is shown after each render
+const IMG_PRICE = { "gemini-flash-edit":0.02, "gpt-image-1":0.04, "gpt-image-2":0.078, "flux-kontext":0.03, "flux-dev-image-to-image":0.025, "hidream-edit":0.03, "ghiblify":0.03 };
+function updateGo(){
+  const n = activeStyles().length, chips = chipStyles().length, ready = !!(getKey() && photoDataUrl);
+  const hasCustom = !!customText();
+  const per = IMG_PRICE[imgModel()] ?? 0.03;
+  // Transform renders every active style (chips + your-own); Fuse blends the chips only, and is off when you have a custom prompt.
+  $("go").disabled = !(ready && n);
+  const fuseOk = ready && chips>=2 && !hasCustom;
+  $("fuse").disabled = !fuseOk;
+  $("fuse").textContent = (chips>=2 && !hasCustom)
+    ? `🧬 Fuse ${chips} → ${fuseCount} take${fuseCount===1?"":"s"} · ~$${(fuseCount*per).toFixed(2)}`
+    : "🧬 Fuse selected";
+  $("go").textContent = ready && n ? `✨ Transform each · ~$${(n*per).toFixed(2)}` : "✨ Transform each";
+}
+$("custom").oninput = updateGo;
+
+const stats = { count:0, cost:0, exact:true, balance:null };
+function paintMeter(){
+  if(!stats.count){ $("meter").textContent=""; return; }
+  const money = `${stats.exact?"":"~"}$${stats.cost.toFixed(4)}`;
+  const bal = stats.balance!=null ? ` · balance $${stats.balance.toFixed(2)}` : "";
+  $("meter").innerHTML = `🖼 <b>${stats.count}</b> render${stats.count===1?"":"s"} · <b>${money}</b>${bal}`;
+}
+
+async function genEdit(prompt, model, size){
+  const body = { model, prompt, imageDataUrl:photoDataUrl, size, n:1, response_format:"b64_json" };
+  const r = await fetch(IMG_ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${getKey()}`,"Content-Type":"application/json"},body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,200)}`);
+  const j = await r.json();
+  const d=(j.data||[])[0]||{};
+  const url = d.b64_json ? `data:image/png;base64,${d.b64_json}` : d.url;
+  if(!url) throw new Error("no image in response");
+  const exact = typeof j.cost==="number" && j.cost>0;
+  return { url, cost: exact? j.cost : 0.02, exact, balance: typeof j.remainingBalance==="number"? j.remainingBalance : null };
+}
+const esc = (s)=> String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function mkBtn(label, fn){ const b=document.createElement("button"); b.textContent=label; b.onclick=fn; return b; }
+function tile(style){
+  const el=document.createElement("div"); el.className="tile";
+  el.innerHTML = `<div class="imgwrap"><div class="load"><span class="spin"></span><span>${style.em} ${esc(style.name)}…</span></div></div>
+    <div class="meta"><div class="name">${style.em} ${esc(style.name)}</div></div>
+    <div class="acts"></div>`;
+  return el;
+}
+
+// Render one style into a given tile (used by Transform, Fuse, and regenerate).
+async function renderInto(el, style, im, size, fresh){
+  const wrap=el.querySelector(".imgwrap"), acts=el.querySelector(".acts");
+  acts.innerHTML="";
+  const fullPrompt = `Reimagine the person in this photo as ${style.prompt}. Keep their face, identity, hairstyle and pose clearly recognizable. Head-and-shoulders portrait. No text, no watermark, no caption.${fresh?" Give a fresh, different take.":""}`;
+  try{
+    const img = await genEdit(fullPrompt, im, size);
+    wrap.innerHTML = `<img alt="${esc(style.name)}" src="${img.url}">`;
+    wrap.querySelector("img").onclick = ()=> openZoom(img.url, style);
+    stats.count++; stats.cost+=img.cost; if(!img.exact) stats.exact=false; if(img.balance!=null) stats.balance=img.balance; paintMeter();
+    acts.append(
+      mkBtn("⬇ share card", ()=> shareCard(img.url, style)),
+      mkBtn("⬇ image", ()=> download(img.url, `pictureme-${style.key}.png`)),
+      mkBtn("↻", ()=> regen(el, style, im, size)),
+    );
+  }catch(e){
+    el.classList.add("fail");
+    wrap.innerHTML = `<div class="load err">⚠ ${esc(e.message)}</div>`;
+    acts.append(mkBtn("↻ retry", ()=> regen(el, style, im, size)));
+  }
+}
+function regen(oldEl, style, im, size){
+  const fresh=tile(style); oldEl.replaceWith(fresh);
+  renderInto(fresh, style, im, size, true);
+}
+
+let running=false;
+function ctx(){ return { size:$("imgSize").value, im:imgModel() }; }
+function startRun(){ running=true; $("go").disabled=true; $("fuse").disabled=true; $("errmsg").textContent=""; stats.count=0; stats.cost=0; stats.exact=true; paintMeter(); $("grid").innerHTML=""; }
+function endRun(){ running=false; updateGo(); }
+
+async function run(){
+  if(running) return;
+  if(!getKey()||!photoDataUrl) return;
+  const styles=activeStyles(); if(!styles.length) return;
+  startRun();
+  const {size,im}=ctx();
+  await Promise.all(styles.map((style)=>{ const el=tile(style); $("grid").appendChild(el); return renderInto(el, style, im, size); }));
+  endRun();
+}
+
+// ---------- FUSE: blend every selected look into one hybrid ----------
+function naiveFusion(styles){
+  return {
+    key:"fusion", em:"🧬",
+    name: styles.map(s=>s.name).join(" × "),
+    prompt: styles.map(s=>`${s.name} (${s.prompt})`).join("; ") + " — blend ALL of these aesthetics into ONE seamless, cohesive look (a true hybrid, not separate regions or panels)",
+  };
+}
+async function synthFusion(styles, model){
+  const list = styles.map(s=>`- ${s.name}: ${s.prompt}`).join("\n");
+  const sys = 'You are an art director. Merge the given visual styles into ONE cohesive, vivid image-generation art-direction prompt (2-3 sentences) that fuses them seamlessly into a single hybrid look — NOT separate panels or regions. Also invent a short catchy hybrid NAME (2-4 words). Reply ONLY as strict JSON: {"name":"...","prompt":"..."}';
+  const r = await fetch(CHAT_ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${getKey()}`,"Content-Type":"application/json"},
+    body:JSON.stringify({model,messages:[{role:"system",content:sys},{role:"user",content:"Fuse these styles into one:\n"+list}],temperature:0.9})});
+  if(!r.ok) throw new Error("synth "+r.status);
+  let txt=((await r.json()).choices?.[0]?.message?.content||"").trim().replace(/^```(json)?/i,"").replace(/```$/,"").trim();
+  const o=JSON.parse(txt);
+  if(!o.prompt) throw new Error("no fusion prompt");
+  return { key:"fusion", em:"🧬", name:o.name||naiveFusion(styles).name, prompt:o.prompt };
+}
+async function runFuse(){
+  if(running) return;
+  if(!getKey()||!photoDataUrl) return;
+  const styles=chipStyles(); if(styles.length<2 || customText()) return;  // fuse blends the chips; off when there's a custom prompt
+  startRun();
+  const {size,im}=ctx();
+  // one placeholder tile per requested take
+  const tiles = Array.from({length:fuseCount}, ()=>{ const el=tile({em:"🧬", name:`Fusing ${styles.length} looks`}); $("grid").appendChild(el); return el; });
+  let fused;
+  try{ fused = await synthFusion(styles, fuseModel()); }
+  catch{ fused = naiveFusion(styles); }
+  tiles.forEach(el=> el.querySelector(".name").textContent = `${fused.em} ${fused.name}`);
+  // render every take as a fresh, different variation of the same hybrid
+  await Promise.all(tiles.map((el,i)=> renderInto(el, {...fused, key:`fusion-${i+1}`}, im, size, true)));
+  endRun();
+}
+$("go").onclick = run;
+$("fuse").onclick = runFuse;
+
+// ---------- zoom modal ----------
+let zoomState=null;
+function openZoom(url, style){
+  zoomState={ url, key:style.key||"image" };
+  $("zoomImg").src=url; $("zoomImg").alt=style.name||"";
+  $("zoomCap").textContent = `${style.em||""} ${style.name||""}`.trim();
+  $("zoom").classList.add("open");
+}
+function closeZoom(){ $("zoom").classList.remove("open"); $("zoomImg").src=""; zoomState=null; }
+$("zoomClose").onclick = closeZoom;
+$("zoomImg").onclick = closeZoom;
+$("zoomDl").onclick = ()=>{ if(zoomState) download(zoomState.url, `pictureme-${zoomState.key}.png`); };
+$("zoom").addEventListener("click", (e)=>{ if(e.target.id==="zoom") closeZoom(); });
+addEventListener("keydown", (e)=>{ if(e.key==="Escape" && $("zoom").classList.contains("open")) closeZoom(); });
+
+// ---------- export ----------
+function download(url, name){ const a=document.createElement("a"); a.href=url; a.download=name; a.click(); }
+function shareCard(imgUrl, style){
+  const W=1080, H=1350, c=$("stage"); c.width=W; c.height=H;
+  const ctx=c.getContext("2d");
+  const img=new Image();
+  img.onload=()=>{
+    ctx.fillStyle="#0b0d12"; ctx.fillRect(0,0,W,H);
+    // cover-fit the image into the top area
+    const area={x:48,y:48,w:W-96,h:H-220};
+    const s=Math.max(area.w/img.width, area.h/img.height);
+    const dw=img.width*s, dh=img.height*s, dx=area.x+(area.w-dw)/2, dy=area.y+(area.h-dh)/2;
+    ctx.save(); roundRect(ctx,area.x,area.y,area.w,area.h,28); ctx.clip();
+    ctx.drawImage(img,dx,dy,dw,dh); ctx.restore();
+    // title
+    ctx.fillStyle="#fff"; ctx.textAlign="left";
+    ctx.font="700 64px system-ui,sans-serif";
+    ctx.fillText(`${style.em} ${style.name}`, 56, H-96);
+    // watermark
+    ctx.fillStyle="#7c8cff"; ctx.font="600 28px ui-monospace,monospace"; ctx.textAlign="right";
+    ctx.fillText("Picture Me As… · nano-gpt.com", W-48, H-48);
+    download(c.toDataURL("image/png"), `pictureme-${style.key}-card.png`);
+  };
+  img.src=imgUrl;
+}
+function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+// ---------- boot ----------
+(async ()=>{
+  renderStyles();
+  fillSelect($("imgModel"), IMG_MODELS, IMG_MODELS[0][0]);
+  fillSelect($("fuseModel"), FUSE_MODELS, FUSE_MODELS[0][0]);
+  ["imgModel","imgModelCustom"].forEach(id=> $(id).addEventListener("input", updateGo));
+  try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
+  renderAuth();
+})();
+</script>
+</body>
+</html>
