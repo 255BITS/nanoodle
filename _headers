@@ -1,0 +1,7 @@
+# Correct MIME for the web app manifest
+/site.webmanifest
+  Content-Type: application/manifest+json
+
+# Don't let the service worker get stuck in a stale cache
+/sw.js
+  Cache-Control: no-cache
