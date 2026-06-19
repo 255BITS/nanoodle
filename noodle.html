@@ -69,7 +69,7 @@
   .node header.t-vision{ background:linear-gradient(90deg,#ffcf6b22,transparent) }
   .node header.t-edit{ background:linear-gradient(90deg,#ff79c622,#7c8cff14,transparent) }
   .node header.t-tvideo, .node header.t-ivideo{ background:linear-gradient(90deg,#5ad1e622,transparent) }
-  .node header.t-audio{ background:linear-gradient(90deg,#3ddc9722,transparent) }
+  .node header.t-music, .node header.t-tts{ background:linear-gradient(90deg,#3ddc9722,transparent) }
   .node header.t-join{ background:linear-gradient(90deg,#9aa3b222,transparent) }
   .node header .em{font-size:1rem}
   .node header .ttl{font-weight:700; font-size:.85rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
@@ -102,7 +102,12 @@
   .body textarea{ width:100%; resize:vertical; min-height:54px; background:var(--panel2); border:1px solid var(--line);
                   border-radius:.45rem; padding:.4rem .5rem; line-height:1.35 }
   .body select{ width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.35rem .4rem }
+  .body input{ width:100%; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.35rem .5rem }
+  .body input[type=checkbox]{ width:auto }
+  .body .chk{ display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--ink); text-transform:none; letter-spacing:0 }
   .body .two{ display:flex; gap:.4rem } .body .two > *{ flex:1; min-width:0 }
+  .body details.adv{ margin-top:.1rem } .body details.adv summary{ cursor:pointer; font-size:.72rem; color:var(--dim) }
+  .body details.adv textarea{ margin-top:.35rem; font-family:ui-monospace,monospace; font-size:.76rem }
   .result{ display:none; margin-top:.1rem; border-top:1px dashed var(--line); padding-top:.5rem }
   .result.show{ display:block }
   .result img, .result video{ width:100%; border-radius:.45rem; display:block }
@@ -208,21 +213,8 @@ const esc = (s)=> String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"
      image -> /api/v1/image-models           (200+ image models, edit flag)
    Picked through one shared searchable popover (see openPicker()).
    ====================================================================== */
-const DEFAULT_CHAT  = "openai/gpt-5.5";
-const DEFAULT_VISION= "anthropic/claude-sonnet-latest";
-const DEFAULT_IMAGE = "gpt-image-2";                 // everything is built around gpt-image-2
 const SIZES = [["1024x1024","square"],["1024x1536","portrait"],["1536x1024","landscape"],["auto","auto"]];
 const optsHTML = (items, def)=> items.map(([v,l])=>`<option value="${esc(v)}"${v===def?" selected":""}>${esc(l)}</option>`).join("");
-
-const DEFAULT_VIDEO = "bytedance-seedance-v1-pro-fast";   // cheap, does both t2v and i2v
-const DEFAULT_TTS   = "xai-tts";                          // cheap, five voices
-
-// models we float to the top of each picker
-const CHAT_PINNED  = [DEFAULT_CHAT, DEFAULT_VISION, "google/gemini-3.1-pro-preview", "x-ai/grok-4.20"];
-const IMG_PINNED   = [DEFAULT_IMAGE, "gpt-image-1", "nano-banana-pro", "seedream-v5.0-lite", "flux-kontext", "recraft-v4"];
-const VIDEO_PINNED = [DEFAULT_VIDEO, "ltx-2-19b", "kling-v26-pro", "luma/agent/ray/v3.2", "veo3-1-fast"];
-const AUDIO_PINNED = [DEFAULT_TTS, "Kokoro-82m", "gpt-4o-mini-tts", "Elevenlabs-Turbo-V2.5",
-  "mureka-ai/mureka-v9/generate-song", "Elevenlabs-Music-V1", "Minimax-Music-2.6"];
 
 function normChat(m){
   const p = m.pricing||{};
@@ -261,10 +253,10 @@ function normAudio(m){
 }
 
 const CATALOG = {
-  chat:  { url:"/api/v1/models?detailed=true", pin:CHAT_PINNED,  norm:normChat  },
-  image: { url:"/api/v1/image-models",         pin:IMG_PINNED,   norm:normImg   },
-  video: { url:"/api/v1/video-models",         pin:VIDEO_PINNED, norm:normVideo },
-  audio: { url:"/api/v1/audio-models",         pin:AUDIO_PINNED, norm:normAudio },
+  chat:  { url:"/api/v1/models?detailed=true", norm:normChat  },
+  image: { url:"/api/v1/image-models",         norm:normImg   },
+  video: { url:"/api/v1/video-models",         norm:normVideo },
+  audio: { url:"/api/v1/audio-models",         norm:normAudio },
 };
 const catalogs = { chat:null, image:null, video:null, audio:null };
 async function loadCatalog(kind){
@@ -274,19 +266,29 @@ async function loadCatalog(kind){
   let raw=[];
   try{ raw = (await (await fetch(`${NANOGPT}${cfg.url}`,{headers})).json()).data || []; }
   catch{ /* offline — leave empty, ids still typeable */ }
-  const rankOf = (id)=>{ const i=cfg.pin.indexOf(id); return i<0 ? 1e9 : i; };
   const list = raw.map(cfg.norm).filter(m=>m.id);
-  list.sort((a,b)=> (rankOf(a.id)-rankOf(b.id)) || (b.created||0)-(a.created||0) || a.id.localeCompare(b.id));
+  list.sort((a,b)=> (b.created||0)-(a.created||0) || a.id.localeCompare(b.id));   // newest first
   catalogs[kind]=list;
   return list;
 }
 const catItem = (kind,id)=> (catalogs[kind]||[]).find(m=>m.id===id);
 const KIND_LABEL = { chat:"Chat", image:"Image", video:"Video", audio:"Audio" };
+// capability filter shared by the picker and the default-model resolver — metadata only, no model names
+function passesFilter(m, filter){
+  if(!filter) return true;
+  return !!m[filter];   // vision | edit | t2v | i2v | music | tts are all boolean flags on the catalog item
+}
+// a node's default model = newest catalog entry of the right kind that passes the node's filter (or none yet)
+function defModelFor(type){
+  const t = NODE_TYPES[type]; if(!t.modelKind) return "";
+  const m = (catalogs[t.modelKind]||[]).find(x=> passesFilter(x, t.modelFilter));
+  return m ? m.id : "";
+}
 
 /* one model-row in a node body — a button that opens the shared picker */
 function modelFieldHTML(node){
   return `<div><label>model</label>
-    <button class="modelpick" type="button">${esc(node.fields.model||"—")} ▾</button>
+    <button class="modelpick" type="button">${esc(node.fields.model||"pick a model…")} ▾</button>
     <div class="mprice" data-mp></div></div>`;
 }
 function updateNodePrice(n){
@@ -294,23 +296,132 @@ function updateNodePrice(n){
   const el = n.el.querySelector("[data-mp]"); if(!el) return;
   el.textContent = catItem(t.modelKind, n.fields.model)?.price || "";
 }
-// audio nodes: show a voice <select> when the model exposes a fixed voice list, else nothing (music/sfx ignore voice)
-function refreshVoiceControl(n){
-  if(n.type!=="audio" || !n.el) return;
-  const box = n.el.querySelector("[data-voice]"); if(!box) return;
-  const voices = catItem("audio", n.fields.model)?.voices || [];
-  if(voices.length){
-    if(!voices.includes(n.fields.voice)) n.fields.voice = voices[0];
-    box.innerHTML = `<label>voice</label><select data-f="voice">${
-      voices.map(v=>`<option${v===n.fields.voice?" selected":""}>${esc(v)}</option>`).join("")}</select>`;
-    const sel = box.querySelector("select");
-    sel.addEventListener("change", ()=>{ n.fields.voice = sel.value; save(); });
-    sel.addEventListener("pointerdown", e=>e.stopPropagation());
-  } else {
-    box.innerHTML = "";   // model takes no voice
+/* ---------- dynamic audio parameters (from the model catalog + a researched spec) ----------
+   Music & Speech both POST to /api/v1/audio/speech with { model, input, ...extra }. Every extra key is
+   optional and sent only-when-nonempty, so a provider that doesn't accept a key simply ignores its absence.
+   Fields are chosen per-model from supported_parameters (voices/max_chars/durations/generation_count) plus a
+   small set of well-known pass-through params — no model names are hardcoded; appliesTo is metadata-driven. */
+// appliesTo is metadata-only: "all" (every model of that node), or "cat:*" resolved from the live
+// supported_parameters. No model names. Undocumented-but-common keys (lyrics/seed/…) are "all" and sent
+// only-when-nonempty, so providers that don't accept them just never receive the key.
+const AUDIO_PARAMS = {
+  music: [
+    { id:"lyrics",          label:"Lyrics",          type:"textarea", appliesTo:"all" },
+    { id:"instrumental",    label:"Instrumental",    type:"boolean",  appliesTo:"all" },
+    { id:"duration",        label:"Duration (sec)",  type:"number",   appliesTo:"cat:duration" },
+    { id:"number_of_songs", label:"Number of songs", type:"number",   appliesTo:"cat:gencount", default:1 },
+    { id:"negative_prompt", label:"Negative prompt", type:"textarea", appliesTo:"all" },
+    { id:"seed",            label:"Seed",            type:"number",   appliesTo:"all" },
+    { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3" },
+  ],
+  tts: [
+    { id:"voice",           label:"Voice",           type:"select",   appliesTo:"cat:voices" },
+    { id:"speed",           label:"Speed",           type:"number",   appliesTo:"all", min:0.25, max:2, default:1 },
+    { id:"instructions",    label:"Instructions",    type:"textarea", appliesTo:"all" },
+    { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3" },
+  ],
+};
+// resolve a param's appliesTo against the selected model's live catalog entry (catalog metadata only)
+function audioApplies(at, it){
+  const p = it.params||{};
+  switch(at){
+    case "all":          return true;
+    case "cat:voices":   return it.voices.length>0;
+    case "cat:duration": return p.min_duration!=null && p.max_duration!=null;
+    case "cat:gencount": return !!p.generation_count_parameter;
+  }
+  return false;
+}
+// concrete field list for a node, with per-model jsonKey / range / options resolved from the catalog entry
+function audioFields(kind, it){
+  const out=[];
+  for(const p of (AUDIO_PARAMS[kind]||[])){
+    if(!audioApplies(p.appliesTo, it)) continue;
+    const f = { ...p, jsonKey:p.id };
+    if(p.appliesTo==="cat:voices")   f.options = it.voices;
+    if(p.appliesTo==="cat:duration"){ f.min = it.params.min_duration; f.max = it.params.max_duration; }
+    if(p.appliesTo==="cat:gencount"){ f.jsonKey = it.params.generation_count_parameter || p.id; f.min=1; f.max = it.params.max_generations || 3; }
+    out.push(f);
+  }
+  return out;
+}
+function audioFieldHTML(n, f){
+  const cur = n.fields[f.id];
+  if(f.type==="select"){
+    const opts = f.options || [];
+    const val = opts.includes(cur) ? cur : (f.default ?? opts[0] ?? "");
+    return `<div><label>${esc(f.label)}</label><select data-pf="${f.id}">${
+      opts.map(o=>`<option${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select></div>`;
+  }
+  if(f.type==="boolean")
+    return `<label class="chk"><input type="checkbox" data-pf="${f.id}"${(cur===true||cur==="true")?" checked":""}/> ${esc(f.label)}</label>`;
+  if(f.type==="number"){
+    const rng = (f.min!=null&&f.max!=null) ? ` (${f.min}–${f.max})` : "";
+    return `<div><label>${esc(f.label)}${rng}</label><input type="number" data-pf="${f.id}" step="any"${
+      f.min!=null?` min="${f.min}"`:""}${f.max!=null?` max="${f.max}"`:""} value="${cur??""}" placeholder="${f.default??""}"/></div>`;
+  }
+  const v = cur!=null ? cur : "";
+  if(f.type==="textarea")
+    return `<div><label>${esc(f.label)}</label><textarea data-pf="${f.id}" style="min-height:40px" placeholder="${esc(f.label)}">${esc(v)}</textarea></div>`;
+  return `<div><label>${esc(f.label)}</label><input data-pf="${f.id}" value="${esc(v)}" placeholder="${esc(f.label)}"/></div>`;
+}
+// rebuild the parameter block for an audio node from its current model
+function refreshAudioParams(n){
+  if((n.type!=="music" && n.type!=="tts") || !n.el) return;
+  const box = n.el.querySelector("[data-params]"); if(!box) return;
+  const it = catItem("audio", n.fields.model);
+  if(!it){ box.innerHTML=""; return; }
+  const fields = audioFields(n.type, it);
+  for(const f of fields)   // normalize selects so a switched model lands on a valid value
+    if(f.type==="select" && !(f.options||[]).includes(n.fields[f.id])) n.fields[f.id] = f.default ?? (f.options||[])[0];
+  box.innerHTML = fields.map(f=>audioFieldHTML(n,f)).join("");
+  box.querySelectorAll("[data-pf]").forEach(inp=>{
+    const id = inp.dataset.pf;
+    const ev = (inp.tagName==="SELECT" || inp.type==="checkbox") ? "change" : "input";
+    inp.addEventListener(ev, ()=>{ n.fields[id] = inp.type==="checkbox" ? inp.checked : inp.value; save(); });
+    inp.addEventListener("pointerdown", e=>e.stopPropagation());
+  });
+  const ta = n.el.querySelector('[data-f="prompt"]'), mc = it.params?.max_chars;
+  if(ta){ mc ? ta.setAttribute("maxlength", mc) : ta.removeAttribute("maxlength"); }
+}
+// shared body + run for the Music and Speech nodes
+function audioBody(n, promptLabel, ph){
+  return `${modelFieldHTML(n)}
+    <div data-params></div>
+    <div><label>${promptLabel} (used if no input wired)</label><textarea data-f="prompt" placeholder="${esc(ph)}">${esc(n.fields.prompt||"")}</textarea></div>
+    <details class="adv"><summary>advanced params (JSON)</summary>
+      <textarea data-f="extraJson" style="min-height:34px" placeholder='{"any_extra_key": 123}'>${esc(n.fields.extraJson||"")}</textarea></details>`;
+}
+function collectAudioParams(n){
+  const it = catItem("audio", n.fields.model); const body = {};
+  if(it){
+    for(const f of audioFields(n.type, it)){
+      let v = n.fields[f.id];
+      if(f.type==="boolean"){ if(v===true||v==="true") body[f.jsonKey]=true; continue; }
+      if(v==null || v==="") continue;
+      if(f.type==="number"){ const num=Number(v); if(isNaN(num)) continue; if(f.default!=null && num===f.default) continue; body[f.jsonKey]=num; continue; }
+      if(f.default!=null && v===f.default) continue;       // e.g. response_format=mp3 → omit
+      body[f.jsonKey] = v;
+    }
+  }
+  if((n.fields.extraJson||"").trim()){                      // escape hatch: merge any extra keys verbatim
+    try{ Object.assign(body, JSON.parse(n.fields.extraJson)); }catch{ throw new Error("advanced params: invalid JSON"); }
+  }
+  return body;
+}
+async function audioRun(n, inp, ctx){
+  const text = (inp.text ?? n.fields.prompt ?? "").trim();
+  if(!text) throw new Error("no text");
+  return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n)) };
+}
+function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshAudioParams(n); backfillModel(n); }); }
+function backfillModel(n){   // once a catalog arrives, give model nodes a sensible default if none chosen yet
+  const t = NODE_TYPES[n.type];
+  if(t.modelKind && !n.fields.model){
+    const id = defModelFor(n.type);
+    if(id){ n.fields.model = id; const mp = n.el?.querySelector(".modelpick"); if(mp) mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); }
   }
 }
-function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshVoiceControl(n); }); }
 
 /* ---------- shared searchable model picker ---------- */
 let picker = null; // { kind, filter, current, onPick }
@@ -328,14 +439,9 @@ function closePicker(){ $("mpick").classList.remove("open"); $("mpickback").clas
 function renderPicker(){
   if(!picker) return;
   const q = $("mpicksearch").value.trim().toLowerCase();
-  let list = catalogs[picker.kind] || [];
-  if(picker.filter==="vision") list = list.filter(m=>m.vision);
-  if(picker.filter==="edit")   list = list.filter(m=>m.edit);
-  if(picker.filter==="t2v")    list = list.filter(m=>m.t2v);
-  if(picker.filter==="i2v")    list = list.filter(m=>m.i2v);
-  if(picker.filter==="audio")  list = list.filter(m=>m.gen);
+  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
   const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
-  $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · ★ pinned first"}`;
+  $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · newest first"}`;
   const frag = document.createDocumentFragment();
   for(const m of matches.slice(0,400)){
     const b = document.createElement("button");
@@ -356,6 +462,7 @@ function renderPicker(){
    input values -> output values. Ports are typed ('text' | 'image') and
    only matching types can connect.
    ====================================================================== */
+const mdl = (n)=>{ if(!n.fields.model) throw new Error("pick a model first"); return n.fields.model; };
 const NODE_TYPES = {
   text: {
     em:"📝", title:"Text", desc:"A string source",
@@ -378,7 +485,7 @@ const NODE_TYPES = {
 
   llm: {
     em:"🧠", title:"LLM", desc:"Text → text (any chat model)",
-    modelKind:"chat", defModel:DEFAULT_CHAT,
+    modelKind:"chat",
     inputs:[{name:"prompt", type:"text"}],
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`
@@ -391,13 +498,13 @@ const NODE_TYPES = {
       const messages = [];
       if((n.fields.system||"").trim()) messages.push({role:"system", content:n.fields.system.trim()});
       messages.push({role:"user", content:prompt});
-      return { text: await ctx.genChat(messages, n.fields.model||DEFAULT_CHAT) };
+      return { text: await ctx.genChat(messages, mdl(n)) };
     }
   },
 
   image: {
     em:"🖼", title:"Image", desc:"Text → image",
-    modelKind:"image", defModel:DEFAULT_IMAGE,
+    modelKind:"image",
     inputs:[{name:"prompt", type:"text"}],
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
@@ -407,13 +514,13 @@ const NODE_TYPES = {
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
-      return { image: await ctx.genImage(prompt, n.fields.model||DEFAULT_IMAGE, n.fields.size||SIZES[0][0]) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
     }
   },
 
   edit: {
     em:"✂️", title:"Edit", desc:"Image + text → image",
-    modelKind:"image", modelFilter:"edit", defModel:DEFAULT_IMAGE,
+    modelKind:"image", modelFilter:"edit",
     inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
@@ -424,13 +531,13 @@ const NODE_TYPES = {
       if(!inp.image) throw new Error("no image input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no edit instruction");
-      return { image: await ctx.genImage(prompt, n.fields.model||DEFAULT_IMAGE, n.fields.size||SIZES[0][0], inp.image) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
     }
   },
 
   vision: {
     em:"👁", title:"Vision", desc:"Image → text (describe / ask)",
-    modelKind:"chat", modelFilter:"vision", defModel:DEFAULT_VISION,
+    modelKind:"chat", modelFilter:"vision",
     inputs:[{name:"image", type:"image"}],
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`
@@ -443,13 +550,13 @@ const NODE_TYPES = {
         {type:"text", text:q},
         {type:"image_url", image_url:{url:inp.image}}
       ]}];
-      return { text: await ctx.genChat(messages, n.fields.model||DEFAULT_VISION) };
+      return { text: await ctx.genChat(messages, mdl(n)) };
     }
   },
 
   tvideo: {
     em:"🎬", title:"Text→Video", desc:"Text → video (renders ~1 min)",
-    modelKind:"video", modelFilter:"t2v", defModel:DEFAULT_VIDEO,
+    modelKind:"video", modelFilter:"t2v",
     inputs:[{name:"prompt", type:"text"}],
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
@@ -462,7 +569,7 @@ const NODE_TYPES = {
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
-      const url = await ctx.genVideo(n.fields.model||DEFAULT_VIDEO, prompt,
+      const url = await ctx.genVideo(mdl(n), prompt,
         { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
         (st,ms)=> setNodeProgress(n, `rendering video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
@@ -471,7 +578,7 @@ const NODE_TYPES = {
 
   ivideo: {
     em:"📽️", title:"Image→Video", desc:"Image (+text) → video",
-    modelKind:"video", modelFilter:"i2v", defModel:DEFAULT_VIDEO,
+    modelKind:"video", modelFilter:"i2v",
     inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
@@ -484,27 +591,29 @@ const NODE_TYPES = {
     async run(n, inp, ctx){
       if(!inp.image) throw new Error("no image input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
-      const url = await ctx.genVideo(n.fields.model||DEFAULT_VIDEO, prompt,
+      const url = await ctx.genVideo(mdl(n), prompt,
         { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
         (st,ms)=> setNodeProgress(n, `animating… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
   },
 
-  audio: {
-    em:"🔊", title:"Text→Audio", desc:"Text → speech or music",
-    modelKind:"audio", modelFilter:"audio", defModel:DEFAULT_TTS,
+  music: {
+    em:"🎵", title:"Music", desc:"Text → music",
+    modelKind:"audio", modelFilter:"music",
     inputs:[{name:"text", type:"text"}],
     outputs:[{name:"audio", type:"audio"}], preview:"audio",
-    body:(n)=>`
-      ${modelFieldHTML(n)}
-      <div data-voice></div>
-      <div><label>text / prompt (used if no input wired)</label><textarea data-f="prompt" placeholder="Hello there!  —or—  lo-fi piano beat, 120 BPM, vinyl crackle">${esc(n.fields.prompt||"")}</textarea></div>`,
-    async run(n, inp, ctx){
-      const text = (inp.text ?? n.fields.prompt ?? "").trim();
-      if(!text) throw new Error("no text");
-      return { audio: await ctx.genTTS(n.fields.model||DEFAULT_TTS, text, (n.fields.voice||"").trim()) };
-    }
+    body:(n)=> audioBody(n, "style / prompt", "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM"),
+    run: audioRun,
+  },
+
+  tts: {
+    em:"🗣️", title:"Speech", desc:"Text → speech (TTS)",
+    modelKind:"audio", modelFilter:"tts",
+    inputs:[{name:"text", type:"text"}],
+    outputs:[{name:"audio", type:"audio"}], preview:"audio",
+    body:(n)=> audioBody(n, "text to speak", "Hello! This is a test."),
+    run: audioRun,
   },
 };
 
@@ -527,7 +636,7 @@ function applyWorld(){ world.style.transform = `translate(${panX}px,${panY}px) s
 function addNode(type, x, y, fields){
   const t = NODE_TYPES[type];
   const n = { id:"n"+(nid++), type, x, y, fields:Object.assign({}, fields), out:{}, el:null };
-  if(t.modelKind && !n.fields.model) n.fields.model = t.defModel;
+  if(t.modelKind && !n.fields.model) n.fields.model = defModelFor(type);
   graph.nodes.push(n);
   buildNodeEl(n);
   save();
@@ -570,12 +679,12 @@ function buildNodeEl(n){
     mp.onclick = (e)=>{
       e.stopPropagation();
       openPicker(t.modelKind, { current:n.fields.model, filter:t.modelFilter, onPick:(id)=>{
-        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshVoiceControl(n); save();
+        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); save();
       }});
     };
     updateNodePrice(n);
   }
-  refreshVoiceControl(n);
+  refreshAudioParams(n);
   // header buttons
   el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
   el.querySelector('[data-act=run]').onclick  = (e)=>{ e.stopPropagation(); evaluate([n.id]); };
@@ -893,10 +1002,10 @@ const CTX = {
     }
     throw new Error("video timed out (5 min)");
   },
-  // sync TTS: /api/v1/audio/speech → binary audio (or JSON with a url for some providers)
-  async genTTS(model, input, voice){
-    const body = { model, input, response_format:"mp3" };
-    if(voice) body.voice = voice;
+  // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
+  // extra = the dynamic, model-specific params already resolved by the node (lyrics, voice, duration, …).
+  async genAudio(model, input, extra){
+    const body = Object.assign({ model, input }, extra||{});
     const r = await fetch(`${NANOGPT}/api/v1/audio/speech`, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
     if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
     const ct = r.headers.get("content-type") || "";
@@ -971,9 +1080,11 @@ function applyGraphData(d){
   world.innerHTML=""; selected=null;
   graph = { nodes:[], links:[] };
   if(d.view){ panX=d.view.panX??panX; panY=d.view.panY??panY; scale=d.view.scale??scale; applyWorld(); }
+  const ALIAS = { audio:"tts" };                  // older graphs had a single combined audio node
   for(const sn of (d.nodes||[])){
-    if(!NODE_TYPES[sn.type]) continue;            // skip unknown node types gracefully
-    const n={ ...sn, out:{}, el:null }; graph.nodes.push(n); buildNodeEl(n);
+    const type = ALIAS[sn.type] || sn.type;
+    if(!NODE_TYPES[type]) continue;               // skip unknown node types gracefully
+    const n={ ...sn, type, out:{}, el:null }; graph.nodes.push(n); buildNodeEl(n);
   }
   // keep only links whose endpoints survived
   const ids = new Set(graph.nodes.map(n=>n.id));
