@@ -61,9 +61,10 @@
   .chip.add{ cursor:pointer; color:var(--dim); border-style:dashed; padding:.35rem .7rem;}
   .chip.add:hover{ color:var(--ink); border-color:var(--accent);}
   #addForm{display:none; gap:.4rem; flex-wrap:wrap; align-items:center; margin-top:.6rem; padding:.6rem; border:1px solid var(--line); border-radius:.6rem; background:var(--panel)}
-  #addForm input{width:auto; flex:1 1 auto}
-  #addForm #addEmoji{flex:0 0 3rem; text-align:center}
+  #addForm input[type=text]{width:auto; flex:1 1 auto}
   #addForm #addName{flex:0 0 9rem}
+  #addForm .enh{display:inline-flex; align-items:center; gap:.3rem; font-size:.85rem; color:var(--dim); cursor:pointer; flex:0 0 auto}
+  #addForm .enh input{width:auto}
 
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:.6rem; overflow:hidden}
   .seg button{border:none; border-radius:0; background:var(--panel2); padding:.5rem .7rem; border-left:1px solid var(--line); color:var(--dim); font-variant-numeric:tabular-nums}
@@ -154,9 +155,9 @@
     </div>
     <div id="styles"></div>
     <div id="addForm">
-      <input id="addEmoji" type="text" maxlength="2" placeholder="🙂" title="optional emoji" />
       <input id="addName" type="text" placeholder="name (e.g. Vaporwave)" />
       <input id="addPrompt" type="text" placeholder="describe the look — e.g. 80s neon, chrome, retro grid sunset" />
+      <label class="enh" title="rewrite your description into a richer prompt with the selected text model first"><input type="checkbox" id="addEnhance" checked /> ✨ enhance</label>
       <button id="addSave" class="btn">add look</button>
       <button id="addCancel" class="link">cancel</button>
     </div>
@@ -263,11 +264,21 @@ function makeLooks(raw){
 // ---- persistence + share-by-URL ----
 const b64urlEnc = (str)=> btoa(unescape(encodeURIComponent(str))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const b64urlDec = (b)=> decodeURIComponent(escape(atob(b.replace(/-/g,"+").replace(/_/g,"/"))));
-function looksPayload(){ return { v:1, looks:looks.map(({em,name,prompt})=>({em,name,prompt})), sel:[...selectedStyles] }; }
+function looksPayload(){ return { v:1, looks:looks.map(({em,name,prompt})=>({em,name,prompt})), sel:[...selectedStyles], img:imgModel(), fuse:fuseModel() }; }
 function persistLooks(){ try{ localStorage.setItem("pm_looks", JSON.stringify(looksPayload())); }catch{} }
 function decodeLooksFromHash(){
   const m = location.hash.match(/looks=([^&]+)/); if(!m) return null;
   try{ const p=JSON.parse(b64urlDec(m[1])); return (p && Array.isArray(p.looks) && p.looks.length) ? p : null; }catch{ return null; }
+}
+// Model picks shared/saved alongside the looks; applied to the pickers once they're populated,
+// unless the user has already changed a model this session.
+let bootImg=null, bootFuse=null, modelsTouched=false;
+function applyBootModels(){
+  if(modelsTouched) return;
+  const set=(selId, customId, models, want)=>{ if(!want) return;
+    if(models.some(m=>m.id===want)){ $(selId).value=want; $(customId).value=""; } else { $(customId).value=want; } };
+  set("imgModel","imgModelCustom", imgModels, bootImg);
+  set("fuseModel","fuseModelCustom", fuseModels, bootFuse);
 }
 function loadLooks(){
   const fromHash = decodeLooksFromHash();
@@ -276,6 +287,7 @@ function loadLooks(){
   looks = makeLooks(src.looks);
   const keys = new Set(looks.map(l=>l.key));
   selectedStyles = new Set((src.sel && src.sel.length ? src.sel : looks.slice(0,3).map(l=>l.key)).filter(k=>keys.has(k)));
+  bootImg = src.img || null; bootFuse = src.fuse || null;
   return fromHash ? "link" : (fromSaved ? "saved" : "default");
 }
 
@@ -310,13 +322,31 @@ function showAddForm(on){
   $("addForm").style.display = on ? "flex" : "none";
   if(on) $("addName").focus();
 }
-function addLook(){
-  const name=$("addName").value.trim(), prompt=$("addPrompt").value.trim();
-  if(!name || !prompt){ looksMsg("name + description needed"); return; }
-  const em=$("addEmoji").value.trim()||"✨";
+// Rewrite a short idea into a richer art-direction prompt with the selected text model.
+async function enhancePrompt(name, notes, model){
+  const sys = "You turn a short style idea into ONE vivid art-direction prompt for restyling a portrait photo. Reply with ONLY the prompt: a single concise phrase of concrete visual detail (medium, lighting, color, texture, mood) — no preamble, no quotes, don't repeat the style's name.";
+  const r = await fetch(CHAT_ENDPOINT,{method:"POST",headers:{Authorization:`Bearer ${getKey()}`,"Content-Type":"application/json"},
+    body:JSON.stringify({ model, messages:[{role:"system",content:sys},{role:"user",content:`Style: ${name}. Notes: ${notes}`}], temperature:0.8 })});
+  if(!r.ok) throw new Error("enhance "+r.status);
+  const txt = ((await r.json()).choices?.[0]?.message?.content||"").trim().replace(/^["“]|["”]$/g,"");
+  return txt || notes;
+}
+async function addLook(){
+  const name=$("addName").value.trim(), notes=$("addPrompt").value.trim();
+  if(!name || !notes){ looksMsg("name + description needed"); return; }
+  let prompt = notes;
+  if($("addEnhance").checked){
+    if(!getKey()){ looksMsg("sign in to enhance — added as-is"); }
+    else {
+      const btn=$("addSave"), orig=btn.textContent; btn.disabled=true; btn.textContent="enhancing…";
+      try{ prompt = await enhancePrompt(name, notes, fuseModel()); }
+      catch{ looksMsg("enhance failed — added as-is"); }
+      finally{ btn.disabled=false; btn.textContent=orig; }
+    }
+  }
   let key=slug(name), i=1; while(looks.some(s=>s.key===key)) key=slug(name)+"-"+(++i);
-  looks.push({ key, em, name, prompt }); selectedStyles.add(key);
-  $("addEmoji").value=$("addName").value=$("addPrompt").value="";
+  looks.push({ key, em:"✨", name, prompt }); selectedStyles.add(key);
+  $("addName").value=$("addPrompt").value="";
   showAddForm(false); persistLooks(); renderStyles(); updateGo();
 }
 function resetLooks(){
@@ -378,6 +408,7 @@ function populateImgSelect(){
   sel.appendChild(g);
   const want = (cur && imgModels.some(m=>m.id===cur)) ? cur : imgModels[0]?.id;  // default = most recently released
   if(want) sel.value = want;
+  applyBootModels();   // honor a shared/saved image-model pick once it's in the list
   updateGo();
 }
 async function loadImageModels(){
@@ -416,6 +447,7 @@ function populateFuseSelect(){
   sel.appendChild(g);
   const want = (cur && fuseModels.some(m=>m.id===cur)) ? cur : fuseModels[0]?.id;  // default = most recently released
   if(want) sel.value = want;
+  applyBootModels();   // honor a shared/saved fusion-model pick once it's in the list
 }
 async function loadChatModels(){
   try{
@@ -752,10 +784,10 @@ function download(url, name){ const a=document.createElement("a"); a.href=url; a
 (async ()=>{
   const looksSrc = loadLooks();                     // URL hash > saved > defaults
   renderStyles();
-  if(looksSrc==="link"){ looksMsg(`loaded ${looks.length} looks from link`); persistLooks(); }
-  populateImgSelect();                              // show the fallback lists immediately…
+  populateImgSelect();                              // show the fallback lists immediately (applies shared/saved model picks)…
   populateFuseSelect();
-  ["imgModel","imgModelCustom"].forEach(id=> $(id).addEventListener("input", updateGo));
+  ["imgModel","imgModelCustom","fuseModel","fuseModelCustom"].forEach(id=> $(id).addEventListener("input", ()=>{ modelsTouched=true; persistLooks(); updateGo(); }));
+  if(looksSrc==="link"){ looksMsg(`loaded ${looks.length} looks from link`); persistLooks(); }   // now the model selects are populated
   try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
   renderAuth();
   loadImageModels();                               // …then swap in the live catalogs (auto-expand as NanoGPT adds models)

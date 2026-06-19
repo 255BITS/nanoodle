@@ -252,12 +252,12 @@ function normAudio(m){
   else if(p.per_minute!=null) price=`$${(+p.per_minute).toFixed(2)}/min`;
   else if(p.per_generation!=null) price=`$${(+p.per_generation).toFixed(2)}/gen`;
   const mod = arch.modality||"", out = mod.split("->")[1]||"";
-  const voices = Array.isArray(m.supported_parameters?.voices) ? m.supported_parameters.voices.filter(v=>typeof v==="string") : [];
-  return { id:m.id, name:m.name||m.id, created:m.created, voices,
-    tts: !!c.text_to_speech || m.category==="audio_tts",
-    music: /music/.test(out) || m.category==="audio_music",
-    gen: mod.startsWith("text") && /audio|music/.test(out),   // any text-driven audio (speech / music / sfx)
-    price };
+  const sp = m.supported_parameters || {};
+  const voices = Array.isArray(sp.voices) ? sp.voices.filter(v=>typeof v==="string") : [];
+  const gen = mod.startsWith("text") && /audio|music/.test(out);   // text-driven audio (speech / music / sfx)
+  const tts = !!c.text_to_speech || m.category==="audio_tts";
+  return { id:m.id, name:m.name||m.id, created:m.created, owner:m.owned_by||"", voices, params:sp,
+    tts, gen, music: gen && !tts, price };
 }
 
 const CATALOG = {
