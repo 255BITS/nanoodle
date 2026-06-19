@@ -221,7 +221,8 @@ const DEFAULT_TTS   = "xai-tts";                          // cheap, five voices
 const CHAT_PINNED  = [DEFAULT_CHAT, DEFAULT_VISION, "google/gemini-3.1-pro-preview", "x-ai/grok-4.20"];
 const IMG_PINNED   = [DEFAULT_IMAGE, "gpt-image-1", "nano-banana-pro", "seedream-v5.0-lite", "flux-kontext", "recraft-v4"];
 const VIDEO_PINNED = [DEFAULT_VIDEO, "ltx-2-19b", "kling-v26-pro", "luma/agent/ray/v3.2", "veo3-1-fast"];
-const AUDIO_PINNED = [DEFAULT_TTS, "Kokoro-82m", "gpt-4o-mini-tts", "Elevenlabs-Turbo-V2.5", "Minimax-Speech-2.8-Turbo"];
+const AUDIO_PINNED = [DEFAULT_TTS, "Kokoro-82m", "gpt-4o-mini-tts", "Elevenlabs-Turbo-V2.5",
+  "mureka-ai/mureka-v9/generate-song", "Elevenlabs-Music-V1", "Minimax-Music-2.6"];
 
 function normChat(m){
   const p = m.pricing||{};
@@ -245,13 +246,18 @@ function normVideo(m){
   return { id:m.id, name:m.name||m.id, created:m.created, t2v:!!c.text_to_video, i2v:!!c.image_to_video, price };
 }
 function normAudio(m){
-  const p=m.pricing||{}, c=m.capabilities||{}; let price="";
+  const p=m.pricing||{}, c=m.capabilities||{}, arch=m.architecture||{}; let price="";
   if(p.per_thousand_chars!=null) price=`$${(+p.per_thousand_chars).toFixed(3)}/1k`;
   else if(p.per_second!=null) price=`$${(+p.per_second).toFixed(3)}/s`;
   else if(p.per_minute!=null) price=`$${(+p.per_minute).toFixed(2)}/min`;
   else if(p.per_generation!=null) price=`$${(+p.per_generation).toFixed(2)}/gen`;
-  return { id:m.id, name:m.name||m.id, created:m.created,
-    tts: !!c.text_to_speech || m.category==="audio_tts", voices:m.supported_parameters?.voices||[], price };
+  const mod = arch.modality||"", out = mod.split("->")[1]||"";
+  const voices = Array.isArray(m.supported_parameters?.voices) ? m.supported_parameters.voices.filter(v=>typeof v==="string") : [];
+  return { id:m.id, name:m.name||m.id, created:m.created, voices,
+    tts: !!c.text_to_speech || m.category==="audio_tts",
+    music: /music/.test(out) || m.category==="audio_music",
+    gen: mod.startsWith("text") && /audio|music/.test(out),   // any text-driven audio (speech / music / sfx)
+    price };
 }
 
 const CATALOG = {
@@ -286,12 +292,25 @@ function modelFieldHTML(node){
 function updateNodePrice(n){
   const t = NODE_TYPES[n.type]; if(!t.modelKind || !n.el) return;
   const el = n.el.querySelector("[data-mp]"); if(!el) return;
-  const it = catItem(t.modelKind, n.fields.model);
-  let txt = it?.price || "";
-  if(t.modelKind==="audio" && it?.voices?.length) txt += (txt?" · ":"") + "voices: " + it.voices.slice(0,4).join(", ");
-  el.textContent = txt;
+  el.textContent = catItem(t.modelKind, n.fields.model)?.price || "";
 }
-function refreshAllPrices(){ graph.nodes.forEach(updateNodePrice); }
+// audio nodes: show a voice <select> when the model exposes a fixed voice list, else nothing (music/sfx ignore voice)
+function refreshVoiceControl(n){
+  if(n.type!=="audio" || !n.el) return;
+  const box = n.el.querySelector("[data-voice]"); if(!box) return;
+  const voices = catItem("audio", n.fields.model)?.voices || [];
+  if(voices.length){
+    if(!voices.includes(n.fields.voice)) n.fields.voice = voices[0];
+    box.innerHTML = `<label>voice</label><select data-f="voice">${
+      voices.map(v=>`<option${v===n.fields.voice?" selected":""}>${esc(v)}</option>`).join("")}</select>`;
+    const sel = box.querySelector("select");
+    sel.addEventListener("change", ()=>{ n.fields.voice = sel.value; save(); });
+    sel.addEventListener("pointerdown", e=>e.stopPropagation());
+  } else {
+    box.innerHTML = "";   // model takes no voice
+  }
+}
+function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshVoiceControl(n); }); }
 
 /* ---------- shared searchable model picker ---------- */
 let picker = null; // { kind, filter, current, onPick }
@@ -314,7 +333,7 @@ function renderPicker(){
   if(picker.filter==="edit")   list = list.filter(m=>m.edit);
   if(picker.filter==="t2v")    list = list.filter(m=>m.t2v);
   if(picker.filter==="i2v")    list = list.filter(m=>m.i2v);
-  if(picker.filter==="tts")    list = list.filter(m=>m.tts);
+  if(picker.filter==="audio")  list = list.filter(m=>m.gen);
   const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
   $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · ★ pinned first"}`;
   const frag = document.createDocumentFragment();
@@ -322,7 +341,8 @@ function renderPicker(){
     const b = document.createElement("button");
     if(m.id===picker.current) b.className = "sel";
     const tags = `${m.vision?'<span class="tag">vision</span>':''}${m.edit?'<span class="tag edit">edit</span>':''}`
-      + `${m.t2v?'<span class="tag">t2v</span>':''}${m.i2v?'<span class="tag edit">i2v</span>':''}${m.tts?'<span class="tag">tts</span>':''}`;
+      + `${m.t2v?'<span class="tag">t2v</span>':''}${m.i2v?'<span class="tag edit">i2v</span>':''}`
+      + `${m.tts?'<span class="tag">tts</span>':''}${m.music?'<span class="tag edit">music</span>':''}`;
     b.innerHTML = `<span class="mname">${esc(m.id)} ${tags}</span><span class="price">${esc(m.price)}</span>`;
     b.onclick = ()=>{ picker.onPick(m.id); closePicker(); };
     frag.appendChild(b);
@@ -472,15 +492,14 @@ const NODE_TYPES = {
   },
 
   audio: {
-    em:"🔊", title:"Text→Audio", desc:"Text → speech (TTS)",
-    modelKind:"audio", modelFilter:"tts", defModel:DEFAULT_TTS,
+    em:"🔊", title:"Text→Audio", desc:"Text → speech or music",
+    modelKind:"audio", modelFilter:"audio", defModel:DEFAULT_TTS,
     inputs:[{name:"text", type:"text"}],
     outputs:[{name:"audio", type:"audio"}], preview:"audio",
     body:(n)=>`
       ${modelFieldHTML(n)}
-      <div><label>voice</label><input data-f="voice" value="${esc(n.fields.voice ?? "Eve")}"
-        style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem" placeholder="voice id/name"/></div>
-      <div><label>text (used if no input wired)</label><textarea data-f="prompt" placeholder="Hello! This is a test.">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div data-voice></div>
+      <div><label>text / prompt (used if no input wired)</label><textarea data-f="prompt" placeholder="Hello there!  —or—  lo-fi piano beat, 120 BPM, vinyl crackle">${esc(n.fields.prompt||"")}</textarea></div>`,
     async run(n, inp, ctx){
       const text = (inp.text ?? n.fields.prompt ?? "").trim();
       if(!text) throw new Error("no text");
@@ -551,11 +570,12 @@ function buildNodeEl(n){
     mp.onclick = (e)=>{
       e.stopPropagation();
       openPicker(t.modelKind, { current:n.fields.model, filter:t.modelFilter, onPick:(id)=>{
-        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); save();
+        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshVoiceControl(n); save();
       }});
     };
     updateNodePrice(n);
   }
+  refreshVoiceControl(n);
   // header buttons
   el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
   el.querySelector('[data-act=run]').onclick  = (e)=>{ e.stopPropagation(); evaluate([n.id]); };
