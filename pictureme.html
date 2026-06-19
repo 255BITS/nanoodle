@@ -46,12 +46,24 @@
   .uploadbtns{display:flex; gap:.5rem; justify-content:center; margin-top:.7rem; flex-wrap:wrap}
 
   /* style chips */
+  .lookhead{display:flex; align-items:center; gap:.6rem; margin:0 0 .35rem}
+  .lookhead .grow{flex:1}
+  #looksMsg{font-size:.78rem; color:var(--good)}
   #styles{display:flex; gap:.5rem; flex-wrap:wrap; margin-top:.2rem}
   .chip{ user-select:none; border:1px solid var(--line); background:var(--panel2); color:var(--ink);
-        padding:.4rem .7rem; border-radius:2rem; font-size:.9rem; display:inline-flex; align-items:center; gap:.4rem;}
+        padding:.35rem .5rem .35rem .7rem; border-radius:2rem; font-size:.9rem; display:inline-flex; align-items:center; gap:.35rem;}
   .chip:hover{border-color:#3a425a}
   .chip.on{ background:linear-gradient(90deg,#7c8cff33,#ff79c633); border-color:var(--accent); color:#fff;}
   .chip .em{font-size:1rem}
+  .chip .chiptog{ background:none; border:none; color:inherit; font:inherit; cursor:pointer; padding:0; display:inline-flex; align-items:center; gap:.4rem;}
+  .chip .x{ background:none; border:none; color:inherit; cursor:pointer; font-size:1.05rem; line-height:1; opacity:.4; padding:0 .15rem; border-radius:.4rem;}
+  .chip .x:hover{ opacity:1; background:#ffffff20;}
+  .chip.add{ cursor:pointer; color:var(--dim); border-style:dashed; padding:.35rem .7rem;}
+  .chip.add:hover{ color:var(--ink); border-color:var(--accent);}
+  #addForm{display:none; gap:.4rem; flex-wrap:wrap; align-items:center; margin-top:.6rem; padding:.6rem; border:1px solid var(--line); border-radius:.6rem; background:var(--panel)}
+  #addForm input{width:auto; flex:1 1 auto}
+  #addForm #addEmoji{flex:0 0 3rem; text-align:center}
+  #addForm #addName{flex:0 0 9rem}
 
   .seg{display:inline-flex; border:1px solid var(--line); border-radius:.6rem; overflow:hidden}
   .seg button{border:none; border-radius:0; background:var(--panel2); padding:.5rem .7rem; border-left:1px solid var(--line); color:var(--dim); font-variant-numeric:tabular-nums}
@@ -86,7 +98,6 @@
   details.adv{margin-top:1rem}
   details.adv summary{cursor:pointer; color:var(--dim); font-size:.85rem}
   .advbody{margin-top:.7rem}
-  canvas#stage{display:none}
   /* zoom modal */
   #zoom{ position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
         background:#05060ae6; backdrop-filter:blur(4px); padding:2.5rem 1rem;}
@@ -134,10 +145,23 @@
 
   <!-- step 2: styles -->
   <div style="margin-top:1.4rem">
-    <label>Pick your looks <span class="muted" style="text-transform:none;letter-spacing:0">— tap a few</span></label>
+    <div class="lookhead">
+      <label style="margin:0">Pick your looks <span class="muted" style="text-transform:none;letter-spacing:0">— tap a few · add your own</span></label>
+      <span class="grow"></span>
+      <span id="looksMsg"></span>
+      <button id="shareLooks" class="link">🔗 share looks</button>
+      <button id="resetLooks" class="link">↺ reset</button>
+    </div>
     <div id="styles"></div>
+    <div id="addForm">
+      <input id="addEmoji" type="text" maxlength="2" placeholder="🙂" title="optional emoji" />
+      <input id="addName" type="text" placeholder="name (e.g. Vaporwave)" />
+      <input id="addPrompt" type="text" placeholder="describe the look — e.g. 80s neon, chrome, retro grid sunset" />
+      <button id="addSave" class="btn">add look</button>
+      <button id="addCancel" class="link">cancel</button>
+    </div>
     <div style="margin-top:.9rem">
-      <label>…or describe your own <span class="muted" style="text-transform:none;letter-spacing:0">— renders on its own; Fuse is for the chips above</span></label>
+      <label>…or describe your own <span class="muted" style="text-transform:none;letter-spacing:0">— renders once; Fuse is for the chips above</span></label>
       <input id="custom" type="text" placeholder="e.g. as a 1920s silent-film star in black and white" />
     </div>
   </div>
@@ -196,8 +220,6 @@
   </div>
 </div>
 
-<canvas id="stage"></canvas>
-
 <div id="zoom">
   <div class="bar">
     <button id="zoomDl">⬇ download</button>
@@ -214,32 +236,105 @@ const CHAT_ENDPOINT = `${NANOGPT}/api/v1/chat/completions`;
 const $ = (id) => document.getElementById(id);
 
 // ---------- styles ----------
-const STYLES = [
-  { key:"renaissance", em:"🎨", name:"Renaissance", prompt:"a museum-quality Renaissance oil painting portrait, chiaroscuro lighting, fine cracked-varnish detail, rich dark background" },
-  { key:"cyberpunk",   em:"🌃", name:"Cyberpunk",   prompt:"a cinematic cyberpunk hero, neon rim light, rain-soaked night city bokeh behind, glowing holographic UI, moody teal-and-magenta grade" },
-  { key:"anime",       em:"🌀", name:"90s Anime",   prompt:"a hand-drawn 1990s anime cel, bold ink lineart, flat cel shading, dramatic speed-line background, retro film grain" },
-  { key:"clay",        em:"🧸", name:"Claymation",  prompt:"an adorable handmade claymation / stop-motion character, soft studio lighting, visible fingerprints in the clay, shallow depth of field" },
-  { key:"statue",      em:"🗿", name:"Marble",      prompt:"a flawless white Carrara marble statue bust, museum plinth, soft gallery lighting, subtle subsurface translucency" },
-  { key:"pixar",       em:"✨", name:"3D Toon",     prompt:"a charming Pixar-style 3D animated character, big expressive eyes, soft global illumination, glossy render, vibrant colors" },
-  { key:"pixel",       em:"👾", name:"Pixel Art",   prompt:"crisp 32-bit pixel-art portrait, limited retro palette, clean dithering, video-game character select screen" },
-  { key:"noir",        em:"🎬", name:"Film Noir",   prompt:"a 1940s film-noir portrait, high-contrast black and white, venetian-blind shadow stripes, cigarette smoke, dramatic key light" },
-  { key:"watercolor",  em:"💧", name:"Watercolor",  prompt:"a loose, luminous watercolor portrait, bleeding pigments, visible paper texture, soft white margins" },
-  { key:"fantasy",     em:"⚔️", name:"Fantasy Hero",prompt:"an epic fantasy RPG hero, ornate armor, glowing magical atmosphere, painterly concept-art lighting, dramatic sky" },
-  { key:"popart",      em:"💥", name:"Pop Art",     prompt:"a bold Warhol-style pop-art screenprint, flat saturated color blocks, halftone dots, thick comic outlines" },
-  { key:"vaporwave",   em:"🌴", name:"Vaporwave",   prompt:"an 80s vaporwave aesthetic, pink-and-cyan gradient, chrome text vibes, retro grid sunset, VHS glow" },
+// A small starter set — users add/remove their own, and the whole palette saves & shares by URL.
+const DEFAULT_LOOKS = [
+  { em:"🎨", name:"Renaissance", prompt:"a museum-quality Renaissance oil painting portrait, chiaroscuro lighting, fine cracked-varnish detail, rich dark background" },
+  { em:"🌃", name:"Cyberpunk",   prompt:"a cinematic cyberpunk hero, neon rim light, rain-soaked night city bokeh behind, glowing holographic UI, moody teal-and-magenta grade" },
+  { em:"🧸", name:"Claymation",  prompt:"an adorable handmade claymation / stop-motion character, soft studio lighting, visible fingerprints in the clay, shallow depth of field" },
+  { em:"🗿", name:"Marble",      prompt:"a flawless white Carrara marble statue bust, museum plinth, soft gallery lighting, subtle subsurface translucency" },
+  { em:"🌀", name:"90s Anime",   prompt:"a hand-drawn 1990s anime cel, bold ink lineart, flat cel shading, dramatic speed-line background, retro film grain" },
 ];
-const selectedStyles = new Set(["renaissance","cyberpunk","clay"]);
+
+let looks = [];                       // [{ key, em, name, prompt }]
+let selectedStyles = new Set();       // selected keys
+
+const slug = (s)=> (String(s).toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "look");
+// Rebuild looks with deterministic, de-duplicated keys so saved/shared selections line up.
+function makeLooks(raw){
+  const out=[];
+  for(const r of (raw||[])){
+    if(!r || !r.name || !r.prompt) continue;
+    let key=slug(r.name), i=1; while(out.some(s=>s.key===key)) key=slug(r.name)+"-"+(++i);
+    out.push({ key, em:(r.em||"✨").trim()||"✨", name:String(r.name).trim(), prompt:String(r.prompt).trim() });
+  }
+  return out;
+}
+
+// ---- persistence + share-by-URL ----
+const b64urlEnc = (str)=> btoa(unescape(encodeURIComponent(str))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const b64urlDec = (b)=> decodeURIComponent(escape(atob(b.replace(/-/g,"+").replace(/_/g,"/"))));
+function looksPayload(){ return { v:1, looks:looks.map(({em,name,prompt})=>({em,name,prompt})), sel:[...selectedStyles] }; }
+function persistLooks(){ try{ localStorage.setItem("pm_looks", JSON.stringify(looksPayload())); }catch{} }
+function decodeLooksFromHash(){
+  const m = location.hash.match(/looks=([^&]+)/); if(!m) return null;
+  try{ const p=JSON.parse(b64urlDec(m[1])); return (p && Array.isArray(p.looks) && p.looks.length) ? p : null; }catch{ return null; }
+}
+function loadLooks(){
+  const fromHash = decodeLooksFromHash();
+  const fromSaved = (()=>{ try{ return JSON.parse(localStorage.getItem("pm_looks")||"null"); }catch{ return null; } })();
+  const src = fromHash || (fromSaved && fromSaved.looks?.length ? fromSaved : { looks:DEFAULT_LOOKS, sel:null });
+  looks = makeLooks(src.looks);
+  const keys = new Set(looks.map(l=>l.key));
+  selectedStyles = new Set((src.sel && src.sel.length ? src.sel : looks.slice(0,3).map(l=>l.key)).filter(k=>keys.has(k)));
+  return fromHash ? "link" : (fromSaved ? "saved" : "default");
+}
+
+let looksMsgT=0;
+function looksMsg(text){ const el=$("looksMsg"); el.textContent=text; const id=++looksMsgT; setTimeout(()=>{ if(id===looksMsgT) el.textContent=""; }, 2500); }
 
 function renderStyles(){
   const wrap = $("styles"); wrap.innerHTML = "";
-  for(const s of STYLES){
-    const b = document.createElement("button");
-    b.className = "chip" + (selectedStyles.has(s.key) ? " on" : "");
-    b.innerHTML = `<span class="em">${s.em}</span>${s.name}`;
-    b.onclick = () => { selectedStyles.has(s.key) ? selectedStyles.delete(s.key) : selectedStyles.add(s.key); renderStyles(); updateGo(); };
-    wrap.appendChild(b);
+  for(const s of looks){
+    const chip = document.createElement("span");
+    chip.className = "chip" + (selectedStyles.has(s.key) ? " on" : "");
+    const tog = document.createElement("button");
+    tog.className = "chiptog"; tog.title = s.prompt;
+    tog.innerHTML = `<span class="em">${esc(s.em)}</span>${esc(s.name)}`;
+    tog.onclick = ()=>{ selectedStyles.has(s.key) ? selectedStyles.delete(s.key) : selectedStyles.add(s.key); persistLooks(); renderStyles(); updateGo(); };
+    const x = document.createElement("button");
+    x.className = "x"; x.textContent = "×"; x.title = "remove this look";
+    x.onclick = (e)=>{ e.stopPropagation(); removeLook(s.key); };
+    chip.append(tog, x);
+    wrap.appendChild(chip);
   }
+  const add = document.createElement("button");
+  add.className = "chip add"; add.textContent = "＋ add look";
+  add.onclick = ()=> showAddForm(true);
+  wrap.appendChild(add);
 }
+function removeLook(key){
+  looks = looks.filter(s=>s.key!==key); selectedStyles.delete(key);
+  persistLooks(); renderStyles(); updateGo();
+}
+function showAddForm(on){
+  $("addForm").style.display = on ? "flex" : "none";
+  if(on) $("addName").focus();
+}
+function addLook(){
+  const name=$("addName").value.trim(), prompt=$("addPrompt").value.trim();
+  if(!name || !prompt){ looksMsg("name + description needed"); return; }
+  const em=$("addEmoji").value.trim()||"✨";
+  let key=slug(name), i=1; while(looks.some(s=>s.key===key)) key=slug(name)+"-"+(++i);
+  looks.push({ key, em, name, prompt }); selectedStyles.add(key);
+  $("addEmoji").value=$("addName").value=$("addPrompt").value="";
+  showAddForm(false); persistLooks(); renderStyles(); updateGo();
+}
+function resetLooks(){
+  if(!confirm("Reset looks to the defaults? Custom looks here will be removed.")) return;
+  looks=makeLooks(DEFAULT_LOOKS); selectedStyles=new Set(looks.slice(0,3).map(l=>l.key));
+  persistLooks(); renderStyles(); updateGo();
+}
+async function shareLooks(){
+  const url = location.origin + location.pathname + "#looks=" + b64urlEnc(JSON.stringify(looksPayload()));
+  history.replaceState(null, "", url);
+  try{ await navigator.clipboard.writeText(url); looksMsg(`🔗 link copied · ${looks.length} looks`); }
+  catch{ looksMsg("link is in the address bar"); }
+}
+$("addSave").onclick = addLook;
+$("addCancel").onclick = ()=> showAddForm(false);
+$("addPrompt").addEventListener("keydown", (e)=>{ if(e.key==="Enter") addLook(); });
+$("shareLooks").onclick = shareLooks;
+$("resetLooks").onclick = resetLooks;
 
 // ---------- image-edit models: loaded LIVE from NanoGPT so new models appear automatically ----------
 // Fetched at boot from /api/v1/image-models (CORS-open, public), filtered to models that can edit a
@@ -497,7 +592,7 @@ $("camBtn").onclick = async ()=>{
 
 // ---------- run ----------
 const customText = () => $("custom").value.trim();
-function chipStyles(){ return STYLES.filter(s=>selectedStyles.has(s.key)); }   // the selected chips (what Fuse blends)
+function chipStyles(){ return looks.filter(s=>selectedStyles.has(s.key)); }   // the selected chips (what Fuse blends)
 function activeStyles(){                                                       // chips + your-own (what Transform renders)
   const out = chipStyles();
   const c = customText();
@@ -568,9 +663,8 @@ async function renderInto(el, style, job, fresh){
     wrap.querySelector("img").onclick = ()=> openZoom(img.url, style);
     stats.count++; stats.cost+=img.cost; if(!img.exact) stats.exact=false; if(img.balance!=null) stats.balance=img.balance; paintMeter();
     acts.append(
-      mkBtn("⬇ share card", ()=> shareCard(img.url, style)),
-      mkBtn("⬇ image", ()=> download(img.url, `pictureme-${style.key}.png`)),
-      mkBtn("↻", ()=> regen(el, style)),
+      mkBtn("⬇ download", ()=> download(img.url, `pictureme-${style.key}.png`)),
+      mkBtn("↻ regenerate", ()=> regen(el, style)),
     );
   }catch(e){
     el.classList.add("fail");
@@ -653,34 +747,12 @@ addEventListener("keydown", (e)=>{ if(e.key==="Escape" && $("zoom").classList.co
 
 // ---------- export ----------
 function download(url, name){ const a=document.createElement("a"); a.href=url; a.download=name; a.click(); }
-function shareCard(imgUrl, style){
-  const W=1080, H=1350, c=$("stage"); c.width=W; c.height=H;
-  const ctx=c.getContext("2d");
-  const img=new Image();
-  img.onload=()=>{
-    ctx.fillStyle="#0b0d12"; ctx.fillRect(0,0,W,H);
-    // cover-fit the image into the top area
-    const area={x:48,y:48,w:W-96,h:H-220};
-    const s=Math.max(area.w/img.width, area.h/img.height);
-    const dw=img.width*s, dh=img.height*s, dx=area.x+(area.w-dw)/2, dy=area.y+(area.h-dh)/2;
-    ctx.save(); roundRect(ctx,area.x,area.y,area.w,area.h,28); ctx.clip();
-    ctx.drawImage(img,dx,dy,dw,dh); ctx.restore();
-    // title
-    ctx.fillStyle="#fff"; ctx.textAlign="left";
-    ctx.font="700 64px system-ui,sans-serif";
-    ctx.fillText(`${style.em} ${style.name}`, 56, H-96);
-    // watermark
-    ctx.fillStyle="#7c8cff"; ctx.font="600 28px ui-monospace,monospace"; ctx.textAlign="right";
-    ctx.fillText("Picture Me As… · nano-gpt.com", W-48, H-48);
-    download(c.toDataURL("image/png"), `pictureme-${style.key}-card.png`);
-  };
-  img.src=imgUrl;
-}
-function roundRect(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
 
 // ---------- boot ----------
 (async ()=>{
+  const looksSrc = loadLooks();                     // URL hash > saved > defaults
   renderStyles();
+  if(looksSrc==="link"){ looksMsg(`loaded ${looks.length} looks from link`); persistLooks(); }
   populateImgSelect();                              // show the fallback lists immediately…
   populateFuseSelect();
   ["imgModel","imgModelCustom"].forEach(id=> $(id).addEventListener("input", updateGo));
