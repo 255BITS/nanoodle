@@ -622,6 +622,7 @@ window.NoodleApp = (function () {
     const all = new Set(graph.nodes.map(n=>n.id));
     const ids = ancestors(graph, all);                 // everything (no seed subset → run whole graph)
     const r = topoOrder(graph, ids);
+    if(opts.onStart) opts.onStart(r.order.slice());
     r.cyclic.forEach(id=> onStatus && onStatus(id, "error", "cycle detected"));
     graph.nodes.forEach(n=>{ n.out = {}; });           // fresh run
     for(const id of r.order){
@@ -661,7 +662,7 @@ window.NoodleApp = (function () {
     text:   [{ f:"text",   label:"Text",         kind:"textarea" }],
     upload: [{ f:"image",  label:"Image",        kind:"image" }],
     llm:    [{ f:"prompt", label:"Prompt",       kind:"textarea" },
-             { f:"system", label:"System (optional)", kind:"textarea", optional:true }],
+             { f:"system", label:"System prompt", kind:"textarea", optional:true, def:"You are a helpful, concise assistant." }],
     image:  [{ f:"prompt", label:"Image prompt", kind:"textarea" }],
     tvideo: [{ f:"prompt", label:"Video prompt", kind:"textarea" }],
     music:  [{ f:"prompt", label:"Style / prompt", kind:"textarea" }],
@@ -675,7 +676,7 @@ window.NoodleApp = (function () {
         // satisfied if a link feeds this field (fieldOverrides) → hide the control
         const fed = graph.links.some(l=> l.to.node===n.id && l.to.port===s.f);
         if(fed) continue;
-        out.push({ nodeId:n.id, field:s.f, label:s.label, kind:s.kind, optional:!!s.optional,
+        out.push({ nodeId:n.id, field:s.f, label:s.label, kind:s.kind, optional:!!s.optional, def:s.def,
                    node:n, title:NODE_TYPES[n.type].title, em:NODE_TYPES[n.type].em });
       }
     }
@@ -701,23 +702,40 @@ window.NoodleApp = (function () {
     return new Promise((res, rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>rej(new Error("read failed")); fr.readAsDataURL(file); });
   }
 
+  function fieldHtml(it, i){
+    const id = "in_"+i;
+    let cur = it.node.fields[it.field];
+    // Optional fields ship pre-filled with a sensible default so they read as
+    // ready-to-go (and are written onto the graph so a run uses them as-is).
+    if(it.optional && (cur==null || cur==="") && it.def){ cur = it.def; it.node.fields[it.field] = it.def; }
+    let ctrl;
+    if(it.kind==="textarea")
+      ctrl = '<textarea id="'+id+'" data-i="'+i+'" placeholder="'+esc(it.label)+'">'+esc(cur||"")+'</textarea>';
+    else if(it.kind==="image")
+      ctrl = '<div class="imgin">'
+           + '<div class="file-prev" data-prev="'+i+'">'+(cur ? '<img src="'+esc(cur)+'" alt="">' : '<span class="muted">no image</span>')+'</div>'
+           + '<input type="file" accept="image/*" id="'+id+'" data-i="'+i+'">'
+           + '</div>';
+    else
+      ctrl = '<input id="'+id+'" data-i="'+i+'" value="'+esc(cur||"")+'" placeholder="'+esc(it.label)+'">';
+    return '<div class="field"><label for="'+id+'">'+esc(it.em)+' '+esc(it.label)+'</label>'+ctrl+'</div>';
+  }
   function renderInputs(){
     const box = $("app-inputs"); if(!box) return;
     if(!STATE.inputs.length){ box.innerHTML = '<p class="muted">This app takes no inputs — just press Run.</p>'; return; }
-    box.innerHTML = STATE.inputs.map((it,i)=>{
-      const id = "in_"+i, cur = it.node.fields[it.field];
-      let ctrl;
-      if(it.kind==="textarea")
-        ctrl = '<textarea id="'+id+'" data-i="'+i+'" placeholder="'+esc(it.label)+'">'+esc(cur||"")+'</textarea>';
-      else if(it.kind==="image")
-        ctrl = '<div class="imgin">'
-             + '<div class="file-prev" data-prev="'+i+'">'+(cur ? '<img src="'+esc(cur)+'" alt="">' : '<span class="muted">no image</span>')+'</div>'
-             + '<input type="file" accept="image/*" id="'+id+'" data-i="'+i+'">'
-             + '</div>';
-      else
-        ctrl = '<input id="'+id+'" data-i="'+i+'" value="'+esc(cur||"")+'" placeholder="'+esc(it.label)+'">';
-      return '<div class="field"><label for="'+id+'">'+esc(it.em)+' '+esc(it.label)+'</label>'+ctrl+'</div>';
-    }).join("");
+    const req = [], opt = [];
+    STATE.inputs.forEach((it,i)=>{ (it.optional ? opt : req).push(i); });
+    // Mandatory fields first; optional ones tucked into a collapsed, pre-filled disclosure below.
+    let html = req.map(i=> fieldHtml(STATE.inputs[i], i)).join("");
+    if(opt.length){
+      html += '<details class="opt">'
+            + '<summary><span class="opt-tw">▸</span> Optional settings'
+            + '<span class="opt-count">'+opt.length+'</span>'
+            + '<span class="opt-hint">pre-filled — tap to adjust</span></summary>'
+            + '<div class="opt-body">' + opt.map(i=> fieldHtml(STATE.inputs[i], i)).join("") + '</div>'
+            + '</details>';
+    }
+    box.innerHTML = html;
     // wire controls back onto the live graph fields
     box.querySelectorAll("textarea[data-i],input[data-i]").forEach(el=>{
       const it = STATE.inputs[+el.dataset.i];
@@ -734,15 +752,74 @@ window.NoodleApp = (function () {
     });
   }
 
+  /* ---------- status + progress UI ----------
+     #app-status hosts a segmented progress bar (#app-prog) that shows which
+     step of the run we're on with a live elapsed timer (runs can take ~a
+     minute), plus a message area (#app-msg) for sign-in / fatal errors. */
+  function ensureStatus(){
+    const box = $("app-status"); if(!box) return null;
+    if(!box.querySelector("#app-prog"))
+      box.innerHTML = '<div id="app-prog" class="prog" hidden></div><div id="app-msg" class="msg-area"></div>';
+    return box;
+  }
   function statusLine(id, kind, msg){
-    const box = $("app-status"); if(!box) return;
+    ensureStatus(); const box = $("app-msg"); if(!box) return;
     let row = box.querySelector('[data-st="'+id+'"]');
     if(!row){ row = document.createElement("div"); row.className="stline"; row.dataset.st=id; box.appendChild(row); }
-    const n = STATE.graph.byId(id);
-    const t = n ? NODE_TYPES[n.type] : null;
-    row.dataset.kind = kind;
     row.className = "stline " + esc(kind);
-    row.innerHTML = '<b>'+esc(t ? (t.em + " " + t.title) : id)+'</b> <span class="msg">'+esc(msg||"")+'</span>';
+    row.innerHTML = '<span class="msg">'+esc(msg||"")+'</span>';
+  }
+
+  let PROG = null, progTimer = null;
+  function fmtClock(ms){
+    const s = Math.max(0, Math.round(ms/1000)), m = Math.floor(s/60);
+    return m ? (m + ":" + String(s%60).padStart(2,"0")) : (s + "s");
+  }
+  function stepLabel(id){
+    const n = STATE.graph.byId(id), t = n ? NODE_TYPES[n.type] : null;
+    return t ? (t.em + " " + t.title) : id;
+  }
+  function startProgress(){
+    PROG = { order:[], state:{}, curId:null, curT0:0, t0:Date.now() };
+    ensureStatus(); const p = $("app-prog"); if(p) p.hidden = false;
+    clearInterval(progTimer); progTimer = setInterval(paintProgress, 1000);
+    paintProgress();
+  }
+  function stopProgress(){ clearInterval(progTimer); progTimer = null; paintProgress(); }
+  function onStep(id, kind, msg){
+    if(!PROG) return;
+    PROG.state[id] = { kind:kind, msg:msg };
+    if(kind==="run" && PROG.curId!==id){ PROG.curId = id; PROG.curT0 = Date.now(); }
+    paintProgress();
+  }
+  function paintProgress(){
+    const box = $("app-prog"); if(!box || !PROG) return;
+    const order = PROG.order || [], total = order.length;
+    let done = 0, errs = 0;
+    const segs = order.map(function(id){
+      const s = PROG.state[id]; let cls = "seg";
+      if(s && s.kind==="done"){ cls += " done"; done++; }
+      else if(s && s.kind==="error"){ cls += " error"; done++; errs++; }
+      else if(s && s.kind==="run"){ cls += " active"; }
+      return '<span class="'+cls+'"></span>';
+    }).join("");
+    const running = progTimer != null;
+    let now = "";
+    if(running && PROG.curId != null){
+      const cur = PROG.state[PROG.curId] || {}, idx = order.indexOf(PROG.curId) + 1;
+      now = '<div class="prog-now">'
+          + '<span class="prog-step">Step ' + idx + ' / ' + total + '</span>'
+          + '<b class="prog-node">' + esc(stepLabel(PROG.curId)) + '</b>'
+          + '<span class="prog-msg">' + esc(cur.msg || "working…") + '</span>'
+          + '<span class="prog-el">' + fmtClock(Date.now()-PROG.curT0) + '</span>'
+          + '</div>';
+    } else if(!running && total){
+      const tot = fmtClock(Date.now()-PROG.t0);
+      now = errs
+        ? '<div class="prog-now is-err">Finished with ' + errs + ' error' + (errs>1?"s":"") + ' · ' + done + '/' + total + ' steps · ' + tot + '</div>'
+        : '<div class="prog-now is-ok">✓ Done · ' + total + ' step' + (total!==1?"s":"") + ' · ' + tot + '</div>';
+    }
+    box.innerHTML = '<div class="prog-track">' + segs + '</div>' + now;
   }
 
   function renderResult(n){
@@ -766,19 +843,25 @@ window.NoodleApp = (function () {
     if(running) return;
     const btn = $("app-run");
     if(!hasAuth()){ statusLine("__auth__","error", EMBEDDED ? "Sign in from the bar at the top to run this app." : "Sign in or paste an API key first."); return; }
-    running = true; if(btn) btn.disabled = true;
-    const sbox = $("app-status"), obox = $("app-output");
-    if(sbox) sbox.innerHTML = ""; if(obox) obox.innerHTML = "";
+    running = true;
+    const lbl = btn ? btn.textContent : null;
+    if(btn){ btn.disabled = true; btn.textContent = "Running…"; }
+    ensureStatus();
+    const mbox = $("app-msg"), obox = $("app-output");
+    if(mbox) mbox.innerHTML = ""; if(obox) obox.innerHTML = "";
+    startProgress();
     const outIds = new Set(STATE.outputs.map(n=>n.id));
     try{
       await runGraph(STATE.graph, {
-        onStatus: statusLine,
+        onStart: (order)=>{ if(PROG) PROG.order = order; paintProgress(); },
+        onStatus: onStep,
         onResult: (n)=>{ if(outIds.has(n.id)) renderResult(n); },
       });
     }catch(err){
       statusLine("__run__","error", err.message || String(err));
     }finally{
-      running = false; if(btn) btn.disabled = false;
+      running = false; if(btn){ btn.disabled = false; if(lbl!=null) btn.textContent = lbl; }
+      stopProgress();
     }
   }
 
@@ -827,8 +910,10 @@ window.NoodleApp = (function () {
     // Embedded in the builder, auth belongs to the parent (it holds the key and proxies
     // calls) — the app never takes a key of its own, so just reflect the parent's state.
     if(EMBEDDED){
+      // The builder's top bar already shows auth state — keep the app header clean
+      // (no "signed in" indicator) and only nudge when not yet signed in.
       box.innerHTML = parentAuthed
-        ? '<span class="authok">signed in ✓</span>'
+        ? ''
         : '<span class="dim">sign in from the bar at the top to run this app</span>';
       return;
     }
@@ -885,9 +970,6 @@ window.NoodleApp = (function () {
 
     const runBtn = $("app-run");
     if(runBtn) runBtn.addEventListener("click", run);
-
-    const shareBtn = $("app-share");
-    if(shareBtn) shareBtn.addEventListener("click", ()=>{ try{ parent.postMessage({type:"__share__"}, "*"); }catch(_){} });
 
     if(!graph.nodes.length){
       const sbox = $("app-status");
@@ -951,10 +1033,6 @@ function defaultFiles(graph){
   </div>
 
   <section id="app-output" class="output"></section>
-
-  <footer class="app-foot">
-    <button id="app-share" class="share">🔗 Share this app</button>
-  </footer>
 </main>
 
 <!-- include-config: graph.json -->
@@ -1010,10 +1088,37 @@ body{ background:
 .output img, .output video, .output audio{ width:100%; border-radius:.5rem; display:block; }
 .output .text{ white-space:pre-wrap; line-height:1.6; }
 
-.app-foot{ margin-top:2.2rem; padding-top:1.1rem; border-top:1px solid var(--line); }
-.share{ font:inherit; font-size:.82rem; background:none; border:1px solid var(--line);
-  color:var(--accent); border-radius:.5rem; padding:.45rem .8rem; cursor:pointer; }
-.share:hover{ border-color:var(--accent-line); }
+/* progress — segmented bar (one cell per run step) + live current-step line */
+.prog[hidden]{ display:none; }
+.prog{ width:100%; }
+.prog-track{ display:flex; gap:4px; height:8px; margin-bottom:.55rem; }
+.seg{ flex:1; border-radius:99px; background:var(--line); transition:background .25s; }
+.seg.done{ background:var(--ok); }
+.seg.error{ background:var(--danger); }
+.seg.active{ background:linear-gradient(90deg,var(--accent-line),var(--accent),var(--accent-line));
+  background-size:200% 100%; animation:prog-shimmer 1.1s linear infinite; }
+@keyframes prog-shimmer{ 0%{ background-position:200% 0; } 100%{ background-position:-200% 0; } }
+.prog-now{ display:flex; align-items:center; gap:.55rem; flex-wrap:wrap; font-size:.82rem; color:var(--ink); }
+.prog-step{ font-variant-numeric:tabular-nums; color:var(--dim); font-size:.72rem; letter-spacing:.04em; text-transform:uppercase; }
+.prog-node{ font-weight:700; }
+.prog-msg{ color:var(--dim); }
+.prog-el{ margin-left:auto; font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.78rem;
+  color:var(--faint); font-variant-numeric:tabular-nums; }
+.prog-now.is-ok{ color:var(--ok); } .prog-now.is-err{ color:var(--danger); }
+.msg-area{ display:flex; flex-direction:column; gap:.2rem; }
+.msg-area .stline.error{ color:var(--danger); } .msg-area .stline.done{ color:var(--ok); }
+
+/* optional inputs — collapsed, pre-filled disclosure under the mandatory fields */
+.opt{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); }
+.opt > summary{ list-style:none; cursor:pointer; user-select:none; display:flex; align-items:center; gap:.5rem;
+  padding:.6rem .8rem; font-size:.82rem; color:var(--dim); }
+.opt > summary::-webkit-details-marker{ display:none; }
+.opt > summary:hover{ color:var(--ink); }
+.opt-tw{ display:inline-block; color:var(--faint); transition:transform .15s; }
+.opt[open] .opt-tw{ transform:rotate(90deg); }
+.opt-count{ background:var(--panel2); border:1px solid var(--line); border-radius:99px; padding:0 .45rem; font-size:.72rem; }
+.opt-hint{ margin-left:auto; font-size:.72rem; color:var(--faint); }
+.opt-body{ display:flex; flex-direction:column; gap:1rem; padding:.2rem .8rem .85rem; }
 `;
 
   return { "index.html": indexHtml, "app.css": appCss };
@@ -1171,7 +1276,7 @@ function renderPicker(){
    -> push version -> re-render. The CONTRACT keeps the mount-point ids and
    build markers intact so the engine can never be broken by a diff.
    ====================================================================== */
-const MOUNT_IDS = ["app-title","app-tagline","app-auth","app-inputs","app-run","app-status","app-output","app-share"];
+const MOUNT_IDS = ["app-title","app-tagline","app-auth","app-inputs","app-run","app-status","app-output"];
 const CONTRACT =
 `You are restyling a small single-purpose web app. You may edit ONLY two files: index.html and app.css.
 You may restyle, re-layout, and rewrite the visible copy (titles, tagline, button labels, helper text).
