@@ -47,6 +47,14 @@
   #addpop .d{font-size:.74rem; color:var(--dim)}
   #status{font-size:.78rem; color:var(--dim)}
   #share.ok{ border-color:var(--good); color:var(--good) }
+  /* create-app popup (play.html in a modal iframe over the editor) */
+  #appmodal[hidden]{ display:none }
+  #appmodal{ position:fixed; inset:0; z-index:200; display:flex; padding:min(4vh,2.4rem) min(4vw,2.4rem);
+             background:rgba(4,6,11,.74); backdrop-filter:blur(3px); }
+  #appmodalframe{ margin:auto; width:100%; height:100%; max-width:1180px; border:1px solid var(--line);
+                  border-radius:.8rem; background:var(--bg); box-shadow:0 30px 90px #000a; }
+  #appmodalclose{ position:absolute; top:.7rem; right:.9rem; z-index:2; width:2.1rem; height:2.1rem; border-radius:.55rem;
+                  display:flex; align-items:center; justify-content:center; font-size:1.05rem; }
   /* toast — a clearly-visible transient confirmation */
   #toast{ position:fixed; top:64px; left:50%; transform:translateX(-50%) translateY(-14px) scale(.98); z-index:80;
           display:flex; align-items:center; gap:.5rem; max-width:min(92vw,560px);
@@ -190,12 +198,12 @@
     <button id="addbtn">＋ Add node ▾</button>
     <div id="addpop"></div>
   </div>
-  <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run all</button>
-  <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Copy share link</button>
+  <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run</button>
+  <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Share</button>
+  <button id="makeapp" title="Turn this workflow into a shareable app">✨ Create app</button>
   <button id="save" title="download this graph as JSON">⭳ Save</button>
   <button id="load" title="open a graph JSON file">⭱ Load</button>
   <input id="loadfile" type="file" accept="application/json,.json" hidden />
-  <button id="clear">Clear</button>
   <div class="sep"></div>
   <span id="cost"></span>
   <div class="spacer"></div>
@@ -224,6 +232,12 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Create-app popup: play.html embedded over the editor -->
+<div id="appmodal" hidden>
+  <button id="appmodalclose" title="Close (Esc)">✕</button>
+  <iframe id="appmodalframe" title="Create app" allow="clipboard-write; fullscreen"></iframe>
+</div>
 
 <div id="editor">
   <svg id="wires"></svg>
@@ -1042,9 +1056,8 @@ window.addEventListener("resize", redraw);
    ====================================================================== */
 const stats = { count:0, cost:0, exact:true, balance:null };
 function paintCost(){
-  if(!stats.count){ $("cost").textContent=""; return; }
-  const bal = stats.balance!=null ? ` · bal $${stats.balance.toFixed(2)}` : "";
-  $("cost").innerHTML = `${stats.exact?"":"~"}$<b>${stats.cost.toFixed(4)}</b> · ${stats.count} call${stats.count===1?"":"s"}${bal}`;
+  if(stats.balance==null){ $("cost").textContent=""; return; }   // show only the running balance
+  $("cost").innerHTML = `bal $<b>${stats.balance.toFixed(2)}</b>`;
 }
 
 function ancestors(targets){
@@ -1270,7 +1283,6 @@ function spawnCenter(type){
 $("addbtn").onclick = (e)=>{ e.stopPropagation(); $("addpop").classList.toggle("open"); };
 document.addEventListener("click", e=>{ if(!$("addmenu").contains(e.target)) $("addpop").classList.remove("open"); });
 $("run").onclick = runAll;
-$("clear").onclick = ()=>{ if(confirm("Clear the whole graph?")){ graph={nodes:[],links:[]}; world.innerHTML=""; redraw(); save(); } };
 
 // picker interactions
 $("mpicksearch").addEventListener("input", renderPicker);
@@ -1410,6 +1422,24 @@ async function loadFromHash(){
   }catch{ return false; }
 }
 $("share").onclick = ()=> shareUrl().catch(e=> flash("share failed: "+e.message));
+// Turn this workflow into a standalone app (play.html). Hand off the graph via the
+// existing #g= packing; stash a localStorage copy as a belt-and-suspenders fallback.
+// Open the app builder as a popup over the editor (play.html in a modal iframe), so it
+// feels cohesive instead of a separate tab. Same-origin → it shares the signed-in key.
+function closeAppModal(){ $("appmodal").hidden = true; $("appmodalframe").src = "about:blank"; }
+function openAppModal(hash){ $("appmodalframe").src = "play.html"+hash; $("appmodal").hidden = false; }
+$("makeapp").onclick = async ()=>{
+  if(!graph.nodes.length){ flash("add a node first"); return; }
+  const json = JSON.stringify(serializeGraph());
+  try{ localStorage.setItem("noodle_app_handoff", json); }catch{}
+  const packed = await gzip(json).catch(()=>null);
+  const hash = packed ? "#g="+bytesToB64url(packed) : "#j="+bytesToB64url(new TextEncoder().encode(json));
+  openAppModal(hash);
+};
+$("appmodalclose").onclick = closeAppModal;
+$("appmodal").addEventListener("click", e=>{ if(e.target.id==="appmodal") closeAppModal(); });   // click the dim backdrop
+addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("appmodal").hidden) closeAppModal(); });
+addEventListener("message", e=>{ if(e.source===$("appmodalframe").contentWindow && e.data && e.data.type==="__closeapp__") closeAppModal(); });
 function seed(){
   const a = addNode("text", 60, 80, { text:"a cozy ramen shop on a rainy neon street, cinematic" });
   const b = addNode("image", 360, 60);

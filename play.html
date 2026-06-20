@@ -1,0 +1,1540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>My NaNoodle app</title>
+<link rel="icon" href="/favicon.ico" sizes="any" />
+<meta name="theme-color" content="#0d0f17" />
+<style>
+  /* Builder chrome — dark theme tokens mirror index.html, accent #7c8cff. */
+  :root{
+    color-scheme: dark;
+    --bg:#0d0f17; --panel:#161a27; --panel2:#1d2236; --line:#2a3150;
+    --ink:#e6e9f5; --dim:#8b93b4; --faint:#5d6788;
+    --accent:#7c8cff; --accent-soft:#7c8cff22; --accent-line:#7c8cff66;
+    --ok:#46d27a; --danger:#ff6b6b;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--bg); color:var(--ink); font:15px/1.5 ui-sans-serif, system-ui, sans-serif;
+        display:flex; flex-direction:column; }
+  a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
+  .dim{ color:var(--dim); } .grow{ flex:1; }
+
+  /* ---------- top bar ---------- */
+  #bar{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+        padding:.55rem .8rem; border-bottom:1px solid var(--line);
+        background:linear-gradient(180deg,#161a27,#11141f);
+        position:relative; z-index:70; }   /* stays above the first-run overlay (sign-in / Share remain usable) */
+  .brand{ font-weight:800; letter-spacing:.02em; }
+  .brand .nano{ color:var(--accent); } .brand .ui{ color:var(--dim); font-weight:600; }
+  .title-wrap{ max-width:42ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+               color:var(--ink); font-weight:600; opacity:.9; }
+  #bar .status{ font-size:.76rem; color:var(--dim); }
+  #bar .sep{ width:1px; height:20px; background:var(--line); margin:0 .25rem; }
+  #bar button{ font-size:.82rem; padding:.4rem .7rem; border-radius:.5rem;
+               border:1px solid var(--line); background:var(--panel2); color:var(--ink); cursor:pointer; }
+  #bar button:hover{ border-color:var(--accent-line); }
+  button.link{ background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font-size:.8rem; }
+  #signin{ font-size:.8rem; }
+
+  /* ---------- paste-key row ---------- */
+  #key{ display:none; align-items:center; gap:.5rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); background:#11141f; position:relative; z-index:70; }
+  #key input{ max-width:420px; flex:0 1 420px; }
+  input{ font:inherit; padding:.5rem .65rem; border-radius:.5rem; background:#0b0e18; border:1px solid var(--line); color:var(--ink); }
+  input:focus{ outline:none; border-color:var(--accent-line); box-shadow:0 0 0 3px var(--accent-soft); }
+
+  /* ---------- customize composer (docked at the BOTTOM) ---------- */
+  #customize{ padding:.6rem .8rem; border-top:1px solid var(--line); background:#11141f; }
+  .cust-row{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .cust-label{ font-size:.82rem; color:var(--dim); font-weight:600; }
+  #goal{ flex:1; min-width:240px; }
+  #fr-head{ display:none; }
+  #fr-skip{ display:none; }
+
+  /* ---------- first run: lead with a centered "describe your app" prompt ----------
+     The same composer floats over the (dim) default app; after the first generate it
+     drops back into its docked place at the bottom. */
+  body.firstrun #customize{ position:fixed; inset:0; z-index:60; border:0; background:rgba(6,8,15,.72);
+        backdrop-filter:blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; }
+  body.firstrun .cust-row{ width:min(720px,88vw); }
+  body.firstrun .cust-label{ display:none; }
+  body.firstrun #goal{ font-size:1.05rem; padding:.7rem .9rem; }
+  body.firstrun #cust-status{ width:min(720px,88vw); text-align:center; }
+  body.firstrun #versions{ display:none; }
+  body.firstrun #undo{ display:none; }
+  body.firstrun #fr-head{ display:block; width:min(720px,88vw); font-size:1.25rem; font-weight:800; margin-bottom:.5rem; }
+  body.firstrun #fr-head .sub{ display:block; font-size:.85rem; font-weight:400; color:var(--dim); margin-top:.25rem; }
+  body.firstrun #fr-skip{ display:inline-block; margin-top:.7rem; font-size:.8rem; color:var(--dim); cursor:pointer; background:none; border:0; }
+  body.firstrun #fr-skip:hover{ color:var(--ink); text-decoration:underline; }
+  button.primary{ font:inherit; font-weight:700; padding:.5rem 1rem; border-radius:.5rem; cursor:pointer;
+                  background:linear-gradient(180deg,#8b97ff,#6573ef); border:1px solid #8b97ff; color:#0b0e18;
+                  box-shadow:0 0 22px #7c8cff33; }
+  button.primary:hover{ box-shadow:0 0 30px #7c8cff55; }
+  button.primary:disabled{ opacity:.5; box-shadow:none; cursor:default; }
+  button.ghost{ font:inherit; padding:.5rem .8rem; border-radius:.5rem; border:1px solid var(--line);
+                background:var(--panel2); color:var(--ink); cursor:pointer; }
+  button.ghost:disabled{ opacity:.45; cursor:default; }
+  #cust-status{ font-size:.78rem; min-height:1.1em; margin-top:.4rem; }
+  #cust-status .ok{ color:var(--ok); } #cust-status .err{ color:var(--danger); }
+  #cust-status .meter{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim); opacity:.9; white-space:nowrap; }
+  .spin{ display:inline-block; animation:spin 1s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- version strip (index.html .ver pattern, re-themed) ---------- */
+  #versions{ display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-top:.45rem; }
+  #versions:empty{ display:none; }
+  #versions .vlabel{ font-size:.78rem; color:var(--faint); margin-right:.15rem; }
+  .ver{ font:inherit; font-size:.78rem; padding:.2rem .6rem; border-radius:1rem; border:1px solid var(--line);
+        background:var(--panel2); color:var(--ink); cursor:pointer; }
+  .ver:hover{ border-color:var(--accent-line); }
+  .ver.cur{ background:var(--accent-soft); border-color:var(--accent-line); color:var(--accent); font-weight:600; }
+  .ver.seed{ font-style:italic; opacity:.85; }
+
+  /* ---------- the app stage ---------- */
+  #stage{ flex:1; position:relative; background:#06080f; min-height:0; }
+  #appframe{ position:absolute; inset:0; width:100%; height:100%; border:0; background:#06080f; }
+  #appframe:fullscreen{ background:#06080f; }
+  /* explicit display on an #id beats the [hidden] UA rule, so gate it — otherwise the
+     placeholder stays as a full-stage overlay on top of a loaded app and eats clicks (Run). */
+  #empty{ position:absolute; inset:0; }
+  #empty:not([hidden]){ display:flex; align-items:center; justify-content:center; }
+  .empty-card{ text-align:center; max-width:42ch; }
+  .empty-card h2{ font-size:1.15rem; margin:0 0 .4rem; }
+  .ghost-link{ display:inline-block; margin-top:.8rem; }
+
+  /* ---------- model picker (ported from the editor) ---------- */
+  #mpickback{ position:fixed; inset:0; z-index:75; background:#0008; display:none; }   /* above bar(70) + firstrun(60) */
+  #mpickback.show{ display:block; }
+  #mpick{ position:fixed; top:8vh; left:50%; transform:translateX(-50%); z-index:80; display:none; flex-direction:column;
+          width:min(640px,94vw); max-height:80vh; background:var(--panel); border:1px solid var(--line);
+          border-radius:.7rem; box-shadow:0 24px 80px #000a; overflow:hidden; }
+  #mpick.open{ display:flex; }
+  #mpick .mphead{ display:flex; align-items:center; gap:.5rem; padding:.6rem .75rem; border-bottom:1px solid var(--line); }
+  #mpicksearch{ margin:.6rem .75rem .25rem; }
+  #mpicklist{ overflow:auto; padding:.4rem .55rem .65rem; display:flex; flex-direction:column; gap:.1rem; }
+  #mpicklist button{ display:flex; justify-content:space-between; gap:1rem; width:100%; text-align:left; border:0;
+          background:none; color:var(--ink); padding:.45rem .55rem; border-radius:.45rem; cursor:pointer; font:inherit; }
+  #mpicklist button:hover{ background:var(--panel2); }
+  #mpicklist button.sel{ background:var(--accent-soft); font-weight:600; }
+  #mpicklist .mname{ min-width:0; word-break:break-all; }
+  #mpicklist .price{ opacity:.6; white-space:nowrap; font-family:ui-monospace,monospace; font-size:.74rem; }
+
+  #toast{ position:fixed; left:50%; bottom:1.1rem; transform:translateX(-50%);
+          background:var(--panel); border:1px solid var(--accent-line); color:var(--ink);
+          padding:.55rem .9rem; border-radius:.6rem; font-size:.82rem; max-width:80ch;
+          box-shadow:0 8px 30px #0008; opacity:0; transition:opacity .35s; pointer-events:none; }
+  #toast.err{ border-color:var(--danger); }
+</style>
+</head>
+<body>
+<div id="bar">
+  <div class="brand"><span class="nano">NaNo</span>odle<span class="ui"> · app</span></div>
+  <div class="title-wrap"><span id="bar-title">My NaNoodle app</span></div>
+
+  <div class="grow"></div>
+
+  <!-- auth status mirrors index.html: sign in / paste key / sign out, shared ngpt_key -->
+  <span id="auth-status" class="status">checking…</span>
+  <a id="signin" href="#" style="display:none">Sign in with NanoGPT</a>
+  <button id="pastebtn" class="link" style="display:none">paste key</button>
+  <button id="signout" class="link" style="display:none">sign out</button>
+
+  <div class="sep"></div>
+  <button id="share" title="Copy a link that loads this exact app — recipients sign in with their own key">🔗 Share</button>
+  <button id="export" title="Download this app as one self-contained .html (no key inside)">⭳ Export</button>
+  <button id="openeditor" title="Open the underlying workflow in the NaNoodle editor">✎ Open in editor</button>
+</div>
+
+<!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
+<div id="key">
+  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="text" autocomplete="off" />
+  <button id="keysave" class="link">save key</button>
+  <span class="dim" style="font-size:.78rem">— from <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">nano-gpt.com</a> → Settings → API</span>
+</div>
+
+<!-- THE APP — sandboxed, key never travels in srcdoc; the parent postMessages it after load -->
+<div id="stage">
+  <iframe id="appframe" sandbox="allow-scripts" title="your app"></iframe>
+  <div id="empty" hidden>
+    <div class="empty-card">
+      <h2>Open a workflow from the editor</h2>
+      <p class="dim">Build a flow in NaNoodle, then hit <b>✨ Create app</b> to turn it into a shareable app.</p>
+      <a class="ghost-link" href="index.html">→ Open the editor</a>
+    </div>
+  </div>
+</div>
+
+<!-- CUSTOMIZE composer: goal + Apply drives the gptdiff loop over index.html + app.css.
+     Docked at the bottom; floats centered as the "describe your app" prompt on first run. -->
+<div id="customize">
+  <div id="fr-head">✨ Turn this workflow into an app
+    <span class="sub">Describe the app you want — layout, theme, copy. You can keep tweaking after.</span></div>
+  <div class="cust-row">
+    <span class="cust-label">✨ Customize this app</span>
+    <input id="goal" placeholder="e.g. “warm sunrise theme, big rounded inputs, friendlier copy”" />
+    <button id="modelpick" class="ghost" title="Choose the model that writes your app changes">✨ model ▾</button>
+    <button id="apply" class="primary">✦ Apply</button>
+    <button id="undo" class="ghost" disabled>↶ undo</button>
+  </div>
+  <div id="cust-status" class="dim"></div>
+  <div id="versions" title="Each customize adds a version — click one to view it"></div>
+  <button id="fr-skip">skip — start from the default app</button>
+</div>
+
+<div id="toast"></div>
+
+<!-- model picker (ported from the editor's shared picker) — choose the LLM that writes app changes -->
+<div id="mpickback"></div>
+<div id="mpick">
+  <div class="mphead"><b id="mpicktitle">Model</b> <span id="mpickcount" class="dim"></span>
+    <span class="grow"></span><button id="mpickclose" class="link">✕</button></div>
+  <input id="mpicksearch" placeholder="filter the full list, or type an exact id + Enter…" autocomplete="off" />
+  <div id="mpicklist"></div>
+</div>
+
+<script type="module">
+import { buildEnvironment, generateDiff, smartapply, parseDiffPerFile, callLlmForApply, setEnv }
+  from "https://esm.sh/gh/255BITS/gptdiff-js";
+
+/* ======================================================================
+   SHARED HELPERS — mirror index.html exactly so signing in once works
+   across the editor and the app builder (same localStorage keys).
+   ====================================================================== */
+const $ = (id) => document.getElementById(id);
+const NANOGPT = "https://nano-gpt.com";
+const DEFAULT_MODEL = "xiaomi/mimo-v2.5-pro-ultraspeed";      // writes the changes (user-selectable)
+const APPLY_DEFAULT = "xiaomi/mimo-v2.5-pro-ultraspeed";      // applies the diff (fast, mechanical)
+const LS_KEY = "noodle_app_state";   // {v,graph,files,versions,curVer}
+const ACCENT = "#7c8cff";
+
+let MODEL = localStorage.getItem("ngpt_app_model") || DEFAULT_MODEL;
+let APPLY = localStorage.getItem("ngpt_apply_model") || APPLY_DEFAULT;
+
+// escape exactly like index.html's esc() — used for every graph/user string put into HTML
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// NanoGPT canonicalizes the loopback host to "localhost" so the OAuth redirect returns
+// to the same origin (keeping sessionStorage + the shared ngpt_key intact).
+if (location.hostname === "127.0.0.1") location.hostname = "localhost";
+
+// ----- key storage: SAME localStorage keys as index.html (sign in once, works in both) -----
+const getKey = () => localStorage.getItem("ngpt_key");
+const setKey = (k) => { k ? localStorage.setItem("ngpt_key", k) : localStorage.removeItem("ngpt_key"); if (k) setEnv("GPTDIFF_LLM_API_KEY", k); };
+if (getKey()) setEnv("GPTDIFF_LLM_API_KEY", getKey());
+
+// ----- gzip/b64url helpers, byte-identical to index.html (so #g=/#j= handoff round-trips) -----
+function bytesToB64url(bytes){ let bin=""; const CH=0x8000;
+  for(let i=0;i<bytes.length;i+=CH) bin += String.fromCharCode.apply(null, bytes.subarray(i,i+CH));
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64urlToBytes(s){ s = s.replace(/-/g,"+").replace(/_/g,"/"); while(s.length%4) s+="=";
+  const bin=atob(s), out=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) out[i]=bin.charCodeAt(i); return out; }
+async function gzip(str){ if(typeof CompressionStream==="undefined") return null;
+  const stream = new Blob([new TextEncoder().encode(str)]).stream().pipeThrough(new CompressionStream("gzip"));
+  return new Uint8Array(await new Response(stream).arrayBuffer()); }
+async function gunzip(bytes){ const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+  return new TextDecoder().decode(await new Response(stream).arrayBuffer()); }
+async function copyText(t){
+  try{ await navigator.clipboard.writeText(t); return true; }catch{}
+  try{ const ta=document.createElement("textarea"); ta.value=t; ta.style.cssText="position:fixed;opacity:0";
+       document.body.appendChild(ta); ta.select(); const ok=document.execCommand("copy"); ta.remove(); return ok; }catch{ return false; } }
+
+let toastTimer=null;
+function toast(msg, kind){ const el=$("toast"); el.className = kind==="err" ? "err" : ""; el.textContent=msg;
+  el.style.opacity="1"; clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.style.opacity="0", 6000); }
+
+/* ======================================================================
+   FIXED RUNTIME — the faithful headless engine extracted from index.html.
+   This string is injected into the app bundle by the bundler; gptdiff
+   never sees it, so a diff can never break the engine. Runs inside the
+   sandboxed iframe with no imports except fetch to nano-gpt.com.
+   ====================================================================== */
+const RUNTIME_JS = String.raw`
+/* =====================================================================
+   NoodleApp — FAITHFUL headless execution runtime, extracted from the
+   NaNoodle editor (index.html). Runs inside the sandboxed app iframe
+   (sandbox="allow-scripts"). No imports; only fetch to nano-gpt.com.
+   Reads window.NOODLE_GRAPH, derives INPUTS (unsatisfied source fields)
+   and OUTPUTS (sink nodes), renders a form-over-flow UI into the fixed
+   mount points, runs the graph, and streams results.
+   ===================================================================== */
+window.NoodleApp = (function () {
+  "use strict";
+
+  /* ---------- endpoints (verbatim from index.html) ---------- */
+  const NANOGPT = "https://nano-gpt.com";
+  const IMG_ENDPOINT  = NANOGPT + "/v1/images/generations";
+  const CHAT_ENDPOINT = NANOGPT + "/api/v1/chat/completions";
+
+  /* ---------- esc (verbatim) ---------- */
+  const esc = (s)=> String(s ?? "").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+  /* ---------- SIZES (verbatim) ---------- */
+  const SIZES = [["1024x1024","square"],["1024x1536","portrait"],["1536x1024","landscape"],["auto","auto"]];
+
+  /* ---------- key + auth ----------
+     EMBEDDED = running inside the builder's preview iframe (null origin). There the
+     key lives in the PARENT, never here: API calls are proxied through the parent
+     (its real Origin + its key, restricted to nano-gpt.com) so untrusted shared-app
+     HTML can use NanoGPT while open but can never read or exfiltrate the key.
+     STANDALONE (exported/hosted top-level) = call directly with our own pasted/OAuth key. */
+  const EMBEDDED = !!(window.parent && window.parent !== window);
+  let parentAuthed = false;                                   // set by the parent's __auth__ message
+  const getKey = ()=> localStorage.getItem("ngpt_key");
+  const setKey = (k)=>{ k ? localStorage.setItem("ngpt_key",k) : localStorage.removeItem("ngpt_key"); renderAuth(); };
+  const hasAuth = ()=> EMBEDDED ? parentAuthed : !!getKey();
+  // Content-Type only — the key is attached by apiFetch (standalone) or the parent proxy (embedded).
+  function authHeaders(){ return { "Content-Type":"application/json" }; }
+
+  // every NanoGPT data call goes through here
+  async function apiFetch(url, opts){
+    opts = opts || {};
+    if(EMBEDDED) return proxyFetch(url, opts);
+    const k = getKey();
+    const headers = Object.assign({}, opts.headers, { Authorization:"Bearer "+k, "x-api-key":k });
+    return fetch(url, Object.assign({}, opts, { headers }));
+  }
+  // ask the parent to make the call; get back a minimal fetch-Response shim.
+  function proxyFetch(url, opts){
+    const id = (proxyFetch._n = (proxyFetch._n||0)+1);
+    return new Promise((resolve, reject)=>{
+      function onMsg(e){
+        const d = e.data; if(!d || d.type!=="__api_result__" || d.id!==id) return;
+        window.removeEventListener("message", onMsg);
+        if(d.error){ reject(new Error(d.error)); return; }
+        const headers = d.headers || {}, buf = d.body || new ArrayBuffer(0);
+        resolve({
+          ok:d.ok, status:d.status,
+          headers:{ get:(k)=>{ k=String(k).toLowerCase(); return (k in headers) ? headers[k] : null; } },
+          text: async()=> new TextDecoder().decode(buf),
+          json: async()=> JSON.parse(new TextDecoder().decode(buf)),
+          blob: async()=> new Blob([buf], { type: headers["content-type"] || "" }),
+        });
+      }
+      window.addEventListener("message", onMsg);
+      const h = Object.assign({}, opts.headers); delete h.Authorization; delete h["x-api-key"];   // parent owns auth
+      window.parent.postMessage({ type:"__api__", id, url, method:opts.method||"GET", headers:h,
+                                  body: (opts.body!=null ? String(opts.body) : null) }, "*");
+    });
+  }
+
+  const sleep = (ms)=> new Promise(res=> setTimeout(res, ms));
+  const accrue = ()=>{};   // no-op cost sink (the editor paints a cost HUD we don't have here)
+
+  /* ---------- mdl (verbatim) ---------- */
+  const mdl = (n)=>{ if(!n.fields.model) throw new Error("pick a model first"); return n.fields.model; };
+
+  /* =====================================================================
+     CTX — NanoGPT calls (verbatim behavior, index.html)
+     ===================================================================== */
+  const CTX = {
+    async genImage(prompt, model, size, imageDataUrl){
+      const body = { model, prompt, size, n:1, response_format:"b64_json" };
+      if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
+      const r = await apiFetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+      if(!r.ok) throw new Error(r.status + ": " + (await r.text()).slice(0,160));
+      const j = await r.json();
+      const d = (j.data||[])[0]||{};
+      const url = d.b64_json ? "data:image/png;base64," + d.b64_json : d.url;
+      if(!url) throw new Error("no image in response");
+      accrue(j); return url;
+    },
+    async genChat(messages, model){
+      const r = await apiFetch(CHAT_ENDPOINT, {method:"POST", headers:authHeaders(),
+        body:JSON.stringify({ model, messages, temperature:0.8 })});
+      if(!r.ok) throw new Error(r.status + ": " + (await r.text()).slice(0,160));
+      const j = await r.json();
+      accrue(j);
+      const txt = j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+      if(txt==null) throw new Error("no text in response");
+      return typeof txt==="string" ? txt : txt.map(p=>p.text||"").join("");
+    },
+    // async video: submit → poll /api/video/status until COMPLETED (up to 5 min)
+    async genVideo(model, prompt, opts, imageDataUrl, onProgress){
+      const body = { model, prompt, duration:opts.duration, aspect_ratio:opts.aspect_ratio };
+      if(imageDataUrl) body.imageDataUrl = imageDataUrl;
+      const r = await apiFetch(NANOGPT + "/api/generate-video", {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+      if(!r.ok) throw new Error(r.status + ": " + (await r.text()).slice(0,160));
+      const j = await r.json(); accrue(j);
+      const runId = j.runId || j.id;
+      if(!runId) throw new Error("no runId returned");
+      const t0 = Date.now();
+      while(Date.now()-t0 < 300000){
+        await sleep(5000);
+        let s; try{ s = await (await apiFetch(NANOGPT + "/api/video/status?requestId=" + encodeURIComponent(runId), {headers:authHeaders()})).json(); }
+        catch(e){ continue; }
+        const st = String((s.data && s.data.status) || s.status || "").toUpperCase();
+        onProgress && onProgress(st, Date.now()-t0);
+        if(st==="COMPLETED" || st==="SUCCEEDED"){
+          const out = (s.data && s.data.output) || s.output || {};
+          const url = (out.video && out.video.url) || out.url || (Array.isArray(out.video) ? out.video[0] && out.video[0].url : null);
+          if(!url) throw new Error("completed but no video url");
+          return url;
+        }
+        if(["FAILED","ERROR","CANCELED"].includes(st)) throw new Error("video failed: " + ((s.data && s.data.error) || st));
+      }
+      throw new Error("video timed out (5 min)");
+    },
+    // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
+    async genAudio(model, input, extra, onProgress){
+      const body = Object.assign({ model, input }, extra||{});
+      const r = await apiFetch(NANOGPT + "/api/v1/audio/speech", {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
+      if(!r.ok){
+        const t = (await r.text()).slice(0,220);
+        if(/lyric/i.test(t)) throw new Error("This model needs lyrics — fill the Lyrics field (vocal models require them; leave empty / use a BGM model for instrumentals).");
+        const req = t.match(/["']?([a-z_]+)["']?\s+(?:is\s+)?required|missing[^a-z]+["']?([a-z_]+)/i);
+        const field = req && (req[1]||req[2]);
+        if(field) throw new Error('This model requires "' + field + '" — set it in the node, or add it under advanced params.');
+        throw new Error(r.status + ": " + t);
+      }
+      const ct = r.headers.get("content-type") || "";
+      if(ct.includes("application/json")){
+        const j = await r.json(); accrue(j);
+        let url = j.url || j.audioUrl || (j.data && j.data.url) || (j.data && j.data.audioUrl);
+        if(!url && (j.runId || j.id)) url = await pollAudio(model, j, onProgress);   // async model → poll
+        if(!url) throw new Error("no audio url in response");
+        return url;
+      }
+      const blob = await r.blob();
+      return URL.createObjectURL(blob);
+    }
+  };
+  // async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed
+  async function pollAudio(model, j, onProgress){
+    const runId = j.runId || j.id;
+    const qs = new URLSearchParams({ runId, model });
+    if(j.cost!=null) qs.set("cost", j.cost);                 // these let the server auto-refund on failure
+    if(j.paymentSource) qs.set("paymentSource", j.paymentSource);
+    if(j.isApiRequest!=null) qs.set("isApiRequest", j.isApiRequest);
+    const t0 = Date.now();
+    while(Date.now()-t0 < 300000){
+      await sleep(3000);
+      let s; try{ s = await (await apiFetch(NANOGPT + "/api/tts/status?" + qs, {headers:authHeaders()})).json(); }
+      catch(e){ continue; }
+      const st = String(s.status||"").toLowerCase();
+      if(st==="completed" || st==="succeeded")
+        return s.audioUrl || s.url || (s.data && s.data.audioUrl) || (s.data && s.data.url) || (()=>{ throw new Error("completed but no audio url"); })();
+      if(["error","failed","content_policy_violation"].includes(st)) throw new Error("audio failed: " + (s.error || s.message || st));
+      onProgress && onProgress(s.queuePosition, Date.now()-t0);
+    }
+    throw new Error("audio timed out (5 min)");
+  }
+
+  /* =====================================================================
+     AUDIO PARAMS (index.html) — metadata-driven, no model names. Without a
+     live catalog the runtime can't resolve cat:* applies-to, so it reads
+     any literal param value present on n.fields (sent only-when-nonempty,
+     exactly like the editor) plus the extraJson escape hatch.
+     ===================================================================== */
+  const AUDIO_PARAMS = {
+    music: [
+      { id:"lyrics",          type:"textarea" },
+      { id:"instrumental",    type:"boolean" },
+      { id:"duration",        type:"number" },
+      { id:"number_of_songs", type:"number",   default:1 },
+      { id:"negative_prompt", type:"textarea" },
+      { id:"seed",            type:"number" },
+      { id:"response_format", type:"select",   default:"mp3" },
+    ],
+    tts: [
+      { id:"voice",           type:"select" },
+      { id:"speed",           type:"number", default:1 },
+      { id:"instructions",    type:"textarea" },
+      { id:"response_format", type:"select", default:"mp3" },
+    ],
+  };
+  // Faithful to collectAudioParams(): only-when-nonempty, omit defaults, then merge extraJson verbatim.
+  function collectAudioParams(n){
+    const body = {};
+    for(const f of (AUDIO_PARAMS[n.type]||[])){
+      let v = n.fields[f.id];
+      if(f.type==="boolean"){ if(v===true||v==="true") body[f.id]=true; continue; }
+      if(v==null || v==="") continue;
+      if(f.type==="number"){ const num=Number(v); if(isNaN(num)) continue; if(f.default!=null && num===f.default) continue; body[f.id]=num; continue; }
+      if(f.default!=null && v===f.default) continue;       // e.g. response_format=mp3 → omit
+      body[f.id] = v;
+    }
+    if((n.fields.extraJson||"").trim()){                    // escape hatch: merge any extra keys verbatim
+      try{ Object.assign(body, JSON.parse(n.fields.extraJson)); }catch(e){ throw new Error("advanced params: invalid JSON"); }
+    }
+    return body;
+  }
+  async function audioRun(n, inp, ctx, onProgress){
+    const text = (inp.text != null ? inp.text : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+    if(!text) throw new Error("no text");
+    return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n),
+      (q,ms)=> onProgress && onProgress("generating audio… " + Math.round(ms/1000) + "s" + (q!=null?(" · queue "+q):""))) };
+  }
+
+  /* =====================================================================
+     NODE_TYPES run map (verbatim behavior, index.html).
+     setNodeProgress() calls are redirected to the per-run onProgress cb.
+     ===================================================================== */
+  const NODE_TYPES = {
+    text: {
+      em:"📝", title:"Text", inputs:[], outputs:[{name:"text", type:"text"}],
+      async run(n){ return { text: n.fields.text||"" }; }
+    },
+    upload: {
+      em:"📷", title:"Image input", inputs:[], outputs:[{name:"image", type:"image"}],
+      async run(n){ if(!n.fields.image) throw new Error("no image — upload or capture one first"); return { image: n.fields.image }; }
+    },
+    join: {
+      em:"🔗", title:"Join",
+      inputs:[{name:"a", type:"text"},{name:"b", type:"text"}], outputs:[{name:"text", type:"text"}],
+      async run(n, inp){
+        const sep = (n.fields.sep != null ? n.fields.sep : " ").replace(/\\n/g,"\n");
+        return { text: [inp.a, inp.b].filter(v=>v!=null && v!=="").join(sep) };
+      }
+    },
+    llm: {
+      em:"🧠", title:"LLM", inputs:[], outputs:[{name:"text", type:"text"}],
+      async run(n, inp, ctx){
+        const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+        if(!prompt) throw new Error("no prompt");
+        const messages = [];
+        if((n.fields.system||"").trim()) messages.push({role:"system", content:n.fields.system.trim()});
+        messages.push({role:"user", content:prompt});
+        return { text: await ctx.genChat(messages, mdl(n)) };
+      }
+    },
+    image: {
+      em:"🖼", title:"Image", inputs:[], outputs:[{name:"image", type:"image"}],
+      async run(n, inp, ctx){
+        const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+        if(!prompt) throw new Error("no prompt");
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
+      }
+    },
+    edit: {
+      em:"✂️", title:"Edit",
+      inputs:[{name:"image", type:"image"}], outputs:[{name:"image", type:"image"}],
+      async run(n, inp, ctx){
+        if(!inp.image) throw new Error("no image input");
+        const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+        if(!prompt) throw new Error("no edit instruction");
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
+      }
+    },
+    vision: {
+      em:"👁", title:"Vision",
+      inputs:[{name:"image", type:"image"}], outputs:[{name:"text", type:"text"}],
+      async run(n, inp, ctx){
+        if(!inp.image) throw new Error("no image input");
+        const q = (n.fields.q||"Describe this image.").trim();
+        const messages = [{ role:"user", content:[
+          {type:"text", text:q},
+          {type:"image_url", image_url:{url:inp.image}}
+        ]}];
+        return { text: await ctx.genChat(messages, mdl(n)) };
+      }
+    },
+    tvideo: {
+      em:"🎬", title:"Text→Video", inputs:[], outputs:[{name:"video", type:"video"}],
+      async run(n, inp, ctx, onProgress){
+        const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+        if(!prompt) throw new Error("no prompt");
+        const url = await ctx.genVideo(mdl(n), prompt,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
+          (st,ms)=> onProgress && onProgress("rendering video… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
+        return { video: url };
+      }
+    },
+    ivideo: {
+      em:"📽️", title:"Image→Video",
+      inputs:[{name:"image", type:"image"}], outputs:[{name:"video", type:"video"}],
+      async run(n, inp, ctx, onProgress){
+        if(!inp.image) throw new Error("no image input");
+        const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
+        const url = await ctx.genVideo(mdl(n), prompt,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
+          (st,ms)=> onProgress && onProgress("animating… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
+        return { video: url };
+      }
+    },
+    music: {
+      em:"🎵", title:"Music", inputs:[], outputs:[{name:"audio", type:"audio"}],
+      run: audioRun,
+    },
+    tts: {
+      em:"🗣️", title:"Speech", inputs:[], outputs:[{name:"audio", type:"audio"}],
+      run: audioRun,
+    },
+  };
+
+  /* =====================================================================
+     GRAPH TRAVERSAL (verbatim, index.html) — parameterized over a passed
+     graph instead of the editor's module global.
+     ===================================================================== */
+  function ancestors(graph, targets){
+    const keep = new Set(targets);
+    const stack = [...targets];
+    while(stack.length){
+      const n = stack.pop();
+      for(const l of graph.links) if(l.to.node===n && !keep.has(l.from.node)){ keep.add(l.from.node); stack.push(l.from.node); }
+    }
+    return keep;
+  }
+  function topoOrder(graph, ids){
+    const indeg={}, adj={};
+    ids.forEach(id=>{ indeg[id]=0; adj[id]=[]; });
+    for(const l of graph.links) if(ids.has(l.from.node) && ids.has(l.to.node)){ adj[l.from.node].push(l.to.node); indeg[l.to.node]++; }
+    const q=[...ids].filter(id=>indeg[id]===0), order=[];
+    while(q.length){ const n=q.shift(); order.push(n); for(const m of adj[n]) if(--indeg[m]===0) q.push(m); }
+    return { order, cyclic:[...ids].filter(id=>!order.includes(id)) };
+  }
+
+  /* =====================================================================
+     MATERIALIZE window.NOODLE_GRAPH into a runnable graph.
+     Mirrors applyGraphData(): audio→tts alias, drop unknown node types,
+     keep only links with surviving endpoints, migrate music/tts header
+     "text" port → inline "prompt" field port.
+     ===================================================================== */
+  function materialize(data){
+    const ALIAS = { audio:"tts" };
+    const nodes = [];
+    for(const sn of (data.nodes||[])){
+      const type = ALIAS[sn.type] || sn.type;
+      if(!NODE_TYPES[type]) continue;
+      nodes.push({ id:sn.id, type, x:sn.x, y:sn.y, fields:{ ...(sn.fields||{}) }, out:{} });
+    }
+    const byId = (id)=> nodes.find(n=>n.id===id);
+    const ids = new Set(nodes.map(n=>n.id));
+    const links = (data.links||[]).filter(l=> ids.has(l.from && l.from.node) && ids.has(l.to && l.to.node))
+      .map(l=>({ id:l.id, from:{...l.from}, to:{...l.to} }));
+    for(const l of links){
+      const tn = byId(l.to.node);
+      if(tn && (tn.type==="music"||tn.type==="tts") && l.to.port==="text") l.to.port="prompt";
+    }
+    return { nodes, links, byId };
+  }
+
+  /* =====================================================================
+     RUN LOOP — ported from runGroup(), minus the editor's DOM, locking,
+     and group-concurrency. Port wiring + fieldOverrides preserved.
+     ===================================================================== */
+  async function runGraph(graph, opts){
+    opts = opts || {};
+    const onStatus = opts.onStatus, onResult = opts.onResult;
+    if(!hasAuth()) throw new Error("sign in or paste an API key first");
+    const byId = graph.byId;
+    const all = new Set(graph.nodes.map(n=>n.id));
+    const ids = ancestors(graph, all);                 // everything (no seed subset → run whole graph)
+    const r = topoOrder(graph, ids);
+    r.cyclic.forEach(id=> onStatus && onStatus(id, "error", "cycle detected"));
+    graph.nodes.forEach(n=>{ n.out = {}; });           // fresh run
+    for(const id of r.order){
+      const n = byId(id); if(!n) continue;
+      const t = NODE_TYPES[n.type], inp = {};
+      for(const port of t.inputs){
+        const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
+        if(l){ const src = byId(l.from.node); inp[port.name] = src && src.out ? src.out[l.from.port] : undefined; }
+      }
+      // a wired field overrides its typed value (n.fields[field]); declared ports handled above
+      const fieldOverrides = {};
+      for(const l of graph.links){
+        if(l.to.node!==id || t.inputs.some(p=>p.name===l.to.port)) continue;
+        const src = byId(l.from.node);
+        const v = src && src.out ? src.out[l.from.port] : undefined;
+        if(v!=null) fieldOverrides[l.to.port] = v;
+      }
+      const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
+      onStatus && onStatus(id, "run", "running…");
+      try{
+        n.out = await t.run(rn, inp, CTX, (msg)=> onStatus && onStatus(id, "run", msg)) || {};
+        onStatus && onStatus(id, "done", "done");
+        onResult && onResult(n);
+      }
+      // editor parity (runGroup): isolate per-node failures — mark error and keep going so
+      // independent flows / other sinks still produce output. Do NOT rethrow.
+      catch(err){ onStatus && onStatus(id, "error", err.message); }
+    }
+  }
+
+  /* =====================================================================
+     INPUT DERIVATION — a control for each source-node field NOT satisfied
+     by an incoming link. (Source nodes have no inputs[]; their typed
+     fields are the graph's knobs.)
+     ===================================================================== */
+  const INPUT_SPECS = {
+    text:   [{ f:"text",   label:"Text",         kind:"textarea" }],
+    upload: [{ f:"image",  label:"Image",        kind:"image" }],
+    llm:    [{ f:"prompt", label:"Prompt",       kind:"textarea" },
+             { f:"system", label:"System (optional)", kind:"textarea", optional:true }],
+    image:  [{ f:"prompt", label:"Image prompt", kind:"textarea" }],
+    tvideo: [{ f:"prompt", label:"Video prompt", kind:"textarea" }],
+    music:  [{ f:"prompt", label:"Style / prompt", kind:"textarea" }],
+    tts:    [{ f:"prompt", label:"Text to speak",  kind:"textarea" }],
+  };
+  function deriveInputs(graph){
+    const out = [];
+    for(const n of graph.nodes){
+      const specs = INPUT_SPECS[n.type]; if(!specs) continue;     // not a knob-bearing source
+      for(const s of specs){
+        // satisfied if a link feeds this field (fieldOverrides) → hide the control
+        const fed = graph.links.some(l=> l.to.node===n.id && l.to.port===s.f);
+        if(fed) continue;
+        out.push({ nodeId:n.id, field:s.f, label:s.label, kind:s.kind, optional:!!s.optional,
+                   node:n, title:NODE_TYPES[n.type].title, em:NODE_TYPES[n.type].em });
+      }
+    }
+    return out;
+  }
+  // OUTPUTS = sink nodes (no outgoing link) that produce something
+  function deriveOutputs(graph){
+    return graph.nodes.filter(n=>{
+      const t = NODE_TYPES[n.type];
+      if(!t.outputs || !t.outputs.length) return false;
+      return !graph.links.some(l=> l.from.node===n.id);
+    });
+  }
+
+  /* =====================================================================
+     DOM / RENDER
+     ===================================================================== */
+  const $ = (id)=> document.getElementById(id);
+  let STATE = null;        // { data, graph, inputs, outputs }
+  let running = false;
+
+  function fileToDataUrl(file){
+    return new Promise((res, rej)=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.onerror=()=>rej(new Error("read failed")); fr.readAsDataURL(file); });
+  }
+
+  function renderInputs(){
+    const box = $("app-inputs"); if(!box) return;
+    if(!STATE.inputs.length){ box.innerHTML = '<p class="muted">This app takes no inputs — just press Run.</p>'; return; }
+    box.innerHTML = STATE.inputs.map((it,i)=>{
+      const id = "in_"+i, cur = it.node.fields[it.field];
+      let ctrl;
+      if(it.kind==="textarea")
+        ctrl = '<textarea id="'+id+'" data-i="'+i+'" placeholder="'+esc(it.label)+'">'+esc(cur||"")+'</textarea>';
+      else if(it.kind==="image")
+        ctrl = '<div class="imgin">'
+             + '<div class="file-prev" data-prev="'+i+'">'+(cur ? '<img src="'+esc(cur)+'" alt="">' : '<span class="muted">no image</span>')+'</div>'
+             + '<input type="file" accept="image/*" id="'+id+'" data-i="'+i+'">'
+             + '</div>';
+      else
+        ctrl = '<input id="'+id+'" data-i="'+i+'" value="'+esc(cur||"")+'" placeholder="'+esc(it.label)+'">';
+      return '<div class="field"><label for="'+id+'">'+esc(it.em)+' '+esc(it.label)+'</label>'+ctrl+'</div>';
+    }).join("");
+    // wire controls back onto the live graph fields
+    box.querySelectorAll("textarea[data-i],input[data-i]").forEach(el=>{
+      const it = STATE.inputs[+el.dataset.i];
+      if(el.type==="file"){
+        el.addEventListener("change", async ()=>{
+          const f = el.files && el.files[0]; if(!f) return;
+          const url = await fileToDataUrl(f); it.node.fields[it.field] = url;
+          const prev = box.querySelector('[data-prev="'+el.dataset.i+'"]');
+          if(prev) prev.innerHTML = '<img src="'+esc(url)+'" alt="">';
+        });
+      } else {
+        el.addEventListener("input", ()=>{ it.node.fields[it.field] = el.value; });
+      }
+    });
+  }
+
+  function statusLine(id, kind, msg){
+    const box = $("app-status"); if(!box) return;
+    let row = box.querySelector('[data-st="'+id+'"]');
+    if(!row){ row = document.createElement("div"); row.className="stline"; row.dataset.st=id; box.appendChild(row); }
+    const n = STATE.graph.byId(id);
+    const t = n ? NODE_TYPES[n.type] : null;
+    row.dataset.kind = kind;
+    row.className = "stline " + esc(kind);
+    row.innerHTML = '<b>'+esc(t ? (t.em + " " + t.title) : id)+'</b> <span class="msg">'+esc(msg||"")+'</span>';
+  }
+
+  function renderResult(n){
+    const box = $("app-output"); if(!box) return;
+    const out = n.out || {};
+    const port = (NODE_TYPES[n.type].outputs||[])[0] || {};
+    const val = out[port.name];
+    if(val==null) return;
+    const card = document.createElement("div"); card.className="card";
+    const head = '<div class="rhead">'+esc(NODE_TYPES[n.type].em)+' '+esc(NODE_TYPES[n.type].title)+'</div>';
+    let media;
+    if(port.type==="image") media = '<img src="'+esc(val)+'" alt="">';
+    else if(port.type==="video") media = '<video src="'+esc(val)+'" controls playsinline></video>';
+    else if(port.type==="audio") media = '<audio src="'+esc(val)+'" controls></audio>';
+    else media = '<div class="text">'+esc(typeof val==="string"?val:JSON.stringify(val,null,2))+'</div>';
+    card.innerHTML = head + media;
+    box.appendChild(card);
+  }
+
+  async function run(){
+    if(running) return;
+    const btn = $("app-run");
+    if(!hasAuth()){ statusLine("__auth__","error", EMBEDDED ? "Sign in from the bar at the top to run this app." : "Sign in or paste an API key first."); return; }
+    running = true; if(btn) btn.disabled = true;
+    const sbox = $("app-status"), obox = $("app-output");
+    if(sbox) sbox.innerHTML = ""; if(obox) obox.innerHTML = "";
+    const outIds = new Set(STATE.outputs.map(n=>n.id));
+    try{
+      await runGraph(STATE.graph, {
+        onStatus: statusLine,
+        onResult: (n)=>{ if(outIds.has(n.id)) renderResult(n); },
+      });
+    }catch(err){
+      statusLine("__run__","error", err.message || String(err));
+    }finally{
+      running = false; if(btn) btn.disabled = false;
+    }
+  }
+
+  /* =====================================================================
+     AUTH UI (#app-auth) — OAuth PKCE + paste key, verbatim flow from
+     index.html. Same localStorage keys (ngpt_key / ngpt_client) and
+     sessionStorage pkce, so a sign-in here is shared with the editor.
+     The parent also postMessages a live key (preview without re-auth).
+     ===================================================================== */
+  const REDIRECT_URI = location.origin + location.pathname;
+  const b64url = (b)=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+  const rand = (n)=>b64url(crypto.getRandomValues(new Uint8Array(n)));
+  const sha256url = async (s)=>b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+  async function clientId(){
+    const cached = JSON.parse(localStorage.getItem("ngpt_client")||"null");
+    if (cached && cached.redirect===REDIRECT_URI) return cached.id;
+    const r = await fetch(NANOGPT + "/oauth/register",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({client_name:"NaNoodle app",redirect_uris:[REDIRECT_URI],grant_types:["authorization_code"],response_types:["code"],token_endpoint_auth_method:"none"})});
+    if(!r.ok) throw new Error("register "+r.status);
+    const id=(await r.json()).client_id;
+    localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
+    return id;
+  }
+  async function signIn(){
+    const id = await clientId();
+    const verifier=rand(32), state=rand(16);
+    sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+    const u=new URL(NANOGPT + "/oauth/authorize");
+    u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256",invitation_code:"W3x83yU3"}).toString();
+    location.assign(u.toString());
+  }
+  async function handleRedirect(){
+    const p=new URLSearchParams(location.search);
+    if(!p.has("code")&&!p.has("error")) return;
+    history.replaceState({},"",REDIRECT_URI);
+    const saved=JSON.parse(sessionStorage.getItem("pkce")||"null"); sessionStorage.removeItem("pkce");
+    if(p.get("error")) throw new Error(p.get("error"));
+    if(!saved||p.get("state")!==saved.state) throw new Error("state mismatch");
+    const r=await fetch(NANOGPT + "/oauth/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+      body:new URLSearchParams({grant_type:"authorization_code",client_id:saved.id,redirect_uri:REDIRECT_URI,code:p.get("code"),code_verifier:saved.verifier})});
+    if(!r.ok) throw new Error("token: "+(await r.text()));
+    setKey((await r.json()).access_token);
+  }
+  function renderAuth(){
+    const box = $("app-auth"); if(!box) return;
+    // Embedded in the builder, auth belongs to the parent (it holds the key and proxies
+    // calls) — the app never takes a key of its own, so just reflect the parent's state.
+    if(EMBEDDED){
+      box.innerHTML = parentAuthed
+        ? '<span class="authok">signed in ✓</span>'
+        : '<span class="dim">sign in from the bar at the top to run this app</span>';
+      return;
+    }
+    const ok = !!getKey();
+    box.innerHTML = ok
+      ? '<span class="authok">signed in ✓</span> <button class="link" id="auth-out">sign out</button>'
+      : '<button class="link" id="auth-in">Sign in</button>'
+      + ' <button class="link" id="auth-paste">paste key</button>'
+      + ' <span class="keyrow" id="auth-keyrow" hidden>'
+      + '<input id="auth-keyinput" type="password" placeholder="nano-gpt API key" autocomplete="off">'
+      + ' <button class="link" id="auth-keysave">save</button>'
+      + '</span>';
+    if(ok){
+      $("auth-out").onclick = ()=> setKey(null);
+    } else {
+      $("auth-in").onclick = ()=> signIn().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message));
+      $("auth-paste").onclick = ()=>{ $("auth-keyrow").hidden=false; $("auth-keyinput").focus(); };
+      $("auth-keysave").onclick = ()=>{ const k=$("auth-keyinput").value.trim(); if(k){ setKey(k); } };
+      const ki = $("auth-keyinput");
+      if(ki) ki.addEventListener("keydown", e=>{ if(e.key==="Enter") $("auth-keysave").click(); });
+    }
+  }
+
+  /* =====================================================================
+     PARENT MESSAGING — the parent tells us whether IT is signed in (we never
+     receive the key itself); Escape→parent. API calls go via proxyFetch.
+     ===================================================================== */
+  function wireParentBridge(){
+    window.addEventListener("message", (e)=>{
+      const m = e.data || {};
+      if(m && m.type==="__auth__"){ parentAuthed = !!m.signedIn; renderAuth(); }
+    });
+    document.addEventListener("keydown", (e)=>{
+      if(e.key==="Escape"){ try{ parent.postMessage({type:"__escape__"}, "*"); }catch(_){} }
+    });
+  }
+
+  /* =====================================================================
+     MOUNT
+     ===================================================================== */
+  function mount(){
+    const data = window.NOODLE_GRAPH || { nodes:[], links:[] };
+    const graph = materialize(data);
+    STATE = { data, graph, inputs:deriveInputs(graph), outputs:deriveOutputs(graph) };
+
+    wireParentBridge();
+
+    const titleEl = $("app-title");
+    if(titleEl && !titleEl.textContent.trim()) titleEl.textContent = "My NaNoodle app";
+
+    renderAuth();
+    handleRedirect().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message)).finally(renderAuth);
+    renderInputs();
+
+    const runBtn = $("app-run");
+    if(runBtn) runBtn.addEventListener("click", run);
+
+    const shareBtn = $("app-share");
+    if(shareBtn) shareBtn.addEventListener("click", ()=>{ try{ parent.postMessage({type:"__share__"}, "*"); }catch(_){} });
+
+    if(!graph.nodes.length){
+      const sbox = $("app-status");
+      if(sbox) sbox.innerHTML = '<p class="muted">This app has no workflow yet. Open it in the editor to build one.</p>';
+      if(runBtn) runBtn.disabled = true;
+    }
+  }
+
+  return { mount, runGraph, materialize, NODE_TYPES, CTX };
+})();
+`;
+
+/* ======================================================================
+   DEFAULT APP GENERATION — deterministic, NO LLM. Produces the two
+   editable virtual files (index.html shell + app.css) with the FIXED
+   mount-point ids the runtime binds to. Works the instant play.html opens.
+   ====================================================================== */
+function deriveTitle(graph){
+  const txt = (graph.nodes||[]).find(n=>n.type==="text" && (n.fields && n.fields.text||"").trim());
+  if(txt){ const w=txt.fields.text.trim().replace(/\s+/g," ").split(" ").slice(0,5).join(" "); if(w) return w.slice(0,48); }
+  const kinds=new Set((graph.nodes||[]).map(n=>({image:"Image",tvideo:"Video",ivideo:"Video",music:"Music",
+    tts:"Speech",llm:"Text",vision:"Vision"}[n.type])).filter(Boolean));
+  if(kinds.size===1) return [...kinds][0]+" Generator";
+  return "My NaNoodle app";
+}
+function deriveTagline(graph){
+  const out=new Set((graph.nodes||[]).map(n=>({image:"images",tvideo:"video",ivideo:"video",
+    music:"music",tts:"speech",llm:"text",vision:"descriptions"}[n.type])).filter(Boolean));
+  return out.size ? "Fill in the inputs, hit Run, and get "+[...out].join(", ")+"."
+                  : "Fill in the inputs and hit Run.";
+}
+
+function defaultFiles(graph){
+  const title = deriveTitle(graph);
+  const tagline = deriveTagline(graph);
+
+  // index.html holds ONLY mount points + include markers. The runtime binds to
+  // the ids by name; gptdiff may restyle/relayout/rewrite copy but must keep these ids.
+  const indexHtml =
+`<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>${esc(title)}</title>
+<style><!-- include: app.css --></style>
+</head>
+<body>
+<main class="app">
+  <header class="app-head">
+    <h1 id="app-title">${esc(title)}</h1>
+    <p id="app-tagline">${esc(tagline)}</p>
+    <div id="app-auth" class="auth"></div>
+  </header>
+
+  <section id="app-inputs" class="inputs"></section>
+
+  <div class="run-row">
+    <button id="app-run" class="run">▶ Run</button>
+    <div id="app-status" class="status"></div>
+  </div>
+
+  <section id="app-output" class="output"></section>
+
+  <footer class="app-foot">
+    <button id="app-share" class="share">🔗 Share this app</button>
+  </footer>
+</main>
+
+<!-- include-config: graph.json -->
+<!-- include: runtime.js -->
+<script>NoodleApp.mount();<\/script>
+</body>
+</html>
+`;
+
+  const appCss =
+`:root{
+  color-scheme: dark;
+  --bg:#0d0f17; --panel:#161a27; --panel2:#1d2236; --line:#2a3150;
+  --ink:#e6e9f5; --dim:#8b93b4; --faint:#5d6788;
+  --accent:${ACCENT}; --accent-soft:${ACCENT}22; --accent-line:${ACCENT}66;
+  --ok:#46d27a; --danger:#ff6b6b; --radius:.7rem;
+}
+*{ box-sizing:border-box; }
+html,body{ margin:0; }
+body{ background:
+    radial-gradient(900px 520px at 50% -10%, #1a2147 0%, transparent 60%), var(--bg);
+  color:var(--ink); font:15px/1.55 ui-sans-serif, system-ui, sans-serif; min-height:100vh; }
+.app{ max-width:760px; margin:0 auto; padding:2rem 1.1rem 4rem; }
+.app-head h1{ font-size:1.5rem; margin:0 0 .25rem; letter-spacing:.01em; }
+.app-head .auth{ font-size:.78rem; color:var(--dim); margin-top:.4rem; min-height:1.1em; }
+.app-head .auth input{ font:inherit; padding:.3rem .45rem; border-radius:.4rem; background:var(--panel); border:1px solid var(--line); color:var(--ink); }
+.app-head .auth .link{ background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font:inherit; }
+#app-tagline{ color:var(--dim); margin:0; max-width:60ch; }
+
+.inputs{ display:flex; flex-direction:column; gap:1rem; margin:1.6rem 0; }
+.field label{ display:block; font-size:.8rem; color:var(--dim); margin-bottom:.3rem; }
+.field input, .field textarea, .field select{
+  width:100%; font:inherit; padding:.6rem .7rem; border-radius:var(--radius);
+  background:var(--panel); border:1px solid var(--line); color:var(--ink); }
+.field textarea{ min-height:90px; resize:vertical; }
+.field input:focus, .field textarea:focus, .field select:focus{
+  outline:none; border-color:var(--accent-line); box-shadow:0 0 0 3px var(--accent-soft); }
+.field .file-prev img{ max-width:160px; border-radius:.5rem; border:1px solid var(--line); margin-top:.4rem; display:block; }
+.muted{ color:var(--faint); font-size:.85rem; }
+
+.run-row{ display:flex; align-items:center; gap:1rem; margin:.4rem 0 1.2rem; flex-wrap:wrap; }
+.run{ font:inherit; font-weight:700; padding:.7rem 1.6rem; border-radius:var(--radius); cursor:pointer;
+  background:linear-gradient(180deg,#8b97ff,#6573ef); border:1px solid #8b97ff; color:#0b0e18;
+  box-shadow:0 0 26px ${ACCENT}33; }
+.run:hover{ box-shadow:0 0 36px ${ACCENT}55; }
+.run:disabled{ opacity:.5; box-shadow:none; cursor:default; }
+.status{ font-size:.82rem; color:var(--dim); min-height:1.2em; display:flex; flex-direction:column; gap:.2rem; }
+.status .stline.error{ color:var(--danger); } .status .stline.done{ color:var(--ok); }
+
+.output{ display:flex; flex-direction:column; gap:1rem; }
+.output .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:1rem; }
+.output .rhead{ font-size:.78rem; color:var(--dim); margin-bottom:.5rem; }
+.output img, .output video, .output audio{ width:100%; border-radius:.5rem; display:block; }
+.output .text{ white-space:pre-wrap; line-height:1.6; }
+
+.app-foot{ margin-top:2.2rem; padding-top:1.1rem; border-top:1px solid var(--line); }
+.share{ font:inherit; font-size:.82rem; background:none; border:1px solid var(--line);
+  color:var(--accent); border-radius:.5rem; padding:.45rem .8rem; cursor:pointer; }
+.share:hover{ border-color:var(--accent-line); }
+`;
+
+  return { "index.html": indexHtml, "app.css": appCss };
+}
+
+/* ======================================================================
+   BUNDLER — fills the include markers from fixed sources. RUNTIME_JS and
+   graph.json are NOT in the editable files map, so a diff can never break
+   the engine. The single output string is BOTH the iframe srcdoc (via
+   withPreamble) and the Export/Share payload. No key is ever embedded.
+   ====================================================================== */
+function bundle(files){
+  let html = files["index.html"];
+  if(html == null)
+    return '<!doctype html><meta charset=utf-8><body style="font:14px system-ui;color:#888;padding:2rem">No <code>index.html</code> — reopen this app from the editor.</body>';
+
+  // <!-- include: app.css --> -> css text ; <!-- include: runtime.js --> -> the fixed engine
+  html = html.replace(/<!--\s*include:\s*([^>]+?)\s*-->/g, (_, p) => {
+    const name = p.trim();
+    if(name === "runtime.js") return "<script>\n" + RUNTIME_JS.replace(/<\/script/gi, "<\\/script") + "\n<\/script>";
+    const raw = files[name];
+    return raw != null ? raw : "<!-- missing: " + name + " -->";
+  });
+
+  // <!-- include-config: graph.json --> -> window.NOODLE_GRAPH = <json>
+  html = html.replace(/<!--\s*include-config:\s*([^>]+?)\s*-->/g, () => {
+    const json = JSON.stringify(APP_STATE.graph || { nodes:[], links:[] })
+      .replace(/</g, "\\u003c").replace(/>/g, "\\u003e")
+      .replace(/[\u2028\u2029]/g, m => m === "\u2028" ? "\\u2028" : "\\u2029");
+    return "<script>window.NOODLE_GRAPH = " + json + ";<\/script>";
+  });
+
+  // inline any LOCAL <script src> a diff may have added (CDN/data left alone)
+  html = html.replace(/<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*><\/script>/gi, (m, src) => {
+    if(/^(https?:)?\/\//i.test(src) || /^data:/i.test(src)) return m;
+    const raw = files[src];
+    return raw == null ? m : "<script>\n" + String(raw).replace(/<\/script/gi, "<\\/script") + "\n<\/script>";
+  });
+  return html;
+}
+
+// marvis/index-style preamble: storage shims (the sandbox blocks real localStorage in
+// the live preview) + Escape→parent so the builder can leave fullscreen.
+const PREVIEW_PREAMBLE =
+  '<script>(function(){function s(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null;},setItem:function(k,v){m[k]=String(v);},removeItem:function(k){delete m[k];},clear:function(){m={};},key:function(i){return Object.keys(m)[i]||null;},get length(){return Object.keys(m).length;}};}' +
+  'try{window.localStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"localStorage",{value:s(),configurable:true});}catch(_){}}' +
+  'try{window.sessionStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"sessionStorage",{value:s(),configurable:true});}catch(_){}}})();' +
+  'addEventListener("keydown",function(e){if(e.key==="Escape"){parent.postMessage("__esc__","*");}});<\/script>';
+
+function withPreamble(html){
+  if(/<head[^>]*>/i.test(html))     return html.replace(/<head[^>]*>/i, (m)=> m + PREVIEW_PREAMBLE);
+  if(/<!doctype[^>]*>/i.test(html)) return html.replace(/<!doctype[^>]*>/i, (m)=> m + PREVIEW_PREAMBLE);
+  if(/<html[^>]*>/i.test(html))     return html.replace(/<html[^>]*>/i, (m)=> m + PREVIEW_PREAMBLE);
+  return PREVIEW_PREAMBLE + html;
+}
+
+// ----- render the iframe. The app always runs at a NULL origin (allow-scripts, no
+// allow-same-origin) so untrusted shared-app HTML can never read the parent's stored
+// key. The app reaches NanoGPT only by asking the parent to proxy the call (below),
+// so the key never enters the frame and shared apps still run with the viewer's key. -----
+function renderApp(){
+  const frame = $("appframe");
+  frame.sandbox = "allow-scripts";
+  frame.onload = () => pushAuthToApp();
+  frame.srcdoc = withPreamble(bundle(APP_STATE.files));
+}
+function postToApp(msg){ try{ $("appframe").contentWindow.postMessage(msg, "*"); }catch(_){} }
+// tell the app whether WE (the parent) are signed in — never the key itself
+function pushAuthToApp(){ postToApp({ type:"__auth__", signedIn: !!getKey() }); }
+
+// ----- parent <- iframe bridge -----
+addEventListener("message", async (e) => {
+  if(e.source !== $("appframe").contentWindow) return;
+  const d = e.data;
+  // API proxy: the app asks us to call NanoGPT. We attach OUR key, but only ever to
+  // nano-gpt.com, and hand back just the response — the key is never exposed to the app.
+  if(d && d.type === "__api__"){
+    const reply = (m)=>{ try{ e.source.postMessage(Object.assign({ type:"__api_result__", id:d.id }, m), "*"); }catch(_){} };
+    try{
+      let u; try{ u = new URL(d.url, NANOGPT); }catch(_){ return reply({ error:"bad request url" }); }
+      if(u.origin !== NANOGPT) return reply({ error:"blocked: apps may only call nano-gpt.com" });
+      const k = getKey(); if(!k) return reply({ error:"sign in to run this app" });
+      const headers = Object.assign({}, d.headers, { Authorization:"Bearer "+k, "x-api-key":k });
+      const r = await fetch(u.href, { method:d.method||"GET", headers, body:(d.body!=null?d.body:undefined) });
+      const body = await r.arrayBuffer();
+      const hdrs = {}; r.headers.forEach((v,kk)=> hdrs[kk.toLowerCase()]=v);
+      reply({ ok:r.ok, status:r.status, headers:hdrs, body });   // ArrayBuffer → structured clone
+    }catch(err){ reply({ error:(err && err.message) || String(err) }); }
+    return;
+  }
+  if(d === "__share__" || (d && d.type === "__share__")) doShare();   // app owns the button, parent owns the link
+  else if(d === "__esc__" || (d && d.type === "__escape__")){ if(document.fullscreenElement) document.exitFullscreen(); }
+});
+
+/* ======================================================================
+   MODEL PICKER — the same searchable popover the editor uses, scoped to
+   chat models, choosing the LLM that WRITES app changes (the generate step).
+   ====================================================================== */
+let chatCatalog = null;
+async function loadChatCatalog(){
+  if(chatCatalog) return chatCatalog;
+  const headers = {}; const k = getKey(); if(k) headers.Authorization = "Bearer " + k;
+  let raw = [];
+  try{ raw = (await (await fetch(NANOGPT + "/api/v1/models?detailed=true", { headers })).json()).data || []; }
+  catch(_){ /* offline — exact ids still typeable */ }
+  const list = raw.map(m=>{ const p = m.pricing || {};
+    return { id:m.id, name:m.name||m.id, created:m.created,
+      pin: p.prompt!=null ? +p.prompt : null, pout: p.completion!=null ? +p.completion : null,  // USD per 1M
+      price: p.prompt!=null ? "$"+(+p.prompt).toFixed(2)+"/$"+(+p.completion).toFixed(2)+" ·1M" : "" }; })
+    .filter(m=>m.id);
+  list.sort((a,b)=> (b.created||0)-(a.created||0));   // newest first
+  chatCatalog = list; return list;
+}
+const priceOf = (id)=> (chatCatalog||[]).find(m=>m.id===id) || null;
+let picker = null;
+function renderModelBtn(){ const b = $("modelpick"); if(b) b.textContent = "✨ " + (MODEL || "pick a model…") + " ▾"; }
+function setModel(id){ MODEL = id; try{ localStorage.setItem("ngpt_app_model", id); }catch(_){} renderModelBtn(); }
+function openModelPicker(){
+  picker = { current: MODEL };
+  $("mpicktitle").textContent = "Model for app changes";
+  $("mpick").classList.add("open"); $("mpickback").classList.add("show");
+  $("mpicksearch").value = ""; $("mpicklist").innerHTML = "<div class='dim' style='padding:.6rem'>loading the full list…</div>";
+  $("mpicksearch").focus();
+  loadChatCatalog().then(renderPicker);
+}
+function closePicker(){ $("mpick").classList.remove("open"); $("mpickback").classList.remove("show"); picker = null; }
+function renderPicker(){
+  if(!picker) return;
+  const q = $("mpicksearch").value.trim().toLowerCase();
+  const list = chatCatalog || [];
+  const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+  $("mpickcount").textContent = matches.length + " model" + (matches.length===1?"":"s") + (q?"":" · newest first");
+  const frag = document.createDocumentFragment();
+  for(const m of matches.slice(0,400)){
+    const b = document.createElement("button");
+    if(m.id===picker.current) b.className = "sel";
+    b.innerHTML = '<span class="mname">'+esc(m.id)+'</span><span class="price">'+esc(m.price)+'</span>';
+    b.onclick = ()=>{ setModel(m.id); closePicker(); };
+    frag.appendChild(b);
+  }
+  $("mpicklist").replaceChildren(frag);
+}
+
+/* ======================================================================
+   CUSTOMIZE LOOP (gptdiff): goal -> generateDiff -> guard -> smartapply
+   -> push version -> re-render. The CONTRACT keeps the mount-point ids and
+   build markers intact so the engine can never be broken by a diff.
+   ====================================================================== */
+const MOUNT_IDS = ["app-title","app-tagline","app-auth","app-inputs","app-run","app-status","app-output","app-share"];
+const CONTRACT =
+`You are restyling a small single-purpose web app. You may edit ONLY two files: index.html and app.css.
+You may restyle, re-layout, and rewrite the visible copy (titles, tagline, button labels, helper text).
+You MUST keep these element ids in index.html exactly, each on a real element the app binds to:
+  ${MOUNT_IDS.map(i=>"#"+i).join(", ")}.
+Do NOT remove, rename, or duplicate those ids. Do NOT remove or alter these HTML comments — they are
+build markers the engine needs: "<!-- include: app.css -->", "<!-- include-config: graph.json -->",
+"<!-- include: runtime.js -->", and the inline <script>NoodleApp.mount();<\/script>.
+Do NOT add network requests, frameworks, or external scripts. Keep it a clean form-over-flow UI.
+
+The change to make: `;
+
+// streaming SSE client injected into gptdiff-js (Bearer key, returns the shape it expects)
+/* ---- usage meter: tokens in/out + cost across a whole customize run (both LLM
+   phases). Cost updates LIVE from the model's per-1M price (NanoGPT catalog);
+   exact figures + USD replace the estimate from x_nanogpt_pricing when it lands.
+   A leading ~ means the cost is still an estimate (no exact pricing yet). */
+const USAGE = { inTok:0, outTok:0, cost:0, exact:true };
+const estTok = (s)=> Math.ceil((s ? String(s).length : 0) / 4);
+const estMsgs = (msgs)=> (msgs||[]).reduce((n,m)=> n + estTok(typeof m.content==="string" ? m.content : JSON.stringify(m.content)), 0);
+const fmtTok = (n)=> n>=1000 ? (n/1000).toFixed(n>=10000?0:1)+"k" : String(Math.round(n));
+function usageMeter(live){
+  const inT  = USAGE.inTok  + (live ? live.inTok  : 0);
+  const outT = USAGE.outTok + (live ? live.outTok : 0);
+  const cost = USAGE.cost   + (live ? (live.cost||0) : 0);
+  const approx = !USAGE.exact || !!(live && live.cost);   // estimate in play → show ~
+  return '<span class="meter">↑ ' + fmtTok(inT) + ' in · ↓ ' + fmtTok(outT) + ' out · '
+       + (approx ? '~' : '') + '$' + cost.toFixed(4) + '</span>';
+}
+function resetUsage(){ USAGE.inTok = USAGE.outTok = USAGE.cost = 0; USAGE.exact = true; }
+
+function streamingCallLlm(phase){
+  return async ({ apiKey, baseUrl, model, messages, maxTokens=null, temperature=1.0 }) => {
+    const inEst = estMsgs(messages);
+    const pr = priceOf(model) || {};                          // per-1M USD from the catalog
+    const inPer = (Number(pr.pin)||0)/1e6, outPer = (Number(pr.pout)||0)/1e6;
+    let outTok = 0, liveCost = inEst*inPer;
+    const paint = ()=> $("cust-status").innerHTML = '<span class="spin">◐</span> ' + esc(phase) + '… ' + usageMeter({ inTok:inEst, outTok, cost:liveCost });
+    paint();
+    const endpoint = (baseUrl || (NANOGPT + "/api/v1/")).replace(/\/+$/,"") + "/chat/completions";
+    const r = await fetch(endpoint, {
+      method:"POST",
+      headers:{ Authorization:"Bearer "+apiKey, "Content-Type":"application/json" },
+      // No max_tokens by default → avoids silent truncation that yields an unparseable diff.
+      body: JSON.stringify({ model, messages, ...(maxTokens?{max_tokens:maxTokens}:{}), temperature, stream:true }),
+    });
+    if(!r.ok) throw new Error("LLM " + r.status + ": " + (await r.text()).slice(0,300));
+    const reader = r.body.getReader(), dec = new TextDecoder();
+    let buf="", content="", reasoning="", pricing=null, lastPaint=0;
+    for(;;){
+      const { value, done } = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, { stream:true });
+      const lines = buf.split("\n"); buf = lines.pop();
+      for(const line of lines){
+        const t = line.trim();
+        if(!t.startsWith("data:")) continue;
+        const data = t.slice(5).trim();
+        if(data === "[DONE]") continue;
+        let j; try{ j = JSON.parse(data); }catch{ continue; }
+        const d = j.choices && j.choices[0] && j.choices[0].delta;
+        if(d){
+          if(d.content) content += d.content;
+          if(d.reasoning) reasoning += d.reasoning;          // thinking tokens still cost output
+          outTok = estTok(content)+estTok(reasoning);
+          liveCost = inEst*inPer + outTok*outPer;
+          const now = performance.now();
+          if(now - lastPaint > 120){ lastPaint = now; paint(); }
+        }
+        if(j.x_nanogpt_pricing) pricing = j.x_nanogpt_pricing;   // exact tokens + USD (final chunk, when present)
+      }
+    }
+    // commit this call: prefer exact pricing, else the per-1M price-table estimate
+    const exactCost = pricing && (pricing.costUsd != null ? pricing.costUsd : pricing.cost);
+    USAGE.inTok  += (pricing && pricing.inputTokens  != null) ? pricing.inputTokens  : inEst;
+    USAGE.outTok += (pricing && pricing.outputTokens != null) ? pricing.outputTokens : outTok;
+    if(exactCost != null){ USAGE.cost += Number(exactCost); }
+    else { USAGE.cost += inEst*inPer + outTok*outPer; USAGE.exact = false; }   // estimate → keep the ~
+    return { choices:[{ message:{ content } }] };   // shape gptdiff-js expects
+  };
+}
+
+let busy = false;
+async function applyCustomize(){
+  const key = getKey(); if(!key){ toast("sign in first to customize", "err"); return; }
+  const goal = $("goal").value.trim();
+  if(!goal){ $("goal").focus(); return; }
+  if(busy) return; busy = true;
+  $("apply").disabled = true; $("undo").disabled = true;
+  const t0 = performance.now();
+  resetUsage();
+  await loadChatCatalog().catch(()=>{});   // make sure per-model prices are available for the live cost
+
+  try{
+    const env = buildEnvironment({ "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] });
+    const diff = await generateDiff(env, CONTRACT + goal,
+      { apiKey:key, model:MODEL, callLlm:streamingCallLlm("Generating changes") });
+
+    const parsed = parseDiffPerFile(diff);
+    if(!diff.trim() || !parsed.length){
+      $("cust-status").innerHTML = '<span class="err">⚠ No applicable change — try rephrasing the goal.</span> ' + usageMeter();
+      return;
+    }
+    const applyLlm = streamingCallLlm("Applying changes");
+    const before = { "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] };
+    const updated = await smartapply(diff, before, {
+      apiKey:key, model:APPLY,
+      callLlmForApply: (p,o,d,m,o2) => callLlmForApply(p,o,d,m,{ ...o2, callLlm:applyLlm }),
+    });
+
+    // merge edited files back; runtime.js/graph.json are never in the map so they survive untouched
+    APP_STATE.files = { ...APP_STATE.files, "index.html":updated["index.html"], "app.css":updated["app.css"] };
+    pushVersion(APP_STATE.files, goal);
+    exitFirstRun();                 // first generate done → drop the composer back to the bottom
+    syncTitleFromFiles();           // keep the bar title in step with any <title>/#app-title rewrite
+    renderApp();
+    persist();
+    $("goal").value = "";
+    const secs = ((performance.now()-t0)/1000).toFixed(1);
+    $("cust-status").innerHTML = '<span class="ok">✓ Applied in ' + secs + 's — preview updated.</span> ' + usageMeter();
+  }catch(e){
+    $("cust-status").innerHTML = '<span class="err">Error: ' + esc(e.message) + '</span>';
+  }finally{
+    busy = false; $("apply").disabled = !getKey(); $("undo").disabled = APP_STATE.curVer <= 0;
+  }
+}
+
+/* ---------- version strip (index.html .ver pattern; branch-on-edit) ---------- */
+function renderVersions(){
+  const wrap = $("versions"); wrap.innerHTML = "";
+  const vs = APP_STATE.versions;
+  if(vs.length <= 1) return;                       // nothing to switch between yet
+  const lab = document.createElement("span"); lab.className="vlabel"; lab.textContent="versions:"; wrap.appendChild(lab);
+  vs.forEach((v,i)=>{
+    const b = document.createElement("button");
+    b.className = "ver" + (i===APP_STATE.curVer?" cur":"") + (i===0?" seed":"");
+    b.textContent = i===0 ? "v0 · default" : "v"+i;
+    b.title = i===0 ? "the default app" : (v.goal ? "goal: "+v.goal : "version "+i);
+    b.onclick = () => selectVersion(i);
+    wrap.appendChild(b);
+  });
+}
+function selectVersion(i){
+  const vs = APP_STATE.versions;
+  if(i<0 || i>=vs.length || i===APP_STATE.curVer) return;
+  APP_STATE.curVer = i;
+  APP_STATE.files = { ...APP_STATE.files, ...vs[i].files };   // flip the editable files to that version
+  syncTitleFromFiles(); renderVersions(); renderApp(); persist();
+  $("undo").disabled = APP_STATE.curVer <= 0;
+}
+function pushVersion(files, goal){
+  // Editing off an older version branches: drop everything after the one being viewed.
+  APP_STATE.versions = APP_STATE.versions.slice(0, APP_STATE.curVer + 1);
+  APP_STATE.versions.push({ files:{ "index.html":files["index.html"], "app.css":files["app.css"] }, goal });
+  APP_STATE.curVer = APP_STATE.versions.length - 1;
+  renderVersions();
+}
+
+// pull the bar title from the live files (after a default build or a customize pass)
+function syncTitleFromFiles(){
+  const m = (APP_STATE.files["index.html"]||"").match(/<title>([\s\S]*?)<\/title>/i);
+  const t = (m ? m[1] : "My NaNoodle app").trim();
+  $("bar-title").textContent = t; document.title = t + " · NaNoodle app";
+}
+
+/* ======================================================================
+   CENTRAL STATE + PERSISTENCE
+   ====================================================================== */
+let APP_STATE = { v:1, graph:{ nodes:[], links:[] }, files:{}, versions:[], curVer:0 };
+
+let persistTimer = null;
+function persist(){
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(()=>{
+    try{ localStorage.setItem(LS_KEY, JSON.stringify({
+      v:1, graph:APP_STATE.graph, files:APP_STATE.files,
+      versions:APP_STATE.versions, curVer:APP_STATE.curVer,
+    })); }catch(_){ /* quota / private mode */ }
+  }, 300);
+}
+
+// install a freshly-loaded {graph, files} into the builder (used by every load path)
+function installApp({ graph, files, versions, curVer, fresh }){
+  APP_STATE.graph = graph || { nodes:[], links:[] };
+  APP_STATE.files = files && files["index.html"] ? files : defaultFiles(APP_STATE.graph);
+  APP_STATE.versions = (versions && versions.length)
+    ? versions
+    : [{ files:{ "index.html":APP_STATE.files["index.html"], "app.css":APP_STATE.files["app.css"] }, goal:null }];
+  APP_STATE.curVer = (curVer!=null && curVer<APP_STATE.versions.length) ? curVer : APP_STATE.versions.length-1;
+  $("empty").hidden = true; $("appframe").style.display = "";
+  syncTitleFromFiles(); renderVersions(); renderApp(); persist();
+  $("undo").disabled = APP_STATE.curVer <= 0;
+  // a brand-new app (straight from the editor, never customized) leads with the prompt
+  if(fresh && APP_STATE.versions.length <= 1) enterFirstRun(); else exitFirstRun();
+}
+function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My NaNoodle app"; }
+
+// first-run: float the customize composer as a centered "describe your app" prompt
+function enterFirstRun(){ document.body.classList.add("firstrun"); setTimeout(()=>{ const g=$("goal"); if(g) g.focus(); }, 30); }
+function exitFirstRun(){ document.body.classList.remove("firstrun"); }
+
+/* ======================================================================
+   BUILDER AUTH CHROME — same flow + localStorage keys as index.html.
+   ====================================================================== */
+const REDIRECT_URI = location.origin + location.pathname;
+const b64url = (b)=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const rand = (n)=>b64url(crypto.getRandomValues(new Uint8Array(n)));
+const sha256url = async (s)=>b64url(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
+async function clientId(){
+  const cached = JSON.parse(localStorage.getItem("ngpt_client")||"null");
+  if (cached && cached.redirect===REDIRECT_URI) return cached.id;
+  const r = await fetch(`${NANOGPT}/oauth/register`,{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({client_name:"NaNoodle app",redirect_uris:[REDIRECT_URI],grant_types:["authorization_code"],response_types:["code"],token_endpoint_auth_method:"none"})});
+  if(!r.ok) throw new Error("register "+r.status);
+  const id=(await r.json()).client_id;
+  localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
+  return id;
+}
+async function signIn(){
+  const id = await clientId();
+  const verifier=rand(32), state=rand(16);
+  sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+  const u=new URL(`${NANOGPT}/oauth/authorize`);
+  u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256",invitation_code:"W3x83yU3"}).toString();
+  location.assign(u.toString());
+}
+async function handleRedirect(){
+  const p=new URLSearchParams(location.search);
+  if(!p.has("code")&&!p.has("error")) return;
+  history.replaceState({},"",REDIRECT_URI);
+  const saved=JSON.parse(sessionStorage.getItem("pkce")||"null"); sessionStorage.removeItem("pkce");
+  if(p.get("error")) throw new Error(p.get("error"));
+  if(!saved||p.get("state")!==saved.state) throw new Error("state mismatch");
+  const r=await fetch(`${NANOGPT}/oauth/token`,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+    body:new URLSearchParams({grant_type:"authorization_code",client_id:saved.id,redirect_uri:REDIRECT_URI,code:p.get("code"),code_verifier:saved.verifier})});
+  if(!r.ok) throw new Error("token: "+(await r.text()));
+  setKey((await r.json()).access_token);
+}
+function renderAuth(){
+  const signed = !!getKey();
+  $("auth-status").textContent = signed ? "signed in ✓" : "not signed in";
+  $("signin").style.display  = signed ? "none" : "";
+  $("pastebtn").style.display = signed ? "none" : "";
+  $("signout").style.display  = signed ? "" : "none";
+  $("apply").disabled = !signed || busy;
+}
+
+/* ======================================================================
+   SHARE / EXPORT / OPEN-IN-EDITOR / FULLSCREEN
+   ====================================================================== */
+// SHARE: pack {v:1, graph, files} -> gzip -> b64url -> #a= ; copy + toast. NO key inside.
+async function doShare(){
+  try{
+    const json = JSON.stringify({ v:1, graph:APP_STATE.graph, files:APP_STATE.files });
+    const packed = await gzip(json).catch(()=>null);
+    const hash = packed ? "#a="+bytesToB64url(packed)
+                        : "#a=u"+bytesToB64url(new TextEncoder().encode(json)); // 'u' = uncompressed fallback
+    const url = location.origin + location.pathname + hash;
+    history.replaceState({}, "", url);
+    const ok = await copyText(url);
+    const big = url.length>8000 ? ` (${(url.length/1024).toFixed(0)}kB)` : "";
+    toast(ok ? `✓ App link copied — anyone who opens it gets this exact app and signs in with their own key${big}`
+             : `App link is in the address bar — copy it to share${big}`, ok?"":"err");
+  }catch(e){ toast("share failed: "+e.message, "err"); }
+}
+
+// EXPORT: download bundle(files) as "<title>.html". No key inside (bundle never embeds it).
+function doExport(){
+  const safe = ($("bar-title").textContent || "nanoodle-app").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"") || "nanoodle-app";
+  const blob = new Blob([bundle(APP_STATE.files)], { type:"text/html" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = safe + ".html";
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+  toast("exported — that .html is self-contained (no key inside)");
+}
+
+// OPEN IN EDITOR: hand the graph back to index.html via the editor's own #g=/#j= format.
+async function doOpenEditor(){
+  const json = JSON.stringify(APP_STATE.graph);
+  const packed = await gzip(json).catch(()=>null);
+  const hash = packed ? "#g="+bytesToB64url(packed) : "#j="+bytesToB64url(new TextEncoder().encode(json));
+  window.open("index.html"+hash, "_blank");
+}
+
+/* ======================================================================
+   LOAD PRIORITY: #a= (full app) > #g=/#j= (graph handoff) > localStorage
+   handoff > saved session > empty state.
+   ====================================================================== */
+async function loadFromHash(){
+  const h = location.hash;
+  // #a= : full app spec {v,graph,files}, gzip (or 'u'+b64 uncompressed fallback)
+  if(h.startsWith("#a=")){
+    try{
+      const tag = h.slice(3);
+      const json = tag[0]==="u" ? new TextDecoder().decode(b64urlToBytes(tag.slice(1)))
+                                : await gunzip(b64urlToBytes(tag));
+      const spec = JSON.parse(json);
+      installApp({ graph:spec.graph, files:spec.files });   // shared apps carry their own files
+      return true;
+    }catch(_){ /* fall through */ }
+  }
+  // #g= / #j= : graph-only handoff from the editor -> build the deterministic default app
+  if(h.startsWith("#g=") || h.startsWith("#j=")){
+    try{
+      const json = h.startsWith("#g=") ? await gunzip(b64urlToBytes(h.slice(3)))
+                                       : new TextDecoder().decode(b64urlToBytes(h.slice(3)));
+      const graph = JSON.parse(json);
+      installApp({ graph, files:defaultFiles(graph), fresh:true });   // straight from the editor → lead with the prompt
+      return true;
+    }catch(_){ /* fall through */ }
+  }
+  return false;
+}
+
+/* ======================================================================
+   WIRING + BOOT
+   ====================================================================== */
+const IN_EDITOR = window.parent && window.parent !== window;   // opened as a popup inside the editor
+$("share").onclick = doShare;
+$("export").onclick = doExport;
+$("openeditor").onclick = doOpenEditor;
+if(IN_EDITOR){
+  $("openeditor").style.display = "none";                      // already in the editor — the popup IS the editor
+  // Esc inside the popup → ask the editor to close it (the keydown can't reach the parent)
+  document.addEventListener("keydown", (e)=>{ if(e.key==="Escape"){ try{ parent.postMessage({ type:"__closeapp__" }, "*"); }catch(_){} } });
+}
+
+$("apply").onclick = applyCustomize;
+$("goal").addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); if(!busy) applyCustomize(); } });
+$("undo").onclick = () => { if(APP_STATE.curVer > 0) selectVersion(APP_STATE.curVer - 1); };
+$("fr-skip").onclick = exitFirstRun;                          // "skip — use the default app"
+
+// model picker wiring
+renderModelBtn();
+loadChatCatalog().catch(()=>{});   // warm prices (public endpoint) so the live cost meter is ready
+$("modelpick").onclick = openModelPicker;
+$("mpickclose").onclick = closePicker;
+$("mpickback").onclick = closePicker;
+$("mpicksearch").addEventListener("input", renderPicker);
+$("mpicksearch").addEventListener("keydown", (e)=>{
+  if(e.key==="Enter"){ const v=$("mpicksearch").value.trim(); if(v){ setModel(v); closePicker(); } }
+  else if(e.key==="Escape") closePicker();
+});
+
+$("signin").addEventListener("click",(e)=>{ e.preventDefault(); signIn().catch(err=>$("auth-status").textContent="sign-in error: "+err.message); });
+$("pastebtn").addEventListener("click",()=>{ $("key").style.display="flex"; $("keyinput").focus(); });
+$("keysave").addEventListener("click",()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp(); toast("key saved — the app can run now"); } });
+$("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
+$("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
+
+async function boot(){
+  try{ await handleRedirect(); }catch(e){ $("auth-status").textContent = "sign-in error: "+e.message; }
+  renderAuth();
+
+  let loaded = await loadFromHash();
+
+  // belt-and-suspenders: the editor also stashes the raw graph JSON before opening us
+  if(!loaded){
+    try{ const ho = localStorage.getItem("noodle_app_handoff");
+      if(ho){ const graph = JSON.parse(ho); localStorage.removeItem("noodle_app_handoff");
+        installApp({ graph, files:defaultFiles(graph), fresh:true }); loaded = true; } }catch(_){}
+  }
+  // saved builder session
+  if(!loaded){
+    try{ const st = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+      if(st && st.graph){ installApp(st); loaded = true; } }catch(_){}
+  }
+  // friendly empty state
+  if(!loaded) showEmpty();
+}
+boot();
+</script>
+</body>
+</html>
