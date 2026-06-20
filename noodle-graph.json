@@ -8,7 +8,7 @@
       "y": -204.6235873860798,
       "fields": {
         "model": "zai-org/glm-5.2:thinking",
-        "system": "You write the best lyrics. All about wheel of time.\nonly state the lyrics not the style. no pre or post discussion."
+        "system": "You are an 80s singer-songwriter writing lyrics.\nonly state the lyrics not the style. no pre or post discussion."
       }
     },
     {
