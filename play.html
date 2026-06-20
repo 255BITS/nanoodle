@@ -727,6 +727,87 @@ window.NoodleApp = (function () {
   }
 
   /* =====================================================================
+     DESCRIBE — a plain-English account of what the graph actually does:
+     the pipeline steps in run order, the data flow between them, the
+     prompts/models in play, what the end-user fills in, and what comes
+     out. Fed to the customize LLM so it can title/label/word the app for
+     the real workflow and reason about what the user is trying to build,
+     instead of restyling blind. Takes a materialized graph (has byId).
+     ===================================================================== */
+  const NODE_ROLE = {
+    text:   "a fixed block of text",
+    upload: "an image the user uploads",
+    join:   "joins two pieces of text into one",
+    llm:    "writes text from a prompt",
+    image:  "generates an image from a text prompt",
+    edit:   "edits an existing image following an instruction",
+    vision: "looks at an image and answers a question about it in text",
+    tvideo: "generates a video from a text prompt",
+    ivideo: "animates a still image into a video",
+    music:  "generates music from a style/prompt",
+    tts:    "reads text aloud as speech",
+  };
+  function describeGraph(graph){
+    const clip = (s, n)=>{ s = String(s).replace(/\s+/g," ").trim(); return s.length>n ? s.slice(0,n-1)+"…" : s; };
+    const nameOf = (n)=> n ? ((NODE_TYPES[n.type] && NODE_TYPES[n.type].title) || n.type) : "?";
+    if(!graph.nodes.length) return "(The workflow is empty — no steps yet.)";
+
+    const allIds = new Set(graph.nodes.map(n=>n.id));
+    const r = topoOrder(graph, allIds);
+    const order = [...r.order, ...r.cyclic];     // cyclic shouldn't happen, but never drop a node
+
+    const lines = ["The app runs this workflow, step by step:"];
+    order.forEach((id, idx)=>{
+      const n = graph.byId(id); if(!n) return;
+      const t = NODE_TYPES[n.type] || {};
+      const incoming = graph.links.filter(l=> l.to.node===id);
+      const fedPorts = new Set(incoming.map(l=> l.to.port));   // a link into a field overrides its inline value
+      const fed = incoming.map(l=>{
+        const src = graph.byId(l.from.node);
+        return nameOf(src) + "'s " + l.from.port + " feeds this step's " + l.to.port;
+      });
+      const f = n.fields || {};
+      const facts = [];
+      if(f.model)                                         facts.push("model " + f.model);
+      if(!fedPorts.has("system") && (f.system||"").trim()) facts.push('system prompt "' + clip(f.system,140) + '"');
+      if(!fedPorts.has("prompt") && (f.prompt||"").trim()) facts.push('prompt "' + clip(f.prompt,140) + '"');
+      if(!fedPorts.has("text")   && (f.text||"").trim())   facts.push('text "' + clip(f.text,140) + '"');
+      if(!fedPorts.has("q")      && (f.q||"").trim())      facts.push('question "' + clip(f.q,140) + '"');
+      if(f.size)                        facts.push("size " + f.size);
+      if(f.duration)                    facts.push("duration " + f.duration + "s");
+      if(f.aspect)                      facts.push("aspect " + f.aspect);
+      if(n.type==="join" && f.sep!=null) facts.push("separator " + JSON.stringify(f.sep));
+
+      let line = "  " + (idx+1) + ". " + (t.em ? t.em+" " : "") + nameOf(n)
+               + (NODE_ROLE[n.type] ? " — " + NODE_ROLE[n.type] : "");
+      if(fed.length)   line += " (" + fed.join("; ") + ")";
+      if(facts.length) line += " [" + facts.join("; ") + "]";
+      lines.push(line);
+    });
+
+    const inputs = deriveInputs(graph);
+    lines.push("");
+    if(inputs.length){
+      lines.push("What the end-user fills in before pressing Run:");
+      for(const it of inputs)
+        lines.push("  • " + it.label + (it.optional ? " (optional)" : "") + " — for the " + nameOf(it.node) + " step");
+    } else {
+      lines.push("The end-user fills in nothing — pressing Run produces the result directly.");
+    }
+
+    const outs = deriveOutputs(graph);
+    if(outs.length){
+      const kinds = [...new Set(outs.map(n=>{
+        const t = NODE_TYPES[n.type] || {};
+        return (t.outputs && t.outputs[0] && t.outputs[0].type) || "result";
+      }))];
+      lines.push("");
+      lines.push("The result it shows the user: " + kinds.join(", ") + ".");
+    }
+    return lines.join("\n");
+  }
+
+  /* =====================================================================
      DOM / RENDER
      ===================================================================== */
   const $ = (id)=> document.getElementById(id);
@@ -1420,7 +1501,9 @@ build markers the engine needs: "<!-- include: app.css -->", "<!-- include-confi
 "<!-- include: runtime.js -->", and the inline <script>NoodleApp.mount();<\/script>.
 Do NOT add network requests, frameworks, or external scripts. Keep it a clean form-over-flow UI.
 
-The change to make: `;
+Below is a description of the workflow this app is a front-end for. Use it to give the app a
+fitting title, tagline, input labels, button text, and helper copy, and to reason about what the
+user is trying to accomplish — then make their requested change in a way that serves that goal.`;
 
 // streaming SSE client injected into gptdiff-js (Bearer key, returns the shape it expects)
 /* ---- usage meter: tokens in/out + cost across a whole customize run (both LLM
@@ -1505,7 +1588,11 @@ async function applyCustomize(){
 
   try{
     const env = buildEnvironment({ "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] });
-    const diff = await generateDiff(env, CONTRACT + goal,
+    const appDesc = describeGraph(materialize(APP_STATE.graph));
+    const prompt = CONTRACT
+      + "\n\n--- WHAT THIS APP DOES ---\n" + appDesc + "\n--- END ---\n"
+      + "\nThe change to make: " + goal;
+    const diff = await generateDiff(env, prompt,
       { apiKey:key, model:MODEL, callLlm:streamingCallLlm("Generating changes") });
 
     const parsed = parseDiffPerFile(diff);
