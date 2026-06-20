@@ -38,6 +38,37 @@
   #bar button:hover{ border-color:var(--accent-line); }
   button.link{ background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font-size:.8rem; }
   #signin{ font-size:.8rem; }
+  #myapps{ font-weight:600; }
+
+  /* ---------- "My apps" dropdown ---------- */
+  #appsback{ position:fixed; inset:0; z-index:90; }            /* click-away catcher */
+  #appsmenu{ position:fixed; left:.8rem; top:3rem; z-index:91; width:min(380px,92vw);
+             max-height:70vh; overflow:auto; background:var(--panel); border:1px solid var(--line);
+             border-radius:.7rem; box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.45rem; }
+  #appsmenu[hidden], #appsback[hidden]{ display:none; }
+  .am-head{ font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--faint);
+            padding:.3rem .5rem .35rem; }
+  .am-row{ display:flex; align-items:center; gap:.5rem; padding:.5rem .55rem; border-radius:.5rem; cursor:pointer; }
+  .am-row:hover{ background:var(--panel2); }
+  .am-row.cur{ background:var(--accent-soft); }
+  .am-main{ flex:1; min-width:0; }
+  .am-title{ font-weight:600; font-size:.9rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+             display:flex; align-items:center; gap:.4rem; }
+  .am-sub{ display:flex; align-items:center; gap:.4rem; flex-wrap:wrap; margin-top:.15rem; }
+  .am-when{ font-size:.72rem; color:var(--faint); }
+  .am-io{ display:inline-flex; align-items:center; gap:.25rem; font-size:.72rem; color:var(--dim); }
+  .am-io .arrow{ color:var(--faint); }
+  .am-chip{ display:inline-flex; align-items:center; gap:.2rem; }
+  .am-tag{ font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; font-weight:700;
+           color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-line);
+           border-radius:.35rem; padding:.05rem .3rem; }
+  .am-del{ flex:none; background:none; border:none; color:var(--faint); cursor:pointer; font-size:.95rem;
+           padding:.15rem .3rem; border-radius:.4rem; }
+  .am-del:hover{ color:var(--danger); background:var(--panel2); }
+  .am-new{ width:100%; margin-top:.35rem; text-align:center; font-size:.82rem; color:var(--accent);
+           background:none; border:1px dashed var(--accent-line); border-radius:.5rem; padding:.5rem; cursor:pointer; }
+  .am-new:hover{ background:var(--accent-soft); }
+  .am-empty{ padding:.6rem .55rem; color:var(--dim); font-size:.82rem; }
 
   /* ---------- paste-key row ---------- */
   #key{ display:none; align-items:center; gap:.5rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); background:#11141f; position:relative; z-index:70; }
@@ -133,6 +164,9 @@
   <div class="brand"><span class="nano">NaNo</span>odle<span class="ui"> · app</span></div>
   <div class="title-wrap"><span id="bar-title">My NaNoodle app</span></div>
 
+  <!-- only shown once the user has created/imported at least one app -->
+  <button id="myapps" class="link" style="display:none" title="Apps you've created or imported">≡ My apps ▾</button>
+
   <div class="grow"></div>
 
   <!-- auth status mirrors index.html: sign in / paste key / sign out, shared ngpt_key -->
@@ -146,6 +180,14 @@
   <button id="export" title="Download this app as one self-contained .html (no key inside)">⭳ Export</button>
   <button id="openeditor" title="Open the underlying workflow in the NaNoodle editor">✎ Open in editor</button>
 </div>
+
+<!-- "My apps" library — created + imported apps, each with its own versions -->
+<div id="appsmenu" hidden>
+  <div class="am-head">My apps</div>
+  <div id="am-list"></div>
+  <button id="am-new" class="am-new">＋ New app from this workflow</button>
+</div>
+<div id="appsback" hidden></div>
 
 <!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
 <div id="key">
@@ -206,7 +248,7 @@ const $ = (id) => document.getElementById(id);
 const NANOGPT = "https://nano-gpt.com";
 const DEFAULT_MODEL = "xiaomi/mimo-v2.5-pro-ultraspeed";      // writes the changes (user-selectable)
 const APPLY_DEFAULT = "xiaomi/mimo-v2.5-pro-ultraspeed";      // applies the diff (fast, mechanical)
-const LS_KEY = "noodle_app_state";   // {v,graph,files,versions,curVer}
+const LS_KEY = "noodle_app_state";   // working state of the app currently open {id,title,imported,graph,files,versions,curVer}
 const ACCENT = "#7c8cff";
 
 let MODEL = localStorage.getItem("ngpt_app_model") || DEFAULT_MODEL;
@@ -1167,9 +1209,21 @@ window.NoodleApp = (function () {
     }
   }
 
-  return { mount, runGraph, materialize, NODE_TYPES, CTX };
+  return { mount, runGraph, materialize, describeGraph, deriveInputs, deriveOutputs, NODE_TYPES, CTX };
 })();
 `;
+
+/* The runtime above normally only executes inside the sandboxed preview iframe.
+   The builder itself also needs the engine's pure graph-introspection helpers
+   (materialize / describeGraph) to describe the app for the customize prompt, so
+   run the same RUNTIME_JS once here too. It defines window.NoodleApp WITHOUT
+   mounting (mount() is never called), so it has no side effects on this page.
+   CSP allows inline <script> ('unsafe-inline') but not eval, hence a script tag. */
+(function injectEngineForBuilder(){
+  const s = document.createElement("script");
+  s.textContent = RUNTIME_JS;
+  document.head.appendChild(s);
+})();
 
 /* ======================================================================
    DEFAULT APP GENERATION — deterministic, NO LLM. Produces the two
@@ -1641,7 +1695,7 @@ async function applyCustomize(){
 
   try{
     const env = buildEnvironment({ "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] });
-    const appDesc = describeGraph(materialize(APP_STATE.graph));
+    const appDesc = NoodleApp.describeGraph(NoodleApp.materialize(APP_STATE.graph));
     const prompt = CONTRACT
       + "\n\n--- WHAT THIS APP DOES ---\n" + appDesc + "\n--- END ---\n"
       + "\nThe change to make: " + goal;
@@ -1666,7 +1720,7 @@ async function applyCustomize(){
     exitFirstRun();                 // first generate done → drop the composer back to the bottom
     syncTitleFromFiles();           // keep the bar title in step with any <title>/#app-title rewrite
     renderApp();
-    persist();
+    commit();                       // a customized app earns its place in "My apps" (keeps its own versions)
     $("goal").value = "";
     const secs = ((performance.now()-t0)/1000).toFixed(1);
     $("cust-status").innerHTML = '<span class="ok">✓ Applied in ' + secs + 's — preview updated.</span> ' + usageMeter();
@@ -1708,31 +1762,62 @@ function pushVersion(files, goal){
   renderVersions();
 }
 
+// pull a title from an app's files (the <title> the customize pass keeps in step)
+function titleFromFiles(files){
+  const m = ((files && files["index.html"])||"").match(/<title>([\s\S]*?)<\/title>/i);
+  return (m ? m[1] : "My NaNoodle app").trim();
+}
 // pull the bar title from the live files (after a default build or a customize pass)
 function syncTitleFromFiles(){
-  const m = (APP_STATE.files["index.html"]||"").match(/<title>([\s\S]*?)<\/title>/i);
-  const t = (m ? m[1] : "My NaNoodle app").trim();
+  const t = titleFromFiles(APP_STATE.files);
   $("bar-title").textContent = t; document.title = t + " · NaNoodle app";
 }
 
 /* ======================================================================
    CENTRAL STATE + PERSISTENCE
+   APP_STATE is the app currently open in the builder. CUR_ID is its slot in
+   the "My apps" library (noodle_apps) — null while it's an uncustomized draft
+   straight off the editor (those are regenerable from the graph, so we don't
+   clutter the library with them). The moment it's customized or imported it
+   gets an id and lives in the library, with its OWN versions, so closing the
+   builder never loses it.
    ====================================================================== */
 let APP_STATE = { v:1, graph:{ nodes:[], links:[] }, files:{}, versions:[], curVer:0 };
+let CUR_ID = null;          // library id of the open app, or null for a draft
+let curImported = false;    // open app came in via a share link (#a=)
 
-let persistTimer = null;
-function persist(){
-  clearTimeout(persistTimer);
-  persistTimer = setTimeout(()=>{
-    try{ localStorage.setItem(LS_KEY, JSON.stringify({
-      v:1, graph:APP_STATE.graph, files:APP_STATE.files,
-      versions:APP_STATE.versions, curVer:APP_STATE.curVer,
-    })); }catch(_){ /* quota / private mode */ }
-  }, 300);
+const APPS_KEY = "noodle_apps";   // [{id,title,imported,graph,files,versions,curVer,updated}]
+function loadApps(){ try{ return JSON.parse(localStorage.getItem(APPS_KEY) || "[]") || []; }catch{ return []; } }
+function saveApps(apps){ try{ localStorage.setItem(APPS_KEY, JSON.stringify(apps)); }catch(_){ /* quota */ } }
+function newId(){ return "app_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+// snapshot the open app as a library entry
+function curEntry(){
+  return { id:CUR_ID, title:titleFromFiles(APP_STATE.files), imported:curImported,
+           graph:APP_STATE.graph, files:APP_STATE.files,
+           versions:APP_STATE.versions, curVer:APP_STATE.curVer, updated:Date.now() };
 }
+// write the working state (LS_KEY) and, if this app is in the library, upsert it there
+function writeState(){
+  const e = curEntry();
+  try{ localStorage.setItem(LS_KEY, JSON.stringify({ ...e, v:1 })); }catch(_){ /* quota / private mode */ }
+  if(CUR_ID){
+    const apps = loadApps();
+    const i = apps.findIndex(a=>a.id===CUR_ID);
+    if(i>=0) apps[i] = e; else apps.unshift(e);
+    saveApps(apps);
+  }
+  renderAppsBtn();
+}
+let persistTimer = null;
+function persist(){ clearTimeout(persistTimer); persistTimer = setTimeout(writeState, 300); }
+// promote a draft into the library (called on first customize / on import) and save now
+function commit(){ if(!CUR_ID) CUR_ID = newId(); clearTimeout(persistTimer); writeState(); }
 
 // install a freshly-loaded {graph, files} into the builder (used by every load path)
-function installApp({ graph, files, versions, curVer, fresh }){
+function installApp({ graph, files, versions, curVer, fresh, id, imported }){
+  CUR_ID = id || null;
+  curImported = !!imported;
   APP_STATE.graph = graph || { nodes:[], links:[] };
   APP_STATE.files = files && files["index.html"] ? files : defaultFiles(APP_STATE.graph);
   APP_STATE.versions = (versions && versions.length)
@@ -1740,12 +1825,89 @@ function installApp({ graph, files, versions, curVer, fresh }){
     : [{ files:{ "index.html":APP_STATE.files["index.html"], "app.css":APP_STATE.files["app.css"] }, goal:null }];
   APP_STATE.curVer = (curVer!=null && curVer<APP_STATE.versions.length) ? curVer : APP_STATE.versions.length-1;
   $("empty").hidden = true; $("appframe").style.display = "";
-  syncTitleFromFiles(); renderVersions(); renderApp(); persist();
+  syncTitleFromFiles(); renderVersions(); renderApp();
+  if(CUR_ID) commit(); else persist();   // committed apps refresh their slot; drafts only autosave working state
   $("undo").disabled = APP_STATE.curVer <= 0;
   // a brand-new app (straight from the editor, never customized) leads with the prompt
   if(fresh && APP_STATE.versions.length <= 1) enterFirstRun(); else exitFirstRun();
 }
-function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My NaNoodle app"; }
+function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My NaNoodle app"; renderAppsBtn(); }
+
+/* ---------- "My apps" library UI ---------- */
+const IO_CHIP = { text:{em:"📝",label:"Text"}, image:{em:"🖼",label:"Image"},
+                  video:{em:"🎬",label:"Video"}, audio:{em:"🎵",label:"Audio"} };
+// the workflow's user-facing input types and final output types, for the list rows
+function workflowIO(graph){
+  try{
+    const m = NoodleApp.materialize(graph), NT = NoodleApp.NODE_TYPES, inT=[], outT=[];
+    for(const it of NoodleApp.deriveInputs(m)){
+      const t = it.kind==="image" ? "image" : "text";
+      if(!inT.includes(t)) inT.push(t);
+    }
+    for(const o of NoodleApp.deriveOutputs(m)){
+      const t = (((NT[o.type]||{}).outputs||[])[0]||{}).type;
+      if(t && !outT.includes(t)) outT.push(t);
+    }
+    return { inputs:inT, outputs:outT };
+  }catch{ return { inputs:[], outputs:[] }; }
+}
+function relTime(ts){
+  if(!ts) return "";
+  const s = (Date.now()-ts)/1000;
+  if(s < 60) return "just now";
+  if(s < 3600) return Math.floor(s/60)+"m ago";
+  if(s < 86400) return Math.floor(s/3600)+"h ago";
+  return Math.floor(s/86400)+"d ago";
+}
+function renderAppsBtn(){ $("myapps").style.display = loadApps().length ? "" : "none"; }
+function chipHtml(types){
+  return types.map(t=>{ const c = IO_CHIP[t] || {em:"•",label:t};
+    return '<span class="am-chip">'+c.em+' '+esc(c.label)+'</span>'; }).join(" ");
+}
+function renderAppsMenu(){
+  const apps = loadApps().slice().sort((a,b)=> (b.updated||0)-(a.updated||0));
+  const list = $("am-list"); list.innerHTML = "";
+  if(!apps.length){ list.innerHTML = '<div class="am-empty">No saved apps yet.</div>'; return; }
+  for(const a of apps){
+    const io = workflowIO(a.graph);
+    const ioHtml = (io.inputs.length || io.outputs.length)
+      ? '<span class="am-io">' + chipHtml(io.inputs)
+        + (io.inputs.length && io.outputs.length ? ' <span class="arrow">→</span> ' : '')
+        + chipHtml(io.outputs) + '</span>'
+      : '';
+    const row = document.createElement("div");
+    row.className = "am-row" + (a.id===CUR_ID ? " cur" : "");
+    row.innerHTML =
+      '<div class="am-main">'
+      + '<div class="am-title">' + esc(a.title || "Untitled app")
+      + (a.imported ? ' <span class="am-tag">imported</span>' : '') + '</div>'
+      + '<div class="am-sub">' + ioHtml + '<span class="am-when">' + esc(relTime(a.updated)) + '</span></div>'
+      + '</div>'
+      + '<button class="am-del" title="Delete this app">🗑</button>';
+    row.querySelector(".am-main").onclick = ()=> openApp(a.id);
+    row.querySelector(".am-del").onclick = (e)=>{ e.stopPropagation(); deleteApp(a.id); };
+    list.appendChild(row);
+  }
+}
+function openAppsMenu(){ renderAppsMenu(); $("appsmenu").hidden = false; $("appsback").hidden = false; }
+function closeAppsMenu(){ $("appsmenu").hidden = true; $("appsback").hidden = true; }
+function toggleAppsMenu(){ $("appsmenu").hidden ? openAppsMenu() : closeAppsMenu(); }
+function openApp(id){
+  const a = loadApps().find(x=>x.id===id); if(!a) return;
+  closeAppsMenu();
+  installApp({ graph:a.graph, files:a.files, versions:a.versions, curVer:a.curVer, id:a.id, imported:a.imported });
+}
+function deleteApp(id){
+  saveApps(loadApps().filter(a=>a.id!==id));
+  if(CUR_ID===id) CUR_ID = null;     // the open app becomes an uncommitted draft again
+  renderAppsBtn(); renderAppsMenu();
+  if(!loadApps().length) closeAppsMenu();
+}
+// start a fresh default app off the SAME workflow graph (a new sibling in the library)
+function newAppFromGraph(){
+  closeAppsMenu();
+  installApp({ graph:APP_STATE.graph, files:defaultFiles(APP_STATE.graph), fresh:true });
+}
 
 // first-run: float the customize composer as a centered "describe your app" prompt
 function enterFirstRun(){ document.body.classList.add("firstrun"); setTimeout(()=>{ const g=$("goal"); if(g) g.focus(); }, 30); }
@@ -1843,8 +2005,10 @@ async function doOpenEditor(){
 }
 
 /* ======================================================================
-   LOAD PRIORITY: #a= (full app) > #g=/#j= (graph handoff) > localStorage
-   handoff > saved session > empty state.
+   LOAD PRIORITY: #a= (full app → imported into "My apps") > #g=/#j= (graph
+   handoff → fresh draft) > localStorage handoff > saved session > empty.
+   Created/imported apps persist in the library (noodle_apps); only an
+   uncustomized editor draft is disposable.
    ====================================================================== */
 async function loadFromHash(){
   const h = location.hash;
@@ -1855,7 +2019,10 @@ async function loadFromHash(){
       const json = tag[0]==="u" ? new TextDecoder().decode(b64urlToBytes(tag.slice(1)))
                                 : await gunzip(b64urlToBytes(tag));
       const spec = JSON.parse(json);
-      installApp({ graph:spec.graph, files:spec.files });   // shared apps carry their own files
+      // someone else's app → keep it in "My apps", flagged as imported (it carries its own files)
+      installApp({ graph:spec.graph, files:spec.files, id:newId(), imported:true });
+      history.replaceState({}, "", location.origin + location.pathname);   // don't re-import on reload
+      toast("Imported — saved to “My apps”");
       return true;
     }catch(_){ /* fall through */ }
   }
@@ -1902,15 +2069,38 @@ $("mpicksearch").addEventListener("keydown", (e)=>{
   else if(e.key==="Escape") closePicker();
 });
 
+// "My apps" library wiring
+$("myapps").onclick = toggleAppsMenu;
+$("appsback").onclick = closeAppsMenu;
+$("am-new").onclick = newAppFromGraph;
+// Escape closes the apps menu first (capture, so it beats the editor-popup close handler below)
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("appsmenu").hidden){ e.stopPropagation(); closeAppsMenu(); } }, true);
+
 $("signin").addEventListener("click",(e)=>{ e.preventDefault(); signIn().catch(err=>$("auth-status").textContent="sign-in error: "+err.message); });
 $("pastebtn").addEventListener("click",()=>{ $("key").style.display="flex"; $("keyinput").focus(); });
 $("keysave").addEventListener("click",()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp(); toast("key saved — the app can run now"); } });
 $("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
 $("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
 
+// one-time: lift a pre-library customized session (old single LS_KEY slot) into "My apps"
+function migrateLegacy(){
+  if(loadApps().length) return;                          // already on the library model
+  try{
+    const st = JSON.parse(localStorage.getItem(LS_KEY) || "null");
+    if(st && st.graph && !st.id && st.versions && st.versions.length > 1){
+      const id = newId();
+      saveApps([{ id, title: st.title || titleFromFiles(st.files), imported:false,
+        graph:st.graph, files:st.files, versions:st.versions, curVer:st.curVer, updated:Date.now() }]);
+      try{ localStorage.setItem(LS_KEY, JSON.stringify({ ...st, id })); }catch(_){}
+    }
+  }catch(_){}
+}
+
 async function boot(){
   try{ await handleRedirect(); }catch(e){ $("auth-status").textContent = "sign-in error: "+e.message; }
   renderAuth();
+  migrateLegacy();
+  renderAppsBtn();
 
   let loaded = await loadFromHash();
 
@@ -1920,13 +2110,17 @@ async function boot(){
       if(ho){ const graph = JSON.parse(ho); localStorage.removeItem("noodle_app_handoff");
         installApp({ graph, files:defaultFiles(graph), fresh:true }); loaded = true; } }catch(_){}
   }
-  // saved builder session
+  // saved builder session — restore the app that was open, reconnecting it to its library slot
   if(!loaded){
     try{ const st = JSON.parse(localStorage.getItem(LS_KEY) || "null");
-      if(st && st.graph){ installApp(st); loaded = true; } }catch(_){}
+      if(st && st.graph){
+        if(st.id && !loadApps().some(a=>a.id===st.id)) st.id = null;   // its slot was deleted → reopen as a draft
+        installApp(st); loaded = true;
+      } }catch(_){}
   }
   // friendly empty state
   if(!loaded) showEmpty();
+  renderAppsBtn();
 }
 boot();
 </script>
