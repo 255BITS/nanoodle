@@ -1042,9 +1042,8 @@ window.addEventListener("resize", redraw);
    ====================================================================== */
 const stats = { count:0, cost:0, exact:true, balance:null };
 function paintCost(){
-  if(!stats.count){ $("cost").textContent=""; return; }
-  const bal = stats.balance!=null ? ` · bal $${stats.balance.toFixed(2)}` : "";
-  $("cost").innerHTML = `${stats.exact?"":"~"}$<b>${stats.cost.toFixed(4)}</b> · ${stats.count} call${stats.count===1?"":"s"}${bal}`;
+  if(stats.balance==null){ $("cost").textContent=""; return; }   // show only the running balance
+  $("cost").innerHTML = `bal $<b>${stats.balance.toFixed(2)}</b>`;
 }
 
 function ancestors(targets){
