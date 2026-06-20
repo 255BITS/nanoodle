@@ -118,6 +118,14 @@
   .body .chk{ display:flex; align-items:center; gap:.45rem; font-size:.8rem; color:var(--ink); text-transform:none; letter-spacing:0 }
   .body .fhint{ font-size:.68rem; color:var(--dim); margin-top:.2rem; text-transform:none; letter-spacing:0 }
   .body .two{ display:flex; gap:.4rem } .body .two > *{ flex:1; min-width:0 }
+  /* image upload / webcam panel */
+  .body .uprev{ width:100%; min-height:90px; display:flex; align-items:center; justify-content:center;
+                background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; overflow:hidden; font-size:.74rem }
+  .body .uprev img{ width:100%; display:block; border-radius:.45rem }
+  .body .ubtn{ padding:.4rem .4rem; font-size:.78rem; background:var(--panel2); border:1px solid var(--line);
+               border-radius:.45rem; cursor:pointer; color:var(--ink) }
+  .body .ubtn:hover{ border-color:var(--accent) }
+  .body .cambox video{ width:100%; border-radius:.45rem; background:#000; display:block; margin-bottom:.4rem }
   .body details.adv{ margin-top:.1rem } .body details.adv summary{ cursor:pointer; font-size:.72rem; color:var(--dim) }
   .body details.adv textarea{ margin-top:.35rem; font-family:ui-monospace,monospace; font-size:.76rem }
   .result{ display:none; margin-top:.1rem; border-top:1px dashed var(--line); padding-top:.5rem }
@@ -488,6 +496,24 @@ const NODE_TYPES = {
     async run(n){ return { text: n.fields.text||"" }; }
   },
 
+  upload: {
+    em:"📷", title:"Image input", desc:"Upload or capture an image",
+    inputs:[], outputs:[{name:"image", type:"image"}], preview:"none",
+    body:(n)=>`
+      <div class="uprev" data-uprev>${n.fields.image ? `<img src="${esc(n.fields.image)}" alt="image"/>` : `<span class="dim">no image yet</span>`}</div>
+      <div class="two">
+        <button class="ubtn" data-up="file">⬆ Upload</button>
+        <button class="ubtn" data-up="cam">📷 Webcam</button>
+      </div>
+      <input type="file" accept="image/*" hidden data-upfile/>
+      <div class="cambox" data-cambox hidden>
+        <video data-upvid autoplay playsinline muted></video>
+        <div class="two"><button class="ubtn" data-up="snap">● Capture</button><button class="ubtn" data-up="stop">✕ Cancel</button></div>
+      </div>`,
+    mount: mountUpload,
+    async run(n){ if(!n.fields.image) throw new Error("no image — upload or capture one first"); return { image: n.fields.image }; }
+  },
+
   join: {
     em:"🔗", title:"Join", desc:"Glue two texts together",
     inputs:[{name:"a", type:"text"},{name:"b", type:"text"}],
@@ -702,6 +728,7 @@ function buildNodeEl(n){
     updateNodePrice(n);
   }
   refreshAudioParams(n);
+  if(t.mount) t.mount(n);            // node-specific widget wiring (e.g. upload/webcam)
   // header buttons
   el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
   el.querySelector('[data-act=run]').onclick  = (e)=>{ e.stopPropagation(); runGroup([n.id]); };
@@ -736,9 +763,52 @@ function addFieldPorts(n){
   });
 }
 
+// downscale an <img>/<video> source to a JPEG data URL (keeps localStorage/share payloads small)
+function scaledDataURL(src, sw, sh, max=1024){
+  let w=sw, h=sh;
+  if(Math.max(w,h) > max){ const r = max/Math.max(w,h); w=Math.round(w*r); h=Math.round(h*r); }
+  const c = document.createElement("canvas"); c.width=w; c.height=h;
+  c.getContext("2d").drawImage(src, 0, 0, w, h);
+  return c.toDataURL("image/jpeg", 0.9);
+}
+function fileToDataURL(file, cb){
+  const img = new Image();
+  img.onload = ()=> cb(scaledDataURL(img, img.naturalWidth, img.naturalHeight));
+  img.onerror = ()=> flash("couldn’t read that image");
+  const fr = new FileReader(); fr.onload = ()=> img.src = fr.result; fr.readAsDataURL(file);
+}
+// wire up the Image-input node: file upload + live webcam capture, stored as n.fields.image
+function mountUpload(n){
+  const el = n.el;
+  const prev = el.querySelector("[data-uprev]");
+  const fileInput = el.querySelector("[data-upfile]");
+  const cambox = el.querySelector("[data-cambox]");
+  const video = el.querySelector("[data-upvid]");
+  let stream = null;
+  const setImage = (url)=>{ n.fields.image = url; prev.innerHTML = `<img src="${url}" alt="image"/>`; save(); };
+  const stopCam = ()=>{ if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; } if(video) video.srcObject=null; cambox.hidden=true; };
+  n._stopCam = stopCam;                                    // so removeNode can release the camera
+  el.querySelectorAll("[data-up]").forEach(b=>{
+    b.addEventListener("pointerdown", e=> e.stopPropagation());   // don't start a node drag
+    b.onclick = async (e)=>{
+      e.stopPropagation();
+      const act = b.dataset.up;
+      if(act==="file") fileInput.click();
+      else if(act==="cam"){
+        try{ stream = await navigator.mediaDevices.getUserMedia({video:true}); video.srcObject=stream; cambox.hidden=false; }
+        catch(err){ flash("webcam unavailable: "+err.message); }
+      }
+      else if(act==="snap"){ if(video.videoWidth){ setImage(scaledDataURL(video, video.videoWidth, video.videoHeight)); } stopCam(); }
+      else if(act==="stop") stopCam();
+    };
+  });
+  fileInput.addEventListener("change", ()=>{ const f=fileInput.files?.[0]; if(f) fileToDataURL(f, setImage); fileInput.value=""; });
+}
+
 function removeNode(id){
   graph.links = graph.links.filter(l=> l.from.node!==id && l.to.node!==id);
-  const n = byId(id); if(n?.el) n.el.remove();
+  const n = byId(id); n?._stopCam?.();           // release the webcam if this was an Image-input node
+  if(n?.el) n.el.remove();
   graph.nodes = graph.nodes.filter(x=>x.id!==id);
   if(selected===n) selected=null;
   redraw(); save();
