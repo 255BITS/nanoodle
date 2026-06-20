@@ -269,7 +269,10 @@ function normChat(m){
 function normImg(m){
   const per = m.pricing?.per_image||{};
   const v = per.square ?? per.square_hd ?? Object.values(per)[0];
-  return { id:m.id, name:m.name||m.id, created:m.created, edit:!!m.capabilities?.image_to_image,
+  const mod = m.architecture?.modality || "";   // text->image | text+image->image | image->image
+  return { id:m.id, name:m.name||m.id, created:m.created,
+    edit:!!m.capabilities?.image_to_image,                          // accepts an image input (text+image->image | image->image)
+    gen: mod ? mod.startsWith("text") : !m.capabilities?.image_to_image,  // can generate from text alone — excludes edit-only image->image models
     price: v!=null ? `$${(+v).toFixed(3)}/img` : "" };
 }
 function normVideo(m){
@@ -572,7 +575,7 @@ const NODE_TYPES = {
 
   image: {
     em:"🖼", title:"Image", desc:"Text → image",
-    modelKind:"image",
+    modelKind:"image", modelFilter:"gen",
     inputs:[],
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
