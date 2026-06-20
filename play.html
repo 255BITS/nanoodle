@@ -59,6 +59,7 @@
   button.ghost:disabled{ opacity:.45; cursor:default; }
   #cust-status{ font-size:.78rem; min-height:1.1em; margin-top:.4rem; }
   #cust-status .ok{ color:var(--ok); } #cust-status .err{ color:var(--danger); }
+  #cust-status .meter{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim); opacity:.9; white-space:nowrap; }
   .spin{ display:inline-block; animation:spin 1s linear infinite; }
   @keyframes spin{ to{ transform:rotate(360deg); } }
 
@@ -1077,9 +1078,26 @@ Do NOT add network requests, frameworks, or external scripts. Keep it a clean fo
 The change to make: `;
 
 // streaming SSE client injected into gptdiff-js (Bearer key, returns the shape it expects)
+/* ---- usage meter: tokens in/out + cost across a whole customize run (both LLM
+   phases). Tokens stream live as a ~4-chars/token estimate; exact figures + USD
+   replace the estimate from NanoGPT's x_nanogpt_pricing SSE field when it lands. */
+const USAGE = { inTok:0, outTok:0, cost:0, exact:true };
+const estTok = (s)=> Math.ceil((s ? String(s).length : 0) / 4);
+const estMsgs = (msgs)=> (msgs||[]).reduce((n,m)=> n + estTok(typeof m.content==="string" ? m.content : JSON.stringify(m.content)), 0);
+const fmtTok = (n)=> n>=1000 ? (n/1000).toFixed(n>=10000?0:1)+"k" : String(Math.round(n));
+function usageMeter(live){
+  const inT  = USAGE.inTok  + (live ? live.inTok  : 0);
+  const outT = USAGE.outTok + (live ? live.outTok : 0);
+  return '<span class="meter">↑ ' + fmtTok(inT) + ' in · ↓ ' + fmtTok(outT) + ' out · '
+       + (USAGE.exact ? '' : '~') + '$' + USAGE.cost.toFixed(4) + '</span>';
+}
+function resetUsage(){ USAGE.inTok = USAGE.outTok = USAGE.cost = 0; USAGE.exact = true; }
+
 function streamingCallLlm(phase){
   return async ({ apiKey, baseUrl, model, messages, maxTokens=null, temperature=1.0 }) => {
-    $("cust-status").innerHTML = '<span class="spin">◐</span> ' + esc(phase) + '…';
+    const inEst = estMsgs(messages);
+    const paint = (live)=> $("cust-status").innerHTML = '<span class="spin">◐</span> ' + esc(phase) + '… ' + usageMeter(live);
+    paint({ inTok:inEst, outTok:0 });
     const endpoint = (baseUrl || (NANOGPT + "/api/v1/")).replace(/\/+$/,"") + "/chat/completions";
     const r = await fetch(endpoint, {
       method:"POST",
@@ -1089,7 +1107,7 @@ function streamingCallLlm(phase){
     });
     if(!r.ok) throw new Error("LLM " + r.status + ": " + (await r.text()).slice(0,300));
     const reader = r.body.getReader(), dec = new TextDecoder();
-    let buf="", content="";
+    let buf="", content="", reasoning="", pricing=null, lastPaint=0;
     for(;;){
       const { value, done } = await reader.read();
       if(done) break;
@@ -1101,10 +1119,21 @@ function streamingCallLlm(phase){
         const data = t.slice(5).trim();
         if(data === "[DONE]") continue;
         let j; try{ j = JSON.parse(data); }catch{ continue; }
-        const c = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
-        if(c) content += c;
+        const d = j.choices && j.choices[0] && j.choices[0].delta;
+        if(d){
+          if(d.content) content += d.content;
+          if(d.reasoning) reasoning += d.reasoning;          // thinking tokens still cost output
+          const now = performance.now();
+          if(now - lastPaint > 120){ lastPaint = now; paint({ inTok:inEst, outTok:estTok(content)+estTok(reasoning) }); }
+        }
+        if(j.x_nanogpt_pricing) pricing = j.x_nanogpt_pricing;   // exact tokens + USD (final chunk)
       }
     }
+    // commit this call: prefer exact pricing, else fall back to the char estimate
+    USAGE.inTok  += (pricing && pricing.inputTokens  != null) ? pricing.inputTokens  : inEst;
+    USAGE.outTok += (pricing && pricing.outputTokens != null) ? pricing.outputTokens : (estTok(content)+estTok(reasoning));
+    const cost = pricing && (pricing.costUsd != null ? pricing.costUsd : pricing.cost);
+    if(cost != null) USAGE.cost += Number(cost); else USAGE.exact = false;
     return { choices:[{ message:{ content } }] };   // shape gptdiff-js expects
   };
 }
@@ -1117,6 +1146,7 @@ async function applyCustomize(){
   if(busy) return; busy = true;
   $("apply").disabled = true; $("undo").disabled = true;
   const t0 = performance.now();
+  resetUsage();
 
   try{
     const env = buildEnvironment({ "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] });
@@ -1125,7 +1155,7 @@ async function applyCustomize(){
 
     const parsed = parseDiffPerFile(diff);
     if(!diff.trim() || !parsed.length){
-      $("cust-status").innerHTML = '<span class="err">⚠ No applicable change — try rephrasing the goal.</span>';
+      $("cust-status").innerHTML = '<span class="err">⚠ No applicable change — try rephrasing the goal.</span> ' + usageMeter();
       return;
     }
     const applyLlm = streamingCallLlm("Applying changes");
@@ -1143,7 +1173,7 @@ async function applyCustomize(){
     persist();
     $("goal").value = "";
     const secs = ((performance.now()-t0)/1000).toFixed(1);
-    $("cust-status").innerHTML = '<span class="ok">✓ Applied in ' + secs + 's — preview updated.</span>';
+    $("cust-status").innerHTML = '<span class="ok">✓ Applied in ' + secs + 's — preview updated.</span> ' + usageMeter();
   }catch(e){
     $("cust-status").innerHTML = '<span class="err">Error: ' + esc(e.message) + '</span>';
   }finally{
