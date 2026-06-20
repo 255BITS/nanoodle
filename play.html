@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>My NaNoodle app</title>
 <link rel="icon" href="/favicon.ico" sizes="any" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Righteous&display=swap" />
 <meta name="theme-color" content="#0d0f17" />
 <style>
   /* Builder chrome — dark theme tokens mirror index.html, accent #7c8cff. */
@@ -27,8 +30,9 @@
         padding:.55rem .8rem; border-bottom:1px solid var(--line);
         background:linear-gradient(180deg,#161a27,#11141f);
         position:relative; z-index:70; }   /* stays above the first-run overlay (sign-in / Share remain usable) */
-  .brand{ font-weight:800; letter-spacing:.02em; }
-  .brand .nano{ color:var(--accent); } .brand .ui{ color:var(--dim); font-weight:600; }
+  .brand{ font-family:"Righteous", ui-sans-serif, system-ui, sans-serif;
+          font-weight:400; font-size:1.2rem; letter-spacing:.01em; }
+  .brand .nano{ color:var(--accent); }
   .title-wrap{ max-width:42ch; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
                color:var(--ink); font-weight:600; opacity:.9; }
   #bar .status{ font-size:.76rem; color:var(--dim); }
@@ -161,7 +165,7 @@
 </head>
 <body>
 <div id="bar">
-  <div class="brand"><span class="nano">NaNo</span>odle<span class="ui"> · app</span></div>
+  <div class="brand"><span class="nano">nano</span>odle</div>
   <div class="title-wrap"><span id="bar-title">My NaNoodle app</span></div>
 
   <!-- only shown once the user has created/imported at least one app -->
@@ -1049,6 +1053,37 @@ window.NoodleApp = (function () {
     card.innerHTML = head + media;
     box.appendChild(card);
     if(port.type==="audio") fixAudioDuration(card.querySelector("audio"));
+    if(port.type==="image" || port.type==="video" || port.type==="audio")
+      addDownload(card, val, port.type, n.type);
+  }
+
+  // A download control for generated media. The value is usually a blob: URL or a
+  // cross-origin CDN URL — for the latter a plain <a download> is ignored and the
+  // browser just navigates, so fetch the bytes into a blob and save that, falling
+  // back to opening the URL in a new tab if the fetch is blocked (e.g. by CORS).
+  function addDownload(card, url, kind, nodeType){
+    const row = document.createElement("div"); row.className = "dlrow";
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "dl";
+    btn.textContent = "⭳ Download";
+    btn.onclick = async ()=>{
+      btn.disabled = true;
+      const name = (nodeType||"output") + "." + mediaExt(url, kind);
+      try{
+        const b = await (await fetch(url)).blob();
+        const u = URL.createObjectURL(b);
+        const a = document.createElement("a"); a.href = u; a.download = name; a.click();
+        setTimeout(()=> URL.revokeObjectURL(u), 5000);
+      }catch(e){
+        window.open(url, "_blank");
+      }finally{ btn.disabled = false; }
+    };
+    row.appendChild(btn);
+    card.appendChild(row);
+  }
+  function mediaExt(url, kind){
+    const m = String(url).split(/[?#]/)[0].match(/\.([a-z0-9]{2,4})$/i);
+    if(m) return m[1].toLowerCase();
+    return kind==="audio" ? "mp3" : kind==="video" ? "mp4" : kind==="image" ? "png" : "bin";
   }
 
   // Generated MP3s commonly ship without a duration header, so a blob <audio>
@@ -1370,6 +1405,11 @@ body{ background:
 .output .rhead{ font-size:.78rem; color:var(--dim); margin-bottom:.5rem; }
 .output img, .output video, .output audio{ width:100%; border-radius:.5rem; display:block; }
 .output .text{ white-space:pre-wrap; line-height:1.6; }
+.output .dlrow{ margin-top:.6rem; }
+.output .dl{ font:inherit; font-size:.78rem; padding:.4rem .8rem; border-radius:.45rem; cursor:pointer;
+  background:var(--panel2); border:1px solid var(--line); color:var(--dim); }
+.output .dl:hover{ border-color:var(--accent-line); color:var(--ink); }
+.output .dl:disabled{ opacity:.5; cursor:default; }
 
 /* progress — segmented bar (one cell per run step) + live current-step line */
 .prog[hidden]{ display:none; }
