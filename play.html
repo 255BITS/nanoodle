@@ -459,6 +459,16 @@ window.NoodleApp = (function () {
         return url;
       }
       const blob = await r.blob();
+      // Some providers hand back the audio with a blank/generic content-type. An
+      // <audio> element won't play a blob whose MIME it can't recognise (shows
+      // 0:00, dead play button) even though the bytes download/open fine — so pin
+      // the type from the requested format when it's missing or generic.
+      const t = (blob.type||"").split(";")[0].trim().toLowerCase();
+      if(!t || t==="application/octet-stream" || t==="binary/octet-stream"){
+        const AUDIO_MIME = { mp3:"audio/mpeg", opus:"audio/ogg", aac:"audio/aac", flac:"audio/flac", wav:"audio/wav", pcm:"audio/wav" };
+        const fmt = (extra && extra.response_format) || "mp3";
+        return URL.createObjectURL(new Blob([blob], { type: AUDIO_MIME[fmt] || "audio/mpeg" }));
+      }
       return URL.createObjectURL(blob);
     }
   };
@@ -1034,10 +1044,28 @@ window.NoodleApp = (function () {
     let media;
     if(port.type==="image") media = '<img src="'+esc(val)+'" alt="">';
     else if(port.type==="video") media = '<video src="'+esc(val)+'" controls playsinline></video>';
-    else if(port.type==="audio") media = '<audio src="'+esc(val)+'" controls></audio>';
+    else if(port.type==="audio") media = '<audio src="'+esc(val)+'" controls preload="metadata"></audio>';
     else media = '<div class="text">'+esc(typeof val==="string"?val:JSON.stringify(val,null,2))+'</div>';
     card.innerHTML = head + media;
     box.appendChild(card);
+    if(port.type==="audio") fixAudioDuration(card.querySelector("audio"));
+  }
+
+  // Generated MP3s commonly ship without a duration header, so a blob <audio>
+  // reports duration=Infinity — Chrome then renders a stuck 0:00 with a dead
+  // play button (the file is fine: it downloads and opens normally). Nudging
+  // currentTime past the end forces the browser to scan the file and resolve
+  // the real duration, after which playback and seeking work.
+  function fixAudioDuration(el){
+    if(!el) return;
+    const fix = ()=>{
+      if(el.duration!==Infinity) return;
+      el.currentTime = 1e101;
+      const back = ()=>{ el.removeEventListener("timeupdate", back); el.currentTime = 0; };
+      el.addEventListener("timeupdate", back);
+    };
+    if(el.readyState >= 1) fix();
+    else el.addEventListener("loadedmetadata", fix, { once:true });
   }
 
   // The run button's resting label (e.g. "▶ Run"), captured at mount so it can be
@@ -1142,18 +1170,24 @@ window.NoodleApp = (function () {
       return;
     }
     const ok = !!getKey();
+    // OAuth needs a registerable http(s) redirect_uri. Opened straight from disk
+    // (file://, the natural way to run an exported app), NanoGPT rejects the
+    // redirect — so offer only paste-key there and say why, instead of dead-ending
+    // on a "Sign in" button that 400s.
+    const canOAuth = /^https?:$/.test(location.protocol);
     box.innerHTML = ok
       ? '<span class="authok">signed in ✓</span> <button class="link" id="auth-out">sign out</button>'
-      : '<button class="link" id="auth-in">Sign in</button>'
-      + ' <button class="link" id="auth-paste">paste key</button>'
+      : (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
+      + '<button class="link" id="auth-paste">paste key</button>'
       + ' <span class="keyrow" id="auth-keyrow" hidden>'
       + '<input id="auth-keyinput" type="password" placeholder="nano-gpt API key" autocomplete="off">'
       + ' <button class="link" id="auth-keysave">save</button>'
-      + '</span>';
+      + '</span>'
+      + (canOAuth ? '' : ' <span class="dim">— paste a nano-gpt.com key (one-click sign-in needs the app served over http)</span>');
     if(ok){
       $("auth-out").onclick = ()=> setKey(null);
     } else {
-      $("auth-in").onclick = ()=> signIn().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message));
+      if(canOAuth) $("auth-in").onclick = ()=> signIn().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message));
       $("auth-paste").onclick = ()=>{ $("auth-keyrow").hidden=false; $("auth-keyinput").focus(); };
       $("auth-keysave").onclick = ()=>{ const k=$("auth-keyinput").value.trim(); if(k){ setKey(k); } };
       const ki = $("auth-keyinput");
