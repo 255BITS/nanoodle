@@ -99,6 +99,8 @@
   .port.text{ background:var(--text-port) } .port.image{ background:var(--image-port) }
   .port.video{ background:var(--video-port) } .port.audio{ background:var(--audio-port) }
   .port.filled{ box-shadow:0 0 0 3px #ffffff22 }
+  /* inline ports: a wirable socket sitting on the left edge next to a text field */
+  .body .fieldport{ position:absolute; left:-1.1rem; top:0; z-index:3 }
   /* magnetism: every valid destination glows, the closest one grabs the wire */
   .port.compatible{ transform:scale(1.25); box-shadow:0 0 0 4px #ffffff26; animation:portpulse 1.1s ease-in-out infinite }
   .port.snap{ transform:scale(1.7); box-shadow:0 0 0 5px #ffffff66, 0 0 12px #fff6; animation:none }
@@ -392,6 +394,7 @@ function refreshAudioParams(n){
   });
   const ta = n.el.querySelector('[data-f="prompt"]'), mc = it.params?.max_chars;
   if(ta){ mc ? ta.setAttribute("maxlength", mc) : ta.removeAttribute("maxlength"); }
+  addFieldPorts(n); refreshPortFills(); redraw();   // re-attach ports to the rebuilt param fields + reconnect wires
 }
 // shared body + run for the Music and Speech nodes
 function audioBody(n, promptLabel, ph){
@@ -495,7 +498,7 @@ const NODE_TYPES = {
   llm: {
     em:"🧠", title:"LLM", desc:"Text → text (any chat model)",
     modelKind:"chat",
-    inputs:[{name:"prompt", type:"text"}],
+    inputs:[],
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -514,7 +517,7 @@ const NODE_TYPES = {
   image: {
     em:"🖼", title:"Image", desc:"Text → image",
     modelKind:"image",
-    inputs:[{name:"prompt", type:"text"}],
+    inputs:[],
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -530,7 +533,7 @@ const NODE_TYPES = {
   edit: {
     em:"✂️", title:"Edit", desc:"Image + text → image",
     modelKind:"image", modelFilter:"edit",
-    inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
+    inputs:[{name:"image", type:"image"}],
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -566,7 +569,7 @@ const NODE_TYPES = {
   tvideo: {
     em:"🎬", title:"Text→Video", desc:"Text → video (renders ~1 min)",
     modelKind:"video", modelFilter:"t2v",
-    inputs:[{name:"prompt", type:"text"}],
+    inputs:[],
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -588,7 +591,7 @@ const NODE_TYPES = {
   ivideo: {
     em:"📽️", title:"Image→Video", desc:"Image (+text) → video",
     modelKind:"video", modelFilter:"i2v",
-    inputs:[{name:"image", type:"image"},{name:"prompt", type:"text"}],
+    inputs:[{name:"image", type:"image"}],
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -610,7 +613,7 @@ const NODE_TYPES = {
   music: {
     em:"🎵", title:"Music", desc:"Text → music",
     modelKind:"audio", modelFilter:"music",
-    inputs:[{name:"text", type:"text"}],
+    inputs:[],
     outputs:[{name:"audio", type:"audio"}], preview:"audio",
     body:(n)=> audioBody(n, "style / prompt", "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM"),
     run: audioRun,
@@ -619,7 +622,7 @@ const NODE_TYPES = {
   tts: {
     em:"🗣️", title:"Speech", desc:"Text → speech (TTS)",
     modelKind:"audio", modelFilter:"tts",
-    inputs:[{name:"text", type:"text"}],
+    inputs:[],
     outputs:[{name:"audio", type:"audio"}], preview:"audio",
     body:(n)=> audioBody(n, "text to speak", "Hello! This is a test."),
     run: audioRun,
@@ -706,7 +709,26 @@ function buildNodeEl(n){
   el.addEventListener("pointerdown", ()=> select(n));
   // ports
   el.querySelectorAll(".port").forEach(p=> p.addEventListener("pointerdown", e=>startWire(p, e)));
+  addFieldPorts(n);
   refreshPortFills();
+}
+
+// Give every text field an inline input port: wiring it makes the node use the wired
+// value instead of whatever's typed. Idempotent — safe to re-run after the body rebuilds.
+function addFieldPorts(n){
+  if(!n.el || n.type==="text") return;        // Text is a pure source — nothing to override
+  n.el.querySelectorAll("textarea[data-f], textarea[data-pf]").forEach(ta=>{
+    const field = ta.dataset.f || ta.dataset.pf;
+    if(field==="extraJson") return;            // advanced JSON isn't a wirable text value
+    const wrap = ta.parentElement;
+    if(!wrap || wrap.querySelector(":scope > .fieldport")) return;   // already has its port
+    wrap.style.position = "relative";
+    const port = document.createElement("i");
+    port.className = "port text fieldport";
+    Object.assign(port.dataset, { node:n.id, port:field, dir:"in", ptype:"text" });
+    port.addEventListener("pointerdown", e=> startWire(port, e));
+    wrap.insertBefore(port, wrap.firstChild);
+  });
 }
 
 function removeNode(id){
@@ -978,8 +1000,16 @@ async function runGroup(seedIds){
         const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
         if(l) inp[port.name] = byId(l.from.node)?.out?.[l.from.port];
       }
+      // a wired text field overrides its typed value (n.fields[field]); declared ports handled above
+      const fieldOverrides = {};
+      for(const l of graph.links){
+        if(l.to.node!==id || t.inputs.some(p=>p.name===l.to.port)) continue;
+        const v = byId(l.from.node)?.out?.[l.from.port];
+        if(v!=null) fieldOverrides[l.to.port] = v;
+      }
+      const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
       setStatus(n, "run");
-      try{ n.out = await t.run(n, inp, CTX) || {}; showResult(n); setStatus(n, "done"); }
+      try{ n.out = await t.run(rn, inp, CTX) || {}; showResult(n); setStatus(n, "done"); }
       catch(err){ setStatus(n, "error", err.message); }
     }
   } finally {
@@ -1136,6 +1166,11 @@ function applyGraphData(d){
   // keep only links whose endpoints survived
   const ids = new Set(graph.nodes.map(n=>n.id));
   graph.links = (d.links||[]).filter(l=> ids.has(l.from?.node) && ids.has(l.to?.node));
+  // migrate: music/tts main input moved from a header "text" port to the inline "prompt" field port
+  for(const l of graph.links){
+    const tn = byId(l.to.node);
+    if(tn && (tn.type==="music"||tn.type==="tts") && l.to.port==="text") l.to.port="prompt";
+  }
   // rebuild id counters so new nodes/links never collide with loaded ones
   const num = (s)=> parseInt(String(s).replace(/\D/g,""),10) || 0;
   nid = Math.max(d.nid||0, 0, ...graph.nodes.map(n=>num(n.id))) + 1;
