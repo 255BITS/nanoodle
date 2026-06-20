@@ -192,6 +192,7 @@
   </div>
   <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run all</button>
   <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Copy share link</button>
+  <button id="makeapp" title="Turn this workflow into a shareable app">✨ Create app</button>
   <button id="save" title="download this graph as JSON">⭳ Save</button>
   <button id="load" title="open a graph JSON file">⭱ Load</button>
   <input id="loadfile" type="file" accept="application/json,.json" hidden />
@@ -1410,6 +1411,16 @@ async function loadFromHash(){
   }catch{ return false; }
 }
 $("share").onclick = ()=> shareUrl().catch(e=> flash("share failed: "+e.message));
+// Turn this workflow into a standalone app (play.html). Hand off the graph via the
+// existing #g= packing; stash a localStorage copy as a belt-and-suspenders fallback.
+$("makeapp").onclick = async ()=>{
+  if(!graph.nodes.length){ flash("add a node first"); return; }
+  const json = JSON.stringify(serializeGraph());
+  try{ localStorage.setItem("noodle_app_handoff", json); }catch{}
+  const packed = await gzip(json).catch(()=>null);
+  const hash = packed ? "#g="+bytesToB64url(packed) : "#j="+bytesToB64url(new TextEncoder().encode(json));
+  window.open("play.html"+hash, "_blank");
+};
 function seed(){
   const a = addNode("text", 60, 80, { text:"a cozy ramen shop on a rainy neon street, cinematic" });
   const b = addNode("image", 360, 60);

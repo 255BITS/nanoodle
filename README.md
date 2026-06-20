@@ -18,6 +18,11 @@ maps clean URLs: `/` → the editor, `/pictureme` → the toy, `/landing` → th
   inputs glow and snap by type), run disconnected groups in parallel, and share a
   graph via URL. Live model pickers for every modality (text, image, video, audio),
   image editing, async video generation, TTS/music, and save/load to JSON.
+- **`play.html`** — the **app builder ("Create app")**. Turns any NaNoodle
+  workflow into a standalone, shareable web app: auto-generated inputs → Run →
+  outputs, restyle it with [gptdiff-js](https://github.com/255BITS/gptdiff-js),
+  go fullscreen, share via `#a=` link, or export a self-contained `.html` (no key
+  inside). Open it from the editor's **✨ Create app** button (served at `/play`).
 - **`pictureme.html`** — drop in one photo and see yourself reimagined across a
   grid of styles (Renaissance, cyberpunk, claymation, …), or fuse several looks
   into one hybrid.
