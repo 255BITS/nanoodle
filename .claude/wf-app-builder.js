@@ -130,7 +130,7 @@ EDITOR INTEGRATION (edit ${REPO}/index.html):
     as a belt-and-suspenders handoff that play.html reads if the hash is missing.
   - Do NOT otherwise refactor index.html. Keep the editor's inline engine untouched.
 
-ROUTING: play.html is a real file; Cloudflare serves it at /play automatically (like pictureme).
+ROUTING: play.html is a real file; Cloudflare serves it at /play automatically (like landing).
   Do NOT add a _redirects rule for it (the file comment warns that collides/loops). Leave _redirects.
 DOCS: add one bullet to ${REPO}/README.md describing play.html (the app builder / "Create app").
 

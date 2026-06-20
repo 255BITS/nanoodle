@@ -1120,25 +1120,38 @@ async function runGroup(seedIds){
     const { order, cyclic } = topoOrder(ids);
     cyclic.forEach(id=> setStatus(byId(id), "error", "cycle detected"));
     ids.forEach(id=>{ if(order.includes(id) && byId(id)?.el) byId(id).el.dataset.status="idle"; });
-    for(const id of order){
-      const n = byId(id); if(!n) continue;
-      const t = NODE_TYPES[n.type], inp = {};
-      for(const port of t.inputs){
-        const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
-        if(l) inp[port.name] = byId(l.from.node)?.out?.[l.from.port];
-      }
-      // a wired text field overrides its typed value (n.fields[field]); declared ports handled above
-      const fieldOverrides = {};
-      for(const l of graph.links){
-        if(l.to.node!==id || t.inputs.some(p=>p.name===l.to.port)) continue;
-        const v = byId(l.from.node)?.out?.[l.from.port];
-        if(v!=null) fieldOverrides[l.to.port] = v;
-      }
-      const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
-      setStatus(n, "run");
-      try{ n.out = await t.run(rn, inp, CTX) || {}; showResult(n); setStatus(n, "done"); }
-      catch(err){ setStatus(n, "error", err.message); }
+    // Each node fires as soon as its OWN inputs resolve, so sibling branches
+    // (a→b, a→c) run concurrently rather than serializing down the topo order.
+    const done = {};                                  // id → promise, so dependents await just their inputs
+    const depsOf = (id)=>{                             // upstream node ids feeding this node (within the run set)
+      const s = new Set();
+      for(const l of graph.links) if(l.to.node===id && ids.has(l.from.node)) s.add(l.from.node);
+      return [...s];
+    };
+    for(const id of order){                            // topo order → every dep's promise exists before we read it
+      const deps = depsOf(id);
+      done[id] = (async ()=>{
+        await Promise.all(deps.map(d=> done[d]));       // wait on this node's inputs only
+        const n = byId(id); if(!n) return;
+        const t = NODE_TYPES[n.type], inp = {};
+        for(const port of t.inputs){
+          const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
+          if(l) inp[port.name] = byId(l.from.node)?.out?.[l.from.port];
+        }
+        // a wired text field overrides its typed value (n.fields[field]); declared ports handled above
+        const fieldOverrides = {};
+        for(const l of graph.links){
+          if(l.to.node!==id || t.inputs.some(p=>p.name===l.to.port)) continue;
+          const v = byId(l.from.node)?.out?.[l.from.port];
+          if(v!=null) fieldOverrides[l.to.port] = v;
+        }
+        const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
+        setStatus(n, "run");
+        try{ n.out = await t.run(rn, inp, CTX) || {}; showResult(n); setStatus(n, "done"); }
+        catch(err){ setStatus(n, "error", err.message); }
+      })();
     }
+    await Promise.all(order.map(id=> done[id]));
   } finally {
     lock.forEach(id=>runningNodes.delete(id)); updateRunButtons();
   }
@@ -1306,6 +1319,13 @@ function serializeGraph(){
     links: graph.links, nid, lid, view:{panX,panY,scale}
   };
 }
+// A graph for handing off to others: uploaded image inputs are the sharer's own
+// data, so blank them out of share links and downloaded files. (Local autosave keeps them.)
+function shareableGraph(){
+  const g = serializeGraph();
+  g.nodes = g.nodes.map(n => n.type==="upload" ? {...n, fields:{...n.fields, image:""}} : n);
+  return g;
+}
 function applyGraphData(d){
   world.innerHTML=""; selected=null;
   graph = { nodes:[], links:[] };
@@ -1353,7 +1373,7 @@ async function loadDefault(){   // noodle-graph.json shipped alongside the page 
   }catch{ return false; }      // e.g. opened via file:// — fall back to the built-in seed
 }
 function saveFile(){
-  const blob = new Blob([JSON.stringify(serializeGraph(), null, 2)], {type:"application/json"});
+  const blob = new Blob([JSON.stringify(shareableGraph(), null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "noodle-graph.json"; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
@@ -1395,7 +1415,7 @@ async function copyText(t){
        document.body.appendChild(ta); ta.select(); const ok=document.execCommand("copy"); ta.remove(); return ok; }catch{ return false; }
 }
 async function shareUrl(){
-  const json = JSON.stringify(serializeGraph());
+  const json = JSON.stringify(shareableGraph());
   let hash;
   const packed = await gzip(json).catch(()=>null);
   hash = packed ? "#g="+bytesToB64url(packed) : "#j="+bytesToB64url(new TextEncoder().encode(json));
