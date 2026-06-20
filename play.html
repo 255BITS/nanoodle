@@ -980,6 +980,12 @@ function withPreamble(html){
 // ----- render the iframe; after it loads, push the parent's key in (NOT in srcdoc) -----
 function renderApp(){
   const frame = $("appframe");
+  // First-party apps (your own graph / the editor handoff / a saved session) run
+  // same-origin so their fetches carry the real page Origin. NanoGPT keys are
+  // origin-locked, so a null-origin sandbox gets "403 api_key_origin_not_allowed".
+  // Shared (#a=) apps are untrusted HTML — keep them at a null origin so they can
+  // never reach the parent's stored key (they show a "can't run sandboxed" note).
+  frame.sandbox = (APP_STATE.trusted === false) ? "allow-scripts" : "allow-scripts allow-same-origin";
   frame.onload = () => { const k = getKey(); if(k) postToApp({ type:"__key__", key:k }); };
   frame.srcdoc = withPreamble(bundle(APP_STATE.files));
 }
@@ -1142,7 +1148,8 @@ function persist(){
 }
 
 // install a freshly-loaded {graph, files} into the builder (used by every load path)
-function installApp({ graph, files, versions, curVer }){
+function installApp({ graph, files, versions, curVer, trusted }){
+  APP_STATE.trusted = trusted !== false;   // only shared (#a=) links are untrusted
   APP_STATE.graph = graph || { nodes:[], links:[] };
   APP_STATE.files = files && files["index.html"] ? files : defaultFiles(APP_STATE.graph);
   APP_STATE.versions = (versions && versions.length)
@@ -1252,8 +1259,8 @@ async function loadFromHash(){
       const json = tag[0]==="u" ? new TextDecoder().decode(b64urlToBytes(tag.slice(1)))
                                 : await gunzip(b64urlToBytes(tag));
       const spec = JSON.parse(json);
-      installApp({ graph:spec.graph, files:spec.files });   // shared apps carry their own files
-      toast("opened a shared app — it's yours to customize now");
+      installApp({ graph:spec.graph, files:spec.files, trusted:false });   // shared apps carry their own files
+      toast("opened a shared app — runs sandboxed; hit “Open in editor” to run it with your own key");
       return true;
     }catch(_){ /* fall through */ }
   }
