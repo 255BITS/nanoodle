@@ -398,7 +398,7 @@ window.NoodleApp = (function () {
      NanoGPT bills per generation and rides the price back on each response —
      JSON cost/remainingBalance, or x-cost / x-remaining-balance headers for the
      binary-audio path. We total it for the whole session ("spent on this app")
-     and attribute each generation's slice to its result card. `exact` drops to
+     and attribute each generation's slice to its result card. "exact" drops to
      false if any call omitted a price, so the running total is shown as a floor (~). */
   const COST = { total:0, count:0, balance:null, exact:true };
   function fmtUsd(v){
