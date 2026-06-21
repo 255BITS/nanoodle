@@ -22,13 +22,6 @@
         display:flex; flex-direction:column; }
   a{ color:var(--accent); text-decoration:none; } a:hover{ text-decoration:underline; }
   .dim{ color:var(--dim); } .grow{ flex:1; }
-  #oauthbanner{ display:none; position:relative; z-index:80; background:#241b09; color:#f6c453;
-    border-bottom:1px solid #5a440f; font-size:.82rem; font-weight:600; text-align:center; padding:.5rem 2.2rem; line-height:1.35; }
-  #oauthbanner b{ font-weight:800; color:#ffd980; }
-  #oauthdismiss{ position:absolute; right:.4rem; top:50%; transform:translateY(-50%); background:none; border:0;
-    color:#f6c453; opacity:.75; font-size:1rem; line-height:1; cursor:pointer; padding:.15rem .4rem; }
-  #oauthdismiss:hover{ opacity:1; }
-  body.oauthwarn #oauthbanner{ display:block; }
 
   /* ---------- top bar ---------- */
   #bar{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
@@ -177,7 +170,6 @@
 </style>
 </head>
 <body>
-<div id="oauthbanner">⚠ One-click sign-in is currently unavailable. Click <b>paste key</b> to use a nano-gpt.com API key, or try again later.<button id="oauthdismiss" title="Dismiss" aria-label="Dismiss">✕</button></div>
 <div id="bar">
   <div class="brand"><span class="nano">nano</span>odle</div>
   <div class="title-wrap"><span id="bar-title">My nanoodle app</span></div>
@@ -2263,10 +2255,8 @@ function renderAuth(){
   $("signin").style.display  = signed ? "none" : "";
   $("pastebtn").style.display = signed ? "none" : "";
   $("signout").style.display  = signed ? "" : "none";
-  document.body.classList.toggle("oauthwarn", !signed && !sessionStorage.getItem("oauth_note_dismissed"));
   $("apply").disabled = !signed || busy;
 }
-$("oauthdismiss")?.addEventListener("click", ()=>{ sessionStorage.setItem("oauth_note_dismissed","1"); document.body.classList.remove("oauthwarn"); });
 // Reflect the current key (e.g. one the OAuth popup just stored) into the builder + inner app.
 // Idempotent so the storage listener and the popup poll can both call it without double-toasting.
 let _signedInReflected = false;
