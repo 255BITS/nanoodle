@@ -1,16 +1,33 @@
 #!/bin/sh
-# Block commits that introduce syntax errors in inline HTML JavaScript.
-# Only runs when .html files are part of the commit.
+# Block commits that introduce syntax errors in inline HTML JavaScript, and
+# that break the standalone export (an exported app must run without nanoodle).
+# Only runs when the relevant files are part of the commit.
 
 set -e
 
-staged_html=$(git diff --cached --name-only --diff-filter=ACM -- '*.html')
-[ -z "$staged_html" ] && exit 0
+root=$(git rev-parse --show-toplevel)
+staged=$(git diff --cached --name-only --diff-filter=ACM)
+staged_html=$(printf '%s\n' "$staged" | grep '\.html$' || true)
+# play.html is the bundler; either checker can change what "self-contained" means.
+touches_export=$(printf '%s\n' "$staged" | grep -E '(^|/)(play\.html|scripts/check-export\.mjs|scripts/check-html-js\.mjs)$' || true)
+
+# Nothing to check unless an .html file or an export checker changed.
+[ -z "$staged_html" ] && [ -z "$touches_export" ] && exit 0
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "pre-commit: node not found, skipping HTML JS check" >&2
+  echo "pre-commit: node not found, skipping HTML JS checks" >&2
   exit 0
 fi
 
-# shellcheck disable=SC2086
-node "$(git rev-parse --show-toplevel)/scripts/check-html-js.mjs" $staged_html
+# 1) inline HTML JavaScript must parse.
+if [ -n "$staged_html" ]; then
+  # shellcheck disable=SC2086
+  node "$root/scripts/check-html-js.mjs" $staged_html
+fi
+
+# 2) the generated export must be self-contained (runs without nanoodle).
+#    Cheap: no browser — bundles play.html in a node:vm sandbox and asserts the
+#    output has no external deps, then node --checks its inline scripts.
+if [ -n "$touches_export" ]; then
+  node "$root/scripts/check-export.mjs"
+fi
