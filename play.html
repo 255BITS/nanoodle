@@ -968,6 +968,13 @@ window.NoodleApp = (function () {
     paintRuns();
   }
   function stopRun(){ clearInterval(runTimer); runTimer = null; paintRuns(); }
+  // Re-init one lane for its next pass in keep-generating mode, so its progress
+  // bar and timer start fresh instead of showing the previous pass as "done".
+  function resetLane(i){
+    if(!RUN || !RUN.lanes[i]) return;
+    RUN.lanes[i] = { idx:i, order:[], state:{}, curId:null, curT0:0, t0:Date.now(), endAt:0 };
+    paintRuns();
+  }
   function laneStart(i, order){ if(RUN && RUN.lanes[i]){ RUN.lanes[i].order = order; paintRuns(); } }
   function laneStep(i, id, kind, msg){
     const L = RUN && RUN.lanes[i]; if(!L) return;
@@ -1034,6 +1041,7 @@ window.NoodleApp = (function () {
   }
   const RUN_CHOICES = [1,2,4,8];
   let RUNS_N = 1;
+  let KEEP = false;   // keep-generating: keep all N lanes busy until Stop / unchecked
   function renderCount(){
     const box = $("app-count"); if(!box) return;
     box.innerHTML = '<span class="count-lbl">Runs</span>'
@@ -1041,6 +1049,17 @@ window.NoodleApp = (function () {
     box.querySelectorAll("button[data-n]").forEach(function(b){
       b.addEventListener("click", function(){ if(running) return; RUNS_N = +b.dataset.n; renderCount(); });
     });
+  }
+
+  // Keep-generating toggle: when on, run() keeps all N lanes busy, starting a
+  // fresh pass the instant one finishes, until Stop or the box is unchecked.
+  // Lives in the runtime so every generated/exported app gets it; unchecking it
+  // mid-run lets the in-flight pass finish, then stops — that's the per-app off.
+  function renderLoop(){
+    const box = $("app-loop"); if(!box) return;
+    box.innerHTML = '<input type="checkbox" id="app-loop-cb"'+(KEEP?" checked":"")+'>'
+      + '<span>Keep generating</span>';
+    box.querySelector("#app-loop-cb").addEventListener("change", function(e){ KEEP = e.target.checked; });
   }
 
   function renderResult(n, runNo){
@@ -1058,7 +1077,7 @@ window.NoodleApp = (function () {
     else if(port.type==="audio") media = '<audio src="'+esc(val)+'" controls preload="metadata"></audio>';
     else media = '<div class="text">'+esc(typeof val==="string"?val:JSON.stringify(val,null,2))+'</div>';
     card.innerHTML = head + media;
-    box.appendChild(card);
+    box.insertBefore(card, box.firstChild);   // newest at the top; nothing is removed
     if(port.type==="audio") fixAudioDuration(card.querySelector("audio"));
     if(port.type==="image" || port.type==="video" || port.type==="audio")
       addDownload(card, val, port.type, n.type);
@@ -1148,20 +1167,42 @@ window.NoodleApp = (function () {
     const cbox = $("app-count"); if(cbox) cbox.classList.add("busy");
     ensureStatus();
     const mbox = $("app-msg"), obox = $("app-output");
-    if(mbox) mbox.innerHTML = ""; if(obox){ obox.innerHTML = ""; obox.classList.toggle("grid", N>1); }
+    // Results accumulate — never cleared. New cards land at the top (renderResult
+    // prepends), so each run, or continuous generation, just stacks onto history.
+    if(mbox) mbox.innerHTML = ""; if(obox) obox.classList.toggle("grid", N>1);
     startRun(N);
     const outIds = new Set(STATE.outputs.map(n=>n.id));
-    const graphs = []; for(let i=0;i<N;i++) graphs.push(cloneGraph());
-    await Promise.all(graphs.map(function(g,i){
-      return runGraph(g, {
-        onStart: (order)=> laneStart(i, order),
-        onStatus: (id,kind,msg)=> laneStep(i, id, kind, msg),
-        onResult: (n)=>{ if(outIds.has(n.id)) renderResult(n, N>1 ? i+1 : 0); },
-      })
-      // a Stop-triggered abort is expected — swallow it; surface only real errors.
-      .catch(err=>{ if(isAbort(err)) return; statusLine("__run_"+i+"__","error", (N>1?("Run "+(i+1)+": "):"") + (err.message || String(err))); })
-      .finally(()=>{ if(RUN && RUN.lanes[i]) RUN.lanes[i].endAt = Date.now(); paintRuns(); });
-    }));
+
+    // One worker per lane. A worker runs the graph once, then — while "keep
+    // generating" is on and we haven't been Stopped — resets its lane and runs
+    // again, so all N lanes stay busy in parallel. Unchecking the box lets the
+    // in-flight pass finish, then the loop exits on its own.
+    async function worker(i){
+      let first = true;
+      do {
+        if(!first) resetLane(i);
+        first = false;
+        let failed = false;
+        try {
+          await runGraph(cloneGraph(), {
+            onStart: (order)=> laneStart(i, order),
+            onStatus: (id,kind,msg)=> laneStep(i, id, kind, msg),
+            onResult: (n)=>{ if(outIds.has(n.id)) renderResult(n, N>1 ? i+1 : 0); },
+          });
+        } catch(err){
+          // a Stop-triggered abort is expected — swallow it; surface only real errors.
+          if(isAbort(err)) break;
+          failed = true;
+          statusLine("__run_"+i+"__","error", (N>1?("Run "+(i+1)+": "):"") + (err.message || String(err)));
+        }
+        if(RUN && RUN.lanes[i]) RUN.lanes[i].endAt = Date.now();
+        paintRuns();
+        // Back off after a failure in keep mode so a fast, persistent error
+        // (bad input, auth) can't spin into a hot retry loop. Abort wakes it.
+        if(failed && KEEP && running){ try { await sleep(1200); } catch(e){ break; } }
+      } while(KEEP && running && !(ABORT && ABORT.signal.aborted));
+    }
+    await Promise.all(Array.from({ length:N }, (_, i)=> worker(i)));
     running = false;
     ABORT = null;
     setRunBtn(false);
@@ -1281,6 +1322,7 @@ window.NoodleApp = (function () {
     handleRedirect().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message)).finally(renderAuth);
     renderInputs();
     renderCount();
+    renderLoop();
 
     const runBtn = $("app-run");
     if(runBtn){
@@ -1358,6 +1400,7 @@ function defaultFiles(graph){
 
   <div class="run-row">
     <button id="app-run" class="run">▶ Run</button>
+    <label id="app-loop" class="loop"></label>
     <div id="app-count" class="count"></div>
   </div>
 
@@ -1459,6 +1502,11 @@ body{ background:
 .opt-count{ background:var(--panel2); border:1px solid var(--line); border-radius:99px; padding:0 .45rem; font-size:.72rem; }
 .opt-hint{ margin-left:auto; font-size:.72rem; color:var(--faint); }
 .opt-body{ display:flex; flex-direction:column; gap:1rem; padding:.2rem .8rem .85rem; }
+
+/* keep-generating toggle — keeps all N lanes busy until Stop / unchecked */
+.loop{ display:flex; align-items:center; gap:.4rem; font-size:.8rem; color:var(--dim); cursor:pointer; user-select:none; }
+.loop input{ accent-color:var(--accent); width:1rem; height:1rem; cursor:pointer; margin:0; }
+.loop:hover{ color:var(--ink); }
 
 /* parallel-runs selector — how many copies of the workflow to run at once */
 .count{ display:flex; align-items:center; gap:.35rem; flex-wrap:wrap; }
@@ -1699,7 +1747,7 @@ function renderPicker(){
    in the prompt — so a diff can never break the app and the CONTRACT below is
    free to be short and about intent, not self-preservation.
    ====================================================================== */
-const MOUNT_IDS = ["app-title","app-tagline","app-auth","app-inputs","app-run","app-count","app-status","app-output"];
+const MOUNT_IDS = ["app-title","app-tagline","app-auth","app-inputs","app-run","app-loop","app-count","app-status","app-output"];
 // Typed fallbacks bundle() re-injects if a diff ever drops a mount point, so the
 // runtime always finds the elements it binds to — no prompt policing required.
 const MOUNT_FALLBACK = {
@@ -1708,6 +1756,7 @@ const MOUNT_FALLBACK = {
   "app-auth":    '<div id="app-auth" class="auth"></div>',
   "app-inputs":  '<section id="app-inputs" class="inputs"></section>',
   "app-run":     '<button id="app-run" class="run">▶ Run</button>',
+  "app-loop":    '<label id="app-loop" class="loop"></label>',
   "app-count":   '<div id="app-count" class="count"></div>',
   "app-status":  '<div id="app-status" class="status"></div>',
   "app-output":  '<section id="app-output" class="output"></section>',
