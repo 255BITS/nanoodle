@@ -165,6 +165,26 @@ function assertInlineJsParses(out, failures, tmp) {
   if (n === 0) failures.push("export contained no inline scripts — bundling produced nothing runnable");
 }
 
+// The embedded NOODLE_GRAPH is hand-escaped (< > and line/paragraph separators)
+// so a graph value can never break out of its <script>. Pull the graph back out
+// of the export, run it, and confirm it round-trips to the exact input — if any
+// escaping were dropped, the value would corrupt or the JSON would fail to parse.
+function assertGraphRoundTrips(out, original, failures) {
+  const block = [...out.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).find((c) => /window\.NOODLE_GRAPH\s*=/.test(c));
+  if (!block) return failures.push("export has no NOODLE_GRAPH block to verify escaping against");
+  let parsed;
+  try {
+    const w = {};
+    vm.runInNewContext(block, { window: w });
+    parsed = w.NOODLE_GRAPH;
+  } catch (e) {
+    return failures.push("embedded NOODLE_GRAPH did not parse — graph escaping is broken: " + (e && e.message));
+  }
+  const got = parsed?.nodes?.find((n) => n.id === original.id)?.fields?.text;
+  if (got !== original.text) failures.push(`graph value did not survive embedding (escaping bug):\n  sent: ${JSON.stringify(original.text)}\n  got:  ${JSON.stringify(got)}`);
+  if (out.includes("</script><img")) failures.push("a graph value broke out of its <script> — '</script><img' appears raw in the export");
+}
+
 // ---- run ------------------------------------------------------------------
 const tmp = mkdtempSync(join(tmpdir(), "export-check-"));
 const failures = [];
@@ -172,16 +192,21 @@ try {
   // A representative graph (an upload + a prompt node) exercises shareableGraph's
   // image-stripping and a non-empty NOODLE_GRAPH payload; the standalone contract
   // is graph-independent, so this also covers the empty-graph default.
-  const graph = {
+  assertStandalone(buildExport({
     nodes: [
       { id: "u1", type: "upload", fields: { image: "data:image/png;base64,AAAA" } },
       { id: "p1", type: "prompt", fields: { text: "Describe {{u1}}" } },
     ],
     links: [{ from: "u1", to: "p1" }],
-  };
-  const out = buildExport(graph);
-  assertStandalone(out, failures);
-  assertInlineJsParses(out, failures, tmp);
+  }), failures);
+
+  // Adversarial graph: a field value that tries to break out of the <script>
+  // and a line/paragraph separator that would corrupt an unescaped JS string.
+  const evil = { id: "p1", text: "</script><img src=x onerror=alert(1)>   & <b>ok</b>" };
+  const advExport = buildExport({ nodes: [{ id: "p1", type: "prompt", fields: { text: evil.text } }], links: [] });
+  assertStandalone(advExport, failures);
+  assertInlineJsParses(advExport, failures, tmp);
+  assertGraphRoundTrips(advExport, evil, failures);
 } catch (e) {
   failures.push("export could not be built: " + (e && e.stack ? e.stack : e));
 } finally {

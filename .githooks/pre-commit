@@ -23,6 +23,9 @@ fi
 if [ -n "$staged_html" ]; then
   # shellcheck disable=SC2086
   node "$root/scripts/check-html-js.mjs" $staged_html
+  # 1b) no third-party origins / CSP-unsafe constructs (eval, remote fonts…).
+  # shellcheck disable=SC2086
+  node "$root/scripts/check-policy.mjs" $staged_html
 fi
 
 # 2) the generated export must be self-contained (runs without nanoodle).
