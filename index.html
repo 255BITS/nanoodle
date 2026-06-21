@@ -70,6 +70,9 @@
   #cost b{color:var(--ink)}
 
   /* ---------- editor surface ---------- */
+  #legallink{ position:fixed; right:.5rem; bottom:.35rem; z-index:20; font-size:.62rem; line-height:1;
+              color:var(--dim); opacity:.4; text-decoration:none; pointer-events:auto; }
+  #legallink:hover{ opacity:.85; text-decoration:underline }
   #editor{ position:fixed; inset:52px 0 0 0; overflow:hidden; cursor:grab;
            background-color:#0b0d12;
            background-image:radial-gradient(circle, #ffffff0d 1px, transparent 1px);
@@ -1650,5 +1653,6 @@ $("signout").onclick = ()=> setKey(null);
   Promise.all([loadCatalog("chat"), loadCatalog("image"), loadCatalog("video"), loadCatalog("audio")]).then(refreshAllPrices);
 })();
 </script>
+<a id="legallink" href="/legal" target="_blank" rel="noopener">Terms · Privacy</a>
 </body>
 </html>
