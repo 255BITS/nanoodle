@@ -2082,8 +2082,8 @@ function renderVersions(){
   vs.forEach((v,i)=>{
     const b = document.createElement("button");
     b.className = "ver" + (i===APP_STATE.curVer?" cur":"") + (i===0?" seed":"");
-    b.textContent = i===0 ? "v0 · default" : "v"+i;
-    b.title = i===0 ? "the default app" : (v.goal ? "goal: "+v.goal : "version "+i);
+    b.textContent = "v"+i;
+    b.title = i===0 ? "the first version" : (v.goal ? "goal: "+v.goal : "version "+i);
     b.onclick = () => selectVersion(i);
     wrap.appendChild(b);
   });
