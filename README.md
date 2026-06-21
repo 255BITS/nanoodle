@@ -8,7 +8,7 @@ Each app handles its own auth (NanoGPT OAuth PKCE sign-in, or paste an API key)
 and calls the model APIs directly from the browser. You pay per call on your own key.
 
 Deployed as a static site on Cloudflare Pages (hub: **nanoodle.com**). `_redirects`
-maps clean URLs: `/` → the editor, `/landing` → the landing page.
+maps the clean URL `/app` → the editor; `/` serves the editor too.
 
 ## Apps
 
@@ -23,7 +23,7 @@ maps clean URLs: `/` → the editor, `/landing` → the landing page.
   outputs, restyle it with [gptdiff-js](https://github.com/255BITS/gptdiff-js),
   go fullscreen, share via `#a=` link, or export a self-contained `.html` (no key
   inside). Open it from the editor's **✨ Create app** button (served at `/play`).
-- **`landing.html`** — marketing landing for the hub (reachable at `/landing`).
+- **`legal.html`** — terms, privacy, and FAQ (reachable at `/legal`).
 
 ## Running
 

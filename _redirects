@@ -1,5 +1,5 @@
 # Cloudflare static assets already serves clean URLs for real files
-# (/landing -> landing.html) — adding rules for
+# (/legal -> legal.html) — adding rules for
 # those collides with the auto .html handling and causes a redirect loop.
 # Only the virtual /app alias (no app.html on disk) needs an explicit rewrite.
 /app      /index.html   200
