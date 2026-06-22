@@ -53,11 +53,21 @@ so they're effectively unusable until fixed upstream:
   return `400 {"message":"Gemini TTS Error"}` even when passing a voice from the model's own
   `supported_parameters.voices` list (e.g. `voice:"Zephyr"`). Fails with and without a voice.
 
-### Audio labeling that IS correct (verified, for reference)
+### Coverage that IS correct (verified, for reference)
 
-- All 25 `audio_tts` models are correctly `text->audio` (text in, audio out).
-- All 13 `audio_stt` models are correctly `audio->text`.
-- Video models: all checked, none mislabeled.
+Every node filter nanoodle uses was audited; these are all correctly tagged and need no change:
+
+- `audio_tts` (25) → correctly `text->audio`; `audio_stt` (13) → correctly `audio->text`.
+- Chat catalog (`/api/v1/models`, 622) → all `text->text`, no media models leaking in; the
+  `capabilities.vision` flag is meaningful (243/622).
+- Video (131) → modality correct; capability flags `text_to_video`/`image_to_video`/`video_to_video`
+  /`audio_input` are all meaningful with zero unreachable ("orphan") models.
+
+Only the audio-music and image rows above (15 models) are actually mislabeled.
+
+> Note: video *generation* was verified by metadata only — we did not fire live generate calls because
+> a genuine text→video model would charge for a real clip (unlike the audio/image mislabels, which 400
+> for free on a missing required input). The audio/image findings above are all confirmed by live calls.
 
 ## Requested fix
 
