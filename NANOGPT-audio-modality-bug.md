@@ -41,11 +41,23 @@ These also report `capabilities.image_to_image:false`, so they look like pure te
 Control: `flux-2-klein-9b` (genuine text→image) returns 200 with the same text-only request, confirming
 the difference is real and not a client error.
 
-## Separate issue — `Elevenlabs-Music-V1` 502
+## Separate issues — service failures (correctly labeled, but the model errors)
 
-`POST /api/v1/audio/speech` with any param shape returns
-`502 {"type":"server_error","message":"Music generation service error"}`. This one is correctly labeled
-(it IS a text→music model) but the generation service is failing upstream.
+These are NOT mislabels — the modality is right — but the generation service fails for every request,
+so they're effectively unusable until fixed upstream:
+
+- **`Elevenlabs-Music-V1`** — `POST /api/v1/audio/speech` with any param shape returns
+  `502 {"type":"server_error","message":"Music generation service error"}`. (ElevenLabs *TTS* models
+  like `Elevenlabs-Turbo-V2.5` work fine — only Music is down.)
+- **`gemini-2.5-flash-preview-tts`, `gemini-2.5-pro-preview-tts`, `gemini-3.1-flash-tts-preview`** —
+  return `400 {"message":"Gemini TTS Error"}` even when passing a voice from the model's own
+  `supported_parameters.voices` list (e.g. `voice:"Zephyr"`). Fails with and without a voice.
+
+### Audio labeling that IS correct (verified, for reference)
+
+- All 25 `audio_tts` models are correctly `text->audio` (text in, audio out).
+- All 13 `audio_stt` models are correctly `audio->text`.
+- Video models: all checked, none mislabeled.
 
 ## Requested fix
 
