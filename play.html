@@ -2082,15 +2082,29 @@ const MOUNT_FALLBACK = {
   "app-output":  '<section id="app-output" class="output"></section>',
 };
 const CONTRACT =
-`You are customizing a small single-purpose web app. You edit two files — index.html and app.css —
-restyling it, re-laying it out, and rewriting the visible copy (title, tagline, input labels, button
-text, helper text) to fit the workflow described below. Keep it a clean, self-contained form-over-flow
-UI: no frameworks, no external scripts or stylesheets. The app already has its working controls wired
-up (run button, input area, status and output regions); keep those in place as you restyle.
+`You are upgrading a small, self-contained single-page web app — and you may make it genuinely more
+capable, not just restyle it. You edit two files, index.html and app.css. Add interactive UI,
+client-side logic, layout, micro-interactions, output galleries, preset controls, keyboard shortcuts,
+drag-and-drop, localStorage persistence — whatever best serves the goal below. Think "build a real
+feature," not "change the theme."
 
-Below is a description of the workflow this app is a front-end for. Use it to give the app a
-fitting title, tagline, input labels, button text, and helper copy, and to reason about what the
-user is trying to accomplish — then make their requested change in a way that serves that goal.`;
+How the app works, so you can build on it safely:
+- It's ONE self-contained page. Add as much inline <script>, <style> and markup as you need. Do NOT
+  reference external/remote scripts or stylesheets — inline everything (anything remote is dropped).
+  No build step.
+- A prebuilt engine, window.NoodleApp, is already loaded. It renders the input form into #app-inputs,
+  runs the workflow when #app-run is clicked, writes status to #app-status and results into
+  #app-output. Keep those element ids present and let the engine own what it renders INSIDE
+  #app-inputs / #app-output / #app-status. You may freely wrap, restyle, reposition and surround them,
+  and add new sections, controls and scripts around them.
+- To add behavior, attach your own event listeners and helpers: read or fill the engine's input
+  fields (inside #app-inputs), enhance the result cards in #app-output (zoom, download, compare,
+  grid), drive #app-run, persist to localStorage, add shortcuts or animation. Do NOT redefine or
+  remove the engine, and do NOT touch the embedded workflow.
+
+Keep it self-contained, responsive and accessible. Below is a description of the workflow this app is
+a front-end for — use it to give the app a fitting identity and to reason about what the user is
+trying to accomplish, then make their requested change in a way that genuinely serves that goal.`;
 
 // streaming SSE client injected into gptdiff-js (Bearer key, returns the shape it expects)
 /* ---- usage meter: tokens in/out + cost across a whole customize run (both LLM

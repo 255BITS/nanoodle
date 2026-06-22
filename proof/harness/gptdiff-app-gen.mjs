@@ -229,16 +229,11 @@ function bundle(files, graph) {
 /* ======================================================================
    The customize loop — the SAME contract play.html uses (runDiffPass).
    ====================================================================== */
-const CONTRACT =
-`You are customizing a small single-purpose web app. You edit two files — index.html and app.css —
-restyling it, re-laying it out, and rewriting the visible copy (title, tagline, input labels, button
-text, helper text) to fit the workflow described below. Keep it a clean, self-contained form-over-flow
-UI: no frameworks, no external scripts or stylesheets. The app already has its working controls wired
-up (run button, input area, status and output regions); keep those in place as you restyle.
-
-Below is a description of the workflow this app is a front-end for. Use it to give the app a
-fitting title, tagline, input labels, button text, and helper copy, and to reason about what the
-user is trying to accomplish — then make their requested change in a way that serves that goal.`;
+// Single source of truth: use the SAME CONTRACT play.html ships (extracted, not copied).
+const cStart = playSrc.indexOf("`", playSrc.indexOf("const CONTRACT")) + 1;
+const cEnd = playSrc.indexOf("`;", cStart);
+const CONTRACT = playSrc.slice(cStart, cEnd);
+if (cStart < 1 || cEnd < 0) { console.error("could not extract CONTRACT from play.html"); process.exit(1); }
 
 async function runDiffPass(files, graph, goal) {
   const env = buildEnvironment({ "index.html": files["index.html"], "app.css": files["app.css"] });
