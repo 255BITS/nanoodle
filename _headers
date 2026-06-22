@@ -7,21 +7,54 @@
   Cache-Control: no-cache
 
 # Security headers for going live.
+#
+# The Content-Security-Policy is set PER PATH below, NOT on /*, on purpose: Cloudflare _headers
+# COMBINES duplicate header values with a comma, so a page matching both /* and a more-specific
+# rule would receive TWO CSP headers and the browser enforces their INTERSECTION (the tightest
+# wins). That makes it impossible to *loosen* a global CSP for a sub-path. So each HTML entry
+# point matches exactly one CSP rule, and /* carries only the non-CSP headers (which don't
+# overlap, so they apply cleanly everywhere).
+#
+# Shared notes for the CSPs below:
 # script-src keeps 'unsafe-inline' (every app is one big inline <script> with inline onclick handlers).
 # gptdiff-js is vendored at /vendor/gptdiff-js (self-hosted ESM), so no third-party script origin is needed.
-# connect-src/img-src allow https://nano-gpt.com (the API) plus blob:/data: used for generated
-# images (returned as b64 data: URLs) and download URLs. media-src additionally allows https:
-# because generated music/video come back as URLs on provider CDNs (e.g. *.cloudfront.net) we
-# don't control and can't enumerate — without it the <audio>/<video> source is blocked and the
-# player shows a stuck 0:00. connect-src stays tight ('self' + nano-gpt.com) so an untrusted
-# shared app still can't fetch-exfiltrate the viewer's inputs. frame/child/worker blob: cover the
-# sandboxed app iframe.
+# img-src/media-src allow blob:/data: used for generated images (returned as b64 data: URLs) and
+# download URLs. media-src additionally allows https: because generated music/video come back as
+# URLs on provider CDNs (e.g. *.cloudfront.net) we don't control and can't enumerate — without it
+# the <audio>/<video> source is blocked and the player shows a stuck 0:00.
+# frame/child/worker blob: cover the sandboxed app iframe.
 # frame-ancestors 'self' (NOT 'none') so the editor (index.html) can frame play.html in the
 # create-app modal; 'self' still blocks any external site from framing us (clickjacking).
 # camera=(self) is required (index.html uses getUserMedia).
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(), geolocation=()
   Strict-Transport-Security: max-age=31536000; includeSubDomains
+
+# Editor (index.html, served at / plus the /app and /editor rewrites). It runs only first-party
+# code over DECLARATIVE graphs — never untrusted JS — so connect-src may include https:. That lets
+# a media node's "save" button fetch generated music/video bytes back off the provider CDN and
+# download them with a real filename; with connect-src tight, that fetch is blocked and "save" can
+# only fall back to opening a tab (indistinguishable from "open").
+/
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com https:; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/index.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com https:; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/app
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com https:; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/editor
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com https:; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+
+# Everything else keeps connect-src TIGHT ('self' + nano-gpt.com only). play.html runs UNTRUSTED
+# shared apps (arbitrary bundled HTML/JS): tight connect-src stops a malicious app from
+# fetch-exfiltrating the viewer's inputs or API key to an attacker origin. legal.html is plain
+# content but defaults to the same tight policy.
+/play
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/play.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/legal
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
+/legal.html
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://nano-gpt.com; media-src 'self' data: blob: https:; connect-src 'self' https://nano-gpt.com; frame-src 'self' blob:; child-src blob:; worker-src 'self' blob:; font-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-ancestors 'self'; upgrade-insecure-requests
