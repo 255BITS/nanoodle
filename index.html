@@ -174,6 +174,10 @@
   .port.text{ background:var(--text-port) } .port.image{ background:var(--image-port) }
   .port.video{ background:var(--video-port) } .port.audio{ background:var(--audio-port) }
   .port.filled{ box-shadow:0 0 0 3px #ffffff22 }
+  /* a disabled image input: the model can't see images, so the socket is inert until a vision model is picked */
+  .port.disabled{ cursor:not-allowed; opacity:.3; background:var(--dim) }
+  .port.disabled:hover{ transform:none }
+  .prow.imgrow.off span{ opacity:.4 }
   /* inline ports: a wirable socket sitting on the left edge next to a text field */
   .body .fieldport{ position:absolute; left:-1.1rem; top:0; z-index:3 }
   /* a field whose port is wired is driven by the connection — lock + dim it */
@@ -444,6 +448,35 @@ function defModelFor(type){
   return m ? m.id : "";
 }
 
+/* ---------- dynamic image inputs (vision-capable chat models) ----------
+   A node with `imageInputs:"<capFlag>"` grows image input ports that get sent to the
+   model alongside the prompt. The selected model's capability flag (e.g. vision) gates it:
+   supported → show every wired port plus ONE empty trailing slot (so there's always room
+   for another); unsupported → a single disabled stub that visibly "unlocks" once a capable
+   model (e.g. doubao-seed-2.1-pro) is picked. Unknown/offline model ids are treated as
+   capable so a typed-in id is never blocked. Ports are named img1, img2, … and live as
+   links (not fields), so they serialize and export for free. */
+const IMG_PORT_RE = /^img\d+$/;
+function modelSupportsImages(n){
+  const t = NODE_TYPES[n.type]; if(!t.imageInputs) return false;
+  const m = catItem(t.modelKind, n.fields.model);
+  return !m || !!m[t.imageInputs];   // permissive when the id isn't in the catalog
+}
+function imageInputDefs(n){
+  const t = NODE_TYPES[n.type]; if(!t.imageInputs) return [];
+  const wired = (graph.links||[]).filter(l=> l.to.node===n.id && IMG_PORT_RE.test(l.to.port))
+                  .map(l=> +l.to.port.slice(3));
+  const maxIdx = wired.length ? Math.max(...wired) : 0;
+  if(!modelSupportsImages(n))
+    return Array.from({length:Math.max(1,maxIdx)}, (_,i)=> ({ name:"img"+(i+1), disabled:true }));
+  return Array.from({length:maxIdx+1}, (_,i)=> ({ name:"img"+(i+1) }));   // wired ports + one empty trailing slot
+}
+// pull wired image ports out of a run's inp map, in port order
+function collectImageInputs(inp){
+  return Object.keys(inp).filter(k=> IMG_PORT_RE.test(k)).sort((a,b)=> +a.slice(3) - +b.slice(3))
+    .map(k=> inp[k]).filter(Boolean);
+}
+
 /* one model-row in a node body — a button that opens the shared picker */
 function modelFieldHTML(node){
   return `<div><label>model</label>
@@ -688,9 +721,10 @@ const NODE_TYPES = {
   },
 
   llm: {
-    em:"🧠", title:"LLM", desc:"Text → text (any chat model)", group:"Text",
+    em:"🧠", title:"LLM", desc:"Text (+ images) → text — any chat model", group:"Text",
     modelKind:"chat",
     inputs:[],
+    imageInputs:"vision",   // vision-capable models grow dynamic image input ports (see refreshImageInputs)
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`
       ${modelFieldHTML(n)}
@@ -699,9 +733,12 @@ const NODE_TYPES = {
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
+      const imgs = collectImageInputs(inp);   // wired image ports, in order — sent alongside the prompt
       const messages = [];
       if((n.fields.system||"").trim()) messages.push({role:"system", content:n.fields.system.trim()});
-      messages.push({role:"user", content:prompt});
+      messages.push(imgs.length
+        ? { role:"user", content:[{type:"text", text:prompt}, ...imgs.map(url=>({type:"image_url", image_url:{url}}))] }
+        : { role:"user", content:prompt });
       return { text: await ctx.genChat(messages, mdl(n)) };
     }
   },
@@ -933,7 +970,7 @@ function buildNodeEl(n){
     mp.onclick = (e)=>{
       e.stopPropagation();
       openPicker(t.modelKind, { current:n.fields.model, filter:t.modelFilter, onPick:(id)=>{
-        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); save();
+        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); refreshImageInputs(n); save();
       }});
     };
     updateNodePrice(n);
@@ -952,9 +989,30 @@ function buildNodeEl(n){
   el.addEventListener("pointerdown", ()=> select(n));
   // ports
   el.querySelectorAll(".port").forEach(p=> p.addEventListener("pointerdown", e=>startWire(p, e)));
+  refreshImageInputs(n);             // dynamic image ports + their own wire listeners (after the static-port bind above)
   addFieldPorts(n);
   refreshPortFills();
   prepTextareas(n);
+}
+
+// Render a node's dynamic image input ports (vision-capable chat). Idempotent: rebuilds the
+// rows from the current model + wiring, so it's safe to re-run after a model pick, connect,
+// disconnect, or graph load. A disabled stub can't be wired (startWire bails on .disabled).
+function refreshImageInputs(n){
+  if(!n.el || !NODE_TYPES[n.type].imageInputs) return;
+  const col = n.el.querySelector(".col.in"); if(!col) return;
+  col.querySelectorAll(".prow.imgrow").forEach(el=> el.remove());
+  const defs = imageInputDefs(n), multi = defs.length>1;
+  defs.forEach((d,i)=>{
+    const row = document.createElement("div");
+    row.className = "prow imgrow" + (d.disabled?" off":"");
+    row.innerHTML = `<i class="port image${d.disabled?" disabled":""}" data-node="${n.id}" data-port="${d.name}" data-dir="in" data-ptype="image"`
+      + (d.disabled?` title="this model can’t read images — pick a vision model"`:``) + `></i>`
+      + `<span>${multi?("image "+(i+1)):"image"}</span>`;
+    col.appendChild(row);
+    if(!d.disabled) row.querySelector(".port").addEventListener("pointerdown", e=> startWire(e.currentTarget, e));
+  });
+  refreshPortFills();
 }
 
 // Give every text field an inline input port: wiring it makes the node use the wired
@@ -1189,7 +1247,13 @@ function redraw(){
     p.addEventListener("click", e=>{ e.stopPropagation(); removeLink(p.dataset.link); });
   });
 }
-function removeLink(id){ graph.links = graph.links.filter(l=>l.id!==id); redraw(); refreshPortFills(); save(); }
+function removeLink(id){
+  const l = graph.links.find(x=>x.id===id);
+  graph.links = graph.links.filter(x=>x.id!==id);
+  redraw(); refreshPortFills();
+  if(l) refreshImageInputs(byId(l.to.node)||{});   // a freed image port may drop a trailing slot
+  save();
+}
 function refreshPortFills(){
   document.querySelectorAll(".port").forEach(p=> p.classList.remove("filled"));
   document.querySelectorAll("textarea.wired").forEach(ta=>{ ta.classList.remove("wired"); ta.disabled=false; });
@@ -1222,7 +1286,7 @@ function startNodeDrag(n, e){
 const MAG = 80; // snap radius (px, screen space) — lets people aim loosely
 function compatiblePorts(dir, ptype, skipNode){
   return [...document.querySelectorAll(".port")].filter(p=>
-    p.dataset.dir!==dir && p.dataset.ptype===ptype && p.dataset.node!==skipNode);
+    p.dataset.dir!==dir && p.dataset.ptype===ptype && p.dataset.node!==skipNode && !p.classList.contains("disabled"));
 }
 function nearestPort(x, y, ports){
   let best=null, bd=MAG*MAG;
@@ -1254,7 +1318,7 @@ function startWire(port, e){
     if(!other){ const tgt = document.elementFromPoint(ev.clientX, ev.clientY); other = tgt && tgt.closest(".port"); }
     if(other && other!==port){
       const odir = other.dataset.dir, otype = other.dataset.ptype;
-      if(odir!==dir && otype===ptype){
+      if(odir!==dir && otype===ptype && !other.classList.contains("disabled")){
         const out = dir==="out" ? port : other;
         const inn = dir==="in"  ? port : other;
         connect(out.dataset.node, out.dataset.port, inn.dataset.node, inn.dataset.port);
@@ -1270,6 +1334,7 @@ function connect(fromNode, fromPort, toNode, toPort){
   // each input takes a single link — drop any existing one
   graph.links = graph.links.filter(l=> !(l.to.node===toNode && l.to.port===toPort));
   graph.links.push({ id:"l"+(lid++), from:{node:fromNode, port:fromPort}, to:{node:toNode, port:toPort} });
+  refreshImageInputs(byId(toNode)||{});   // wiring the empty slot grows the next one
   redraw(); refreshPortFills(); save();
 }
 
@@ -1430,10 +1495,15 @@ async function runGroup(seedIds){
           const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
           if(l) inp[port.name] = byId(l.from.node)?.out?.[l.from.port];
         }
+        // dynamic image ports (img1, img2, …) on vision-capable nodes → collected by run() via collectImageInputs()
+        if(t.imageInputs) for(const l of graph.links){
+          if(l.to.node===id && IMG_PORT_RE.test(l.to.port)) inp[l.to.port] = byId(l.from.node)?.out?.[l.from.port];
+        }
         // a wired text field overrides its typed value (n.fields[field]); declared ports handled above
         const fieldOverrides = {};
         for(const l of graph.links){
           if(l.to.node!==id || t.inputs.some(p=>p.name===l.to.port)) continue;
+          if(t.imageInputs && IMG_PORT_RE.test(l.to.port)) continue;   // image ports aren't text-field overrides
           const v = byId(l.from.node)?.out?.[l.from.port];
           if(v!=null) fieldOverrides[l.to.port] = v;
         }
@@ -1727,6 +1797,7 @@ function applyGraphData(d){
   const num = (s)=> parseInt(String(s).replace(/\D/g,""),10) || 0;
   nid = Math.max(d.nid||0, 0, ...graph.nodes.map(n=>num(n.id))) + 1;
   lid = Math.max(d.lid||0, 0, ...graph.links.map(l=>num(l.id))) + 1;
+  graph.nodes.forEach(refreshImageInputs);   // now that links are loaded, grow image ports to match
   redraw(); refreshPortFills(); refreshAllPrices();
 }
 
