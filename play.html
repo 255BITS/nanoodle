@@ -113,26 +113,15 @@
   #goal{ flex:1; min-width:240px; }
   /* the model id can be long — cap the picker so it never starves the goal input */
   #modelpick{ max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  #fr-head{ display:none; }
-  #fr-skip{ display:none; }
-
-  /* ---------- first run: lead with a centered "describe your app" prompt ----------
-     The same composer floats over the (dim) default app; after the first generate it
-     drops back into its docked place at the bottom. */
-  body.firstrun #customize{ position:fixed; inset:0; z-index:60; border:0; background:rgba(6,8,15,.72);
-        backdrop-filter:blur(4px); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.2rem; }
-  body.firstrun .cust-row{ width:min(720px,88vw); justify-content:center; }
-  body.firstrun .cust-label{ display:none; }
-  /* first run: the goal input is the hero — give it the whole first line to breathe,
-     the model picker + Apply wrap centered onto the line below it */
-  body.firstrun #goal{ font-size:1.1rem; padding:.95rem 1.1rem; flex:1 1 100%; }
-  body.firstrun #cust-status{ width:min(720px,88vw); text-align:center; }
-  body.firstrun #versions{ display:none; }
-  body.firstrun #undo{ display:none; }
-  body.firstrun #fr-head{ display:block; width:min(720px,88vw); font-size:1.25rem; font-weight:800; margin-bottom:.5rem; }
-  body.firstrun #fr-head .sub{ display:block; font-size:.85rem; font-weight:400; color:var(--dim); margin-top:.25rem; }
-  body.firstrun #fr-skip{ display:inline-block; margin-top:.7rem; font-size:.8rem; color:var(--dim); cursor:pointer; background:none; border:0; }
-  body.firstrun #fr-skip:hover{ color:var(--ink); text-decoration:underline; }
+  /* ---------- first run (the initial moment) ----------
+     The live default app is the hero from the first frame — no overlay, no dim.
+     The whole composer is present and usable from the start, but sits de-emphasized
+     (dimmed) until you pay it attention: hovering or focusing brings it to full
+     strength, and the first focus settles it bright for good. Nothing pops in or out,
+     so nothing shifts. */
+  body.firstrun #customize{ opacity:.55; transition:opacity .18s ease; }
+  body.firstrun #customize:hover,
+  body.firstrun #customize:focus-within{ opacity:1; }
   button.primary{ font:inherit; font-weight:700; padding:.5rem 1rem; border-radius:.5rem; cursor:pointer;
                   background:linear-gradient(180deg,#8b97ff,#6573ef); border:1px solid #8b97ff; color:#0b0e18;
                   box-shadow:0 0 22px #7c8cff33; }
@@ -152,7 +141,6 @@
   .sugg-shuffle{ font-size:.82rem; line-height:1; padding:.26rem .5rem; border-radius:1rem; cursor:pointer;
          border:1px solid var(--line); background:none; color:var(--faint); }
   .sugg-shuffle:hover{ color:var(--ink); border-color:var(--accent-line); }
-  body.firstrun #cust-suggest{ width:min(720px,88vw); justify-content:center; margin-top:.7rem; }
 
   #cust-status{ font-size:.78rem; min-height:1.1em; margin-top:.4rem; }
   #cust-status .ok{ color:var(--ok); } #cust-status .err{ color:var(--danger); }
@@ -166,7 +154,7 @@
     padding:.5rem .6rem; border:1px solid var(--line); border-radius:.55rem; background:rgba(255,196,84,.07); }
   #portbar .pb-msg{ font-size:.8rem; color:var(--dim); flex:1 1 auto; }
   /* porting (port offer open or a port running) → the customize composer steps aside */
-  #customize.porting .cust-row, #customize.porting #fr-skip{ display:none; }
+  #customize.porting .cust-row{ display:none; }
 
   /* ---------- version strip (index.html .ver pattern, re-themed) ---------- */
   #versions{ display:flex; flex-wrap:wrap; gap:.35rem; align-items:center; margin-top:.45rem; }
@@ -191,7 +179,7 @@
   .ghost-link{ display:inline-block; margin-top:.8rem; }
 
   /* ---------- model picker (ported from the editor) ---------- */
-  #mpickback{ position:fixed; inset:0; z-index:75; background:#0008; display:none; }   /* above bar(70) + firstrun(60) */
+  #mpickback{ position:fixed; inset:0; z-index:75; background:#0008; display:none; }   /* above bar(70) */
   #mpickback.show{ display:block; }
   #mpick{ position:fixed; top:8vh; left:50%; transform:translateX(-50%); z-index:80; display:none; flex-direction:column;
           width:min(640px,94vw); max-height:80vh; background:var(--panel); border:1px solid var(--line);
@@ -273,11 +261,13 @@
 <!-- CUSTOMIZE composer: goal + Apply drives the gptdiff loop over index.html + app.css.
      Docked at the bottom; floats centered as the "describe your app" prompt on first run. -->
 <div id="customize">
-  <div id="fr-head">✨ Turn this workflow into an app
-    <span class="sub">Describe the app you want — its theme, layout, or a real feature (presets, galleries, shortcuts). Keep tweaking after.</span></div>
+  <!-- first run: the live app is the hero; the whole composer is present but dimmed
+       until you pay it attention (hover/focus brightens it) — see the firstrun CSS -->
   <div class="cust-row">
     <span class="cust-label">✨ Customize this app</span>
-    <input id="goal" placeholder="e.g. “add presets”" />
+    <!-- autocomplete off: a free-text goal field shouldn't summon the browser's
+         saved-entries dropdown the instant it's focused -->
+    <input id="goal" autocomplete="off" autocorrect="off" spellcheck="false" placeholder="e.g. “add presets”" />
     <button id="modelpick" class="ghost" title="Choose the model that writes your app changes">✨ model ▾</button>
     <button id="apply" class="primary">✦ Apply</button>
     <button id="undo" class="ghost" disabled>↶ undo</button>
@@ -293,7 +283,6 @@
     <button id="portbar-skip" class="ghost">Keep as-is</button>
   </div>
   <div id="versions" title="Each customize adds a version — click one to view it"></div>
-  <button id="fr-skip">skip — start from the default app</button>
 </div>
 
 <div id="toast"></div>
@@ -2558,8 +2547,10 @@ function newAppFromGraph(){
   installApp({ graph:APP_STATE.graph, files:defaultFiles(APP_STATE.graph), fresh:true });
 }
 
-// first-run: float the customize composer as a centered "describe your app" prompt
-function enterFirstRun(){ document.body.classList.add("firstrun"); setTimeout(()=>{ const g=$("goal"); if(g) g.focus(); }, 30); }
+// first-run (the initial moment): the live app is the hero; the composer is fully
+// present but de-emphasized (dimmed) until you pay it attention. Hover/focus brightens
+// it; the first focus settles it bright for good (the focus listener drops the class).
+function enterFirstRun(){ document.body.classList.add("firstrun"); }
 function exitFirstRun(){ document.body.classList.remove("firstrun"); }
 
 /* ======================================================================
@@ -2760,7 +2751,7 @@ if(IN_EDITOR){
 $("apply").onclick = applyCustomize;
 $("goal").addEventListener("keydown", (e)=>{ if(e.key==="Enter"){ e.preventDefault(); if(!busy) applyCustomize(); } });
 $("undo").onclick = () => { if(APP_STATE.curVer > 0) selectVersion(APP_STATE.curVer - 1); };
-$("fr-skip").onclick = exitFirstRun;                          // "skip — use the default app"
+$("goal").addEventListener("focus", exitFirstRun);           // first focus settles the composer at full strength
 
 /* ---------- one random "starting point" idea, woven into the composer ----------
    On load (and on ↻ / after each apply) we pick ONE suggestion from the static
