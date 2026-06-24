@@ -96,6 +96,16 @@
   #addpop .d{font-size:.74rem; color:var(--dim)}
   #addpop .grp{ font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding:.4rem .55rem .15rem; pointer-events:none }
   #addpop .grp:first-child{ padding-top:.15rem }
+  /* drop-a-wire-in-empty-space quick add: a contextual, type-filtered clone of #addpop, placed at the cursor */
+  #quickadd{ position:fixed; z-index:50; display:none; flex-direction:column; gap:.05rem; min-width:215px; max-height:min(60vh,520px);
+             overflow-y:auto; background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.35rem; box-shadow:0 12px 40px #000a }
+  #quickadd.open{ display:flex }
+  #quickadd button{ text-align:left; border:none; background:none; display:flex; gap:.55rem; align-items:center; padding:.45rem .55rem; border-radius:.45rem }
+  #quickadd button:hover{ background:var(--panel2) }
+  #quickadd .k{ font-size:1.1rem; width:1.4rem; text-align:center }
+  #quickadd .d{ font-size:.74rem; color:var(--dim) }
+  #quickadd .grp{ font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding:.4rem .55rem .15rem; pointer-events:none }
+  #quickadd .qhint{ font-size:.7rem; color:var(--accent); padding:.35rem .55rem .3rem; pointer-events:none; border-bottom:1px solid var(--line); margin-bottom:.2rem }
   #status{font-size:.78rem; color:var(--dim)}
   #share.ok{ border-color:var(--good); color:var(--good) }
   /* create-app popup (play.html in a modal iframe over the editor) */
@@ -170,7 +180,12 @@
   .port{ position:relative; width:13px; height:13px; border-radius:50%; border:2px solid var(--bg); background:var(--dim);
          cursor:crosshair; flex:0 0 auto; transition:transform .1s }
   .col.in{ margin-left:-7px } .col.out{ margin-right:-7px }
-  .port:hover{ transform:scale(1.35) }
+  /* a generous invisible grab zone so the tiny wire handle is easy to hit. Ports stack vertically,
+     so we widen mostly sideways (where you aim from) and only a little up/down (avoids grabbing the
+     neighbour socket on multi-input nodes). Touch widens it further below. */
+  .port::after{ content:""; position:absolute; inset:-5px -11px }
+  .body .fieldport::after{ right:0 }   /* …but keep the text-field socket's zone off the adjacent textarea */
+  .port:hover{ transform:scale(1.35); box-shadow:0 0 0 4px #ffffff1f }   /* clear "this is a draggable link handle" affordance */
   .port.text{ background:var(--text-port) } .port.image{ background:var(--image-port) }
   .port.video{ background:var(--video-port) } .port.audio{ background:var(--audio-port) }
   .port.filled{ box-shadow:0 0 0 3px #ffffff22 }
@@ -348,6 +363,7 @@
   <svg id="wires"></svg>
   <div id="world"></div>
 </main>
+<div id="quickadd"></div>
 
 <script>
 const NANOGPT = "https://nano-gpt.com";
@@ -1311,7 +1327,9 @@ function nearestPort(x, y, ports){
 }
 function startWire(port, e){
   e.preventDefault(); e.stopPropagation();
+  closeQuickAdd();
   const dir = port.dataset.dir, ptype = port.dataset.ptype, node = port.dataset.node;
+  const sx = e.clientX, sy = e.clientY;             // where the drag began — used to tell a click from a drag
   const fixed = portCenter(port);
   const targets = compatiblePorts(dir, ptype, node);
   targets.forEach(p=> p.classList.add("compatible"));   // glow every valid destination, by type
@@ -1332,15 +1350,22 @@ function startWire(port, e){
     targets.forEach(p=> p.classList.remove("compatible","snap"));
     let other = snap?.p;                              // prefer the magnetically-snapped port
     if(!other){ const tgt = document.elementFromPoint(ev.clientX, ev.clientY); other = tgt && tgt.closest(".port"); }
+    let connected = false;
     if(other && other!==port){
       const odir = other.dataset.dir, otype = other.dataset.ptype;
       if(odir!==dir && otype===ptype && !other.classList.contains("disabled")){
         const out = dir==="out" ? port : other;
         const inn = dir==="in"  ? port : other;
         connect(out.dataset.node, out.dataset.port, inn.dataset.node, inn.dataset.port);
+        connected = true;
       }
     }
     redraw();
+    // dropped a wire into empty canvas → offer to create a node that fits this port, right here
+    if(!connected && Math.hypot(ev.clientX-sx, ev.clientY-sy) > 6){
+      const tgt = document.elementFromPoint(ev.clientX, ev.clientY);
+      if(!tgt || !tgt.closest(".node")) openQuickAdd(ev.clientX, ev.clientY, port);
+    }
   };
   window.addEventListener("pointermove",move); window.addEventListener("pointerup",up);
 }
@@ -1352,6 +1377,91 @@ function connect(fromNode, fromPort, toNode, toPort){
   graph.links.push({ id:"l"+(lid++), from:{node:fromNode, port:fromPort}, to:{node:toNode, port:toPort} });
   refreshImageInputs(byId(toNode)||{});   // wiring the empty slot grows the next one
   redraw(); refreshPortFills(); save();
+}
+
+/* ======================================================================
+   QUICK ADD — drop a wire into empty space, pick a node, get it wired
+   ----------------------------------------------------------------------
+   The menu only lists nodes that actually fit the dragged port: dragging
+   FROM an output shows nodes that *consume* that type; dragging FROM an
+   input shows nodes that *produce* it. The chosen node is created at the
+   drop point and auto-connected to its first matching free socket.
+   ====================================================================== */
+const nodeProducesType = (k, type)=> (NODE_TYPES[k].outputs||[]).some(o=> o.type===type);
+// Does a node accept this type as input? Static input ports, the LLM's dynamic image ports,
+// and — for text — any wirable text field (every textarea gets an inline text port via addFieldPorts).
+function nodeAcceptsType(k, type){
+  const t = NODE_TYPES[k];
+  if((t.inputs||[]).some(p=> p.type===type)) return true;
+  if(type==="image" && t.imageInputs) return true;
+  if(type==="text"  && bodyHasTextField(k)) return true;
+  return false;
+}
+const _qaTextField = {};   // memoised: which node types render a wirable text field
+function bodyHasTextField(k){
+  if(k in _qaTextField) return _qaTextField[k];
+  let has = false;
+  if(k!=="text"){            // Text is a pure source — its textarea is the value, not a wirable override
+    try{ has = /<textarea\b[^>]*\bdata-(?:f|pf)\s*=\s*"(?!extraJson")/i.test(NODE_TYPES[k].body({ type:k, fields:{} })); }
+    catch{ has = false; }
+  }
+  return (_qaTextField[k] = has);
+}
+function quickAddCandidates(dir, type){
+  const fits = dir==="out" ? (k)=> nodeAcceptsType(k, type) : (k)=> nodeProducesType(k, type);
+  return Object.entries(NODE_TYPES).filter(([k])=> fits(k));
+}
+
+function openQuickAdd(clientX, clientY, originPort){
+  closeQuickAdd();
+  const dir = originPort.dataset.dir, type = originPort.dataset.ptype;
+  const cands = quickAddCandidates(dir, type);
+  if(!cands.length) return;
+  const pop = $("quickadd");
+  // group the candidates the same way the main Add menu does
+  const groups = new Map(ADD_GROUPS.map(g=>[g,[]]));
+  for(const [k,t] of cands){ const g = t.group||"Other"; if(!groups.has(g)) groups.set(g,[]); groups.get(g).push([k,t]); }
+  let html = `<div class="qhint">${dir==="out" ? "→ send "+esc(type)+" to…" : "← get "+esc(type)+" from…"}</div>`;
+  for(const [g,items] of groups){
+    if(!items.length) continue;
+    html += `<div class="grp">${esc(g)}</div>`;
+    html += items.map(([k,t])=>
+      `<button data-type="${k}"><span class="k">${t.em}</span><span><div>${esc(t.title)}</div><div class="d">${esc(t.desc)}</div></span></button>`).join("");
+  }
+  pop.innerHTML = html;
+  // world coords for the new node, derived from the drop point (#world is translated by pan and scaled)
+  const ed = editor.getBoundingClientRect();
+  const wx = (clientX - ed.left - panX)/scale, wy = (clientY - ed.top - panY)/scale;
+  pop.querySelectorAll("button").forEach(b=> b.onclick = ()=>{ quickSpawn(b.dataset.type, wx, wy, dir, type, originPort); closeQuickAdd(); });
+  // show, then clamp to the viewport
+  pop.classList.add("open");
+  const pr = pop.getBoundingClientRect();
+  let px = clientX + 6, py = clientY + 6;
+  if(px + pr.width  > innerWidth  - 8) px = Math.max(8, clientX - pr.width - 6);
+  if(py + pr.height > innerHeight - 8) py = Math.max(8, innerHeight - pr.height - 8);
+  pop.style.left = px+"px"; pop.style.top = py+"px";
+  // close on the next outside interaction (deferred so this drag's own pointerup doesn't immediately close it)
+  setTimeout(()=> document.addEventListener("pointerdown", quickAddOutside), 0);
+}
+function quickAddOutside(e){ if(!$("quickadd").contains(e.target)) closeQuickAdd(); }
+function closeQuickAdd(){
+  const pop = $("quickadd"); if(!pop || !pop.classList.contains("open")) return;
+  pop.classList.remove("open"); pop.innerHTML = "";
+  document.removeEventListener("pointerdown", quickAddOutside);
+}
+function quickSpawn(typeKey, wx, wy, dir, type, originPort){
+  // place the card so its relevant edge sits near the drop point (downstream to the right, source to the left)
+  const x = dir==="out" ? wx + 8 : wx - 232;
+  const n = addNode(typeKey, Math.round(x), Math.round(wy - 24));
+  select(n); redraw();
+  // wire the dragged port to the new node's first matching, free socket
+  const opp = dir==="out" ? "in" : "out";
+  const ports = [...n.el.querySelectorAll(`.port[data-dir="${opp}"][data-ptype="${type}"]:not(.disabled)`)];
+  const target = ports.find(p=> p.dataset.port==="prompt") || ports.find(p=> !p.classList.contains("filled")) || ports[0];
+  if(target){
+    const out = dir==="out" ? originPort : target, inn = dir==="out" ? target : originPort;
+    connect(out.dataset.node, out.dataset.port, inn.dataset.node, inn.dataset.port);
+  }
 }
 
 // pan (one finger / drag) + pinch-zoom (two fingers) on the editor background.
