@@ -9,6 +9,8 @@ Columns: date · venue · angle used · result (upvotes, comments, signups, what
 | (prior) | r/nanotrade | — | — |
 | (prior) | nano-gpt.com (community) | — | — |
 | (prior) | r/monero | — | — |
+| (planned) | nano-gpt Discord #community-projects | Noodle Contest launch — 3×133 Nano, "show your coolest noodle" (see contest.md) | pending |
+| (planned) | nano-gpt Discord #nanocurrency | Contest cross-post, Nano-holder angle (build→earn Nano, no signup) | pending |
 
 ## Ideas / candidate venues
 
