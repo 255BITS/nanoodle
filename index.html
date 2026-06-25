@@ -116,6 +116,25 @@
                   border-radius:.8rem; background:var(--bg); box-shadow:0 30px 90px #000a; }
   #appmodalclose{ position:absolute; top:.7rem; right:.9rem; z-index:2; width:2.1rem; height:2.1rem; border-radius:.55rem;
                   display:flex; align-items:center; justify-content:center; font-size:1.05rem; }
+  /* gallery — browse & remix curated example/contest noodles (static gallery.json) */
+  #gallerymodal[hidden]{ display:none }
+  #gallerymodal{ position:fixed; inset:0; z-index:200; display:flex; padding:min(4vh,2.4rem) min(4vw,2.4rem);
+                 background:rgba(4,6,11,.74); backdrop-filter:blur(3px); }
+  #gallerypanel{ margin:auto; width:100%; max-width:980px; max-height:92vh; overflow:auto; background:var(--bg);
+                 border:1px solid var(--line); border-radius:.8rem; box-shadow:0 30px 90px #000a; padding:1.2rem 1.3rem 1.5rem; }
+  #galleryhead{ display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap }
+  #galleryhead h2{ font-size:1.1rem; margin:0 }
+  #galleryhead .sub{ font-size:.78rem; color:var(--dim) }
+  #galleryclose{ margin-left:auto; width:2.1rem; height:2.1rem; border-radius:.55rem; display:flex; align-items:center; justify-content:center; }
+  #gallerygrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.8rem; margin-top:1rem }
+  .gcard{ display:flex; flex-direction:column; gap:.4rem; background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.85rem .9rem; }
+  .gcard h3{ font-size:.92rem; margin:0 }
+  .gcard .by{ font-size:.72rem; color:var(--dim) }
+  .gcard p{ font-size:.8rem; margin:.1rem 0 .2rem; line-height:1.35 }
+  .gcard .tags{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:auto }
+  .gcard .tag{ font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:1rem; padding:.08rem .5rem; }
+  .gcard .remix{ margin-top:.55rem; align-self:flex-start; border-color:var(--accent); color:var(--accent) }
+  #galleryempty{ font-size:.85rem; color:var(--dim); padding:1.4rem 0 }
   /* toast — a clearly-visible transient confirmation */
   #toast{ position:fixed; top:64px; left:50%; transform:translateX(-50%) translateY(-14px) scale(.98); z-index:80;
           display:flex; align-items:center; gap:.5rem; max-width:min(92vw,560px);
@@ -321,6 +340,7 @@
     <div id="addpop"></div>
   </div>
   <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run</button>
+  <button id="gallery" title="Browse example &amp; contest noodles — open one to remix it">🖼️ Gallery</button>
   <button id="makeapp" title="Turn this workflow into a shareable app">✨ Create app</button>
   <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Share</button>
   <button id="save" title="download this graph as JSON">⭳ Save</button>
@@ -358,6 +378,18 @@
 </div>
 
 <div id="toast"></div>
+
+<!-- Gallery: browse & remix curated example/contest noodles (static gallery.json) -->
+<div id="gallerymodal" hidden>
+  <div id="gallerypanel" role="dialog" aria-label="Noodle gallery">
+    <div id="galleryhead">
+      <h2>🖼️ Gallery</h2>
+      <span class="sub">Open one to remix it — no account needed.</span>
+      <button id="galleryclose" class="hbtn" title="Close (Esc)" aria-label="Close">✕</button>
+    </div>
+    <div id="gallerygrid"></div>
+  </div>
+</div>
 
 <!-- Create-app popup: play.html embedded over the editor -->
 <div id="appmodal" hidden>
@@ -2157,7 +2189,7 @@ $("run").onclick = runAll;
 
 /* ---------- responsive toolbar: collapse secondary actions into the ⋯ menu on phones ----------
    Buttons keep their handlers (they're moved, not cloned). On desktop everything sits inline. */
-const RELOC = ["makeapp","share","save","load","signin","pastebtn","signout","status"];  // order shown in the menu
+const RELOC = ["gallery","makeapp","share","save","load","signin","pastebtn","signout","status"];  // order shown in the menu
 const mqMobile = matchMedia("(max-width:640px)");
 let topOrder = null;
 function layoutBar(){
@@ -2385,6 +2417,69 @@ function seed(){
 }
 
 /* ======================================================================
+   GALLERY  (curated, static gallery.json — browse & remix example/contest
+   noodles. No server, no tracking: a list of metadata + graph file paths
+   that ship with the page. A "#gallery=<slug>" link loads one directly.)
+   ====================================================================== */
+let galleryCache = null;
+async function fetchGallery(){
+  if(galleryCache) return galleryCache;
+  try{ const r = await fetch("gallery.json", {cache:"no-store"}); galleryCache = r.ok ? await r.json() : []; }
+  catch{ galleryCache = []; }
+  return galleryCache;
+}
+// Load one gallery entry's graph onto the canvas as the user's own working copy.
+async function loadGalleryEntry(slug){
+  const entry = (await fetchGallery()).find(e=> e.slug===slug);
+  if(!entry || !entry.graph) return false;
+  try{
+    const r = await fetch(entry.graph, {cache:"no-store"});
+    if(!r.ok) return false;
+    pendingAppId = null; pendingAppTitle = null;
+    applyGraphData(await r.json());
+    updateTitle();
+    history.replaceState({}, "", location.pathname + location.search);  // it's your copy now — edits win
+    save();
+    return true;
+  }catch{ return false; }
+}
+function galleryCard(e){
+  const card = document.createElement("div"); card.className = "gcard";
+  const h = document.createElement("h3"); h.textContent = e.title || e.slug; card.appendChild(h);
+  if(e.author){ const by = document.createElement("div"); by.className = "by"; by.textContent = "by "+e.author; card.appendChild(by); }
+  if(e.desc){ const p = document.createElement("p"); p.textContent = e.desc; card.appendChild(p); }
+  if(Array.isArray(e.tags) && e.tags.length){
+    const tg = document.createElement("div"); tg.className = "tags";
+    e.tags.forEach(t=>{ const s = document.createElement("span"); s.className = "tag"; s.textContent = t; tg.appendChild(s); });
+    card.appendChild(tg);
+  }
+  const b = document.createElement("button"); b.className = "remix"; b.textContent = "Open & remix →";
+  b.onclick = async ()=>{
+    b.disabled = true;
+    const ok = await loadGalleryEntry(e.slug);
+    if(ok){ closeGallery(); toast("✓ Loaded “"+(e.title||e.slug)+"” — tweak it and hit ▶ Run"); }
+    else { b.disabled = false; toast("Couldn’t load that one — try another", "err"); }
+  };
+  card.appendChild(b);
+  return card;
+}
+async function openGallery(){
+  try{ localStorage.setItem("noodle_seen_gallery","1"); }catch{}   // remember so the first-visit welcome only fires once
+  const grid = $("gallerygrid");
+  grid.innerHTML = "<div id='galleryempty'>Loading…</div>";
+  $("gallerymodal").hidden = false;
+  const list = await fetchGallery();
+  grid.innerHTML = "";
+  if(!list.length){ grid.innerHTML = "<div id='galleryempty'>No noodles here yet — check back soon.</div>"; return; }
+  list.forEach(e=> grid.appendChild(galleryCard(e)));
+}
+function closeGallery(){ $("gallerymodal").hidden = true; }
+$("gallery").onclick = openGallery;
+$("galleryclose").onclick = closeGallery;
+$("gallerymodal").addEventListener("click", e=>{ if(e.target.id==="gallerymodal") closeGallery(); });   // click the dim backdrop
+addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("gallerymodal").hidden) closeGallery(); });
+
+/* ======================================================================
    AUTH  (OAuth PKCE + paste key — identical pattern to the other examples)
    ====================================================================== */
 const getKey = ()=> localStorage.getItem("ngpt_key");
@@ -2460,12 +2555,18 @@ $("signout").onclick = ()=> setKey(null);
         const ra = sessionStorage.getItem(RESUME_APPID_KEY); if(ra){ pendingAppId = ra; pendingAppTitle = sessionStorage.getItem(RESUME_APPTITLE_KEY) || null; }   // keep the edit-workflow link across login
       } }catch(_){}
   try{ sessionStorage.removeItem(RESUME_APPID_KEY); sessionStorage.removeItem(RESUME_APPTITLE_KEY); }catch(_){}
+  // opened a "#gallery=<slug>" link → load that curated noodle as the working copy
+  if(!restored && location.hash.startsWith("#gallery=")) restored = await loadGalleryEntry(decodeURIComponent(location.hash.slice(9)));
   if(!restored && location.hash.length > 3) restored = await loadFromHash();   // opened a shared link
   if(!restored) restored = load();                                // else last local graph
+  // brand-new visitor landing on the bare page: welcome them with the gallery (once ever)
+  const firstVisit = !restored && !location.hash && !location.search
+    && !localStorage.getItem("noodle_graph") && !localStorage.getItem("noodle_seen_gallery");
   if(!restored) restored = await loadDefault();                   // else noodle-graph.json
   if(!restored) seed();                                           // else built-in starter
   updateTitle();                                                  // reflect whether an app's workflow is loaded
   redraw();
+  if(firstVisit) openGallery();                                   // show what's possible over the default graph
   try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
   renderAuth();
   // pull the full model catalogs in the background, then show per-node prices

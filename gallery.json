@@ -1,0 +1,34 @@
+[
+  {
+    "slug": "picture-me",
+    "title": "Picture Me",
+    "author": "nanoodle",
+    "desc": "Upload a selfie, get it restyled three ways — film, noir, and anime — keeping your identity and pose.",
+    "tags": ["image", "edit", "beginner"],
+    "graph": "gallery/picture-me.json"
+  },
+  {
+    "slug": "comic-strip",
+    "title": "Comic Strip",
+    "author": "nanoodle",
+    "desc": "Type a one-line idea and get a multi-panel comic — the LLM writes the beats, the image nodes draw them.",
+    "tags": ["image", "story", "multi-node"],
+    "graph": "gallery/comic-strip.json"
+  },
+  {
+    "slug": "character-chat",
+    "title": "Character Chat",
+    "author": "nanoodle",
+    "desc": "Give a character a personality and a face — chat replies in voice, with a matching portrait and spoken audio.",
+    "tags": ["text", "image", "audio"],
+    "graph": "gallery/character-chat.json"
+  },
+  {
+    "slug": "song-maker",
+    "title": "Song Maker",
+    "author": "nanoodle",
+    "desc": "Describe a vibe, the LLM writes the lyrics, and the music node turns them into a finished track.",
+    "tags": ["audio", "music", "text"],
+    "graph": "gallery/song-maker.json"
+  }
+]
