@@ -968,9 +968,10 @@ const NODE_TYPES = {
     inputs:[], videoInputs:true,                       // grows clip1, clip2, … input ports (see refreshVideoInputs)
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
-      <label style="display:flex;gap:.45rem;align-items:flex-start;line-height:1.3">
-        <input type="checkbox" data-f="dedup" ${(n.fields.dedup ?? true)?"checked":""} style="margin-top:.15rem"/>
-        <span>trim each next clip's duplicate first frame<br><span class="dim">seamless join when clips are chained from one another</span></span></label>`,
+      <label style="display:flex;align-items:center;gap:.45rem;cursor:pointer"
+        title="When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.">
+        <input type="checkbox" data-f="dedup" ${(n.fields.dedup ?? true)?"checked":""}/>
+        <span>trim duplicate seam frame</span></label>`,
     async run(n, inp){
       const clips = collectVideoInputs(inp);
       if(clips.length < 2) throw new Error("wire at least two clips to combine");
@@ -1541,6 +1542,7 @@ function connect(fromNode, fromPort, toNode, toPort){
   graph.links = graph.links.filter(l=> !(l.to.node===toNode && l.to.port===toPort));
   graph.links.push({ id:"l"+(lid++), from:{node:fromNode, port:fromPort}, to:{node:toNode, port:toPort} });
   refreshImageInputs(byId(toNode)||{});   // wiring the empty slot grows the next one
+  refreshVideoInputs(byId(toNode)||{});   // …same for the Combine node's clip ports
   redraw(); refreshPortFills(); save();
 }
 
