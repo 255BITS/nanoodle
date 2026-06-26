@@ -1557,9 +1557,18 @@ window.NoodleApp = (function () {
     const row = document.createElement("div"); row.className = "dlrow";
     const btn = document.createElement("button"); btn.type = "button"; btn.className = "dl";
     btn.textContent = "⭳ Download";
-    const name = (nodeType||"output") + "." + mediaExt(url, kind);
+    const base = nodeType||"output";
+    const name = base + "." + mediaExt(url, kind);
     btn.onclick = async ()=>{
-      if(/^(blob:|data:)/i.test(url)){ saveAs(url, name); return; }
+      // A blob: URL hides its real type behind an opaque id; read the blob back
+      // (same-origin, no network) so a WebM clip or a wav/flac/opus track gets the
+      // right extension instead of the kind default (.mp4/.mp3).
+      if(/^blob:/i.test(url)){
+        try{ const b = await (await fetch(url)).blob(); saveAs(url, base + "." + mediaExt(url, kind, b.type)); }
+        catch(_){ saveAs(url, name); }
+        return;
+      }
+      if(/^data:/i.test(url)){ saveAs(url, name); return; }
       btn.disabled = true;
       try{
         // Preview: the sandboxed frame can't pull cross-origin CDN media into a blob,
@@ -1582,9 +1591,20 @@ window.NoodleApp = (function () {
     const a = document.createElement("a"); a.href = href; a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
   }
-  function mediaExt(url, kind){
+  const MIME2EXT = {
+    "audio/mpeg":"mp3","audio/mp3":"mp3","audio/ogg":"ogg","audio/opus":"opus","audio/aac":"aac",
+    "audio/flac":"flac","audio/wav":"wav","audio/x-wav":"wav","audio/webm":"weba",
+    "video/mp4":"mp4","video/webm":"webm","video/ogg":"ogv","video/quicktime":"mov",
+    "image/png":"png","image/jpeg":"jpg","image/webp":"webp","image/gif":"gif","image/svg+xml":"svg"
+  };
+  function mimeExt(mime){ const t = String(mime||"").split(";")[0].trim().toLowerCase(); return MIME2EXT[t] || null; }
+  function mediaExt(url, kind, mime){
     const m = String(url).split(/[?#]/)[0].match(/\.([a-z0-9]{2,4})$/i);
-    if(m) return m[1].toLowerCase();
+    if(m) return m[1].toLowerCase();                    // a real extension on the URL wins
+    const e = mimeExt(mime);
+    if(e) return e;                                      // …then an explicit MIME (e.g. a blob's type)
+    const dm = String(url).match(/^data:([^;,]+)/i);     // …then a data: URL's inline MIME
+    if(dm){ const de = mimeExt(dm[1]); if(de) return de; }
     return kind==="audio" ? "mp3" : kind==="video" ? "mp4" : kind==="image" ? "png" : "bin";
   }
 
