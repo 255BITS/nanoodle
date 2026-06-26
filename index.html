@@ -241,7 +241,7 @@
   .body .maskwrap{ position:relative; line-height:0; width:100%; min-height:90px; display:flex; align-items:center;
                    justify-content:center; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem;
                    overflow:hidden; font-size:.74rem; text-align:center }
-  .body .maskwrap:has(.dim){ padding:.5rem }   /* pad only the empty-state hint, never the image (keeps canvas aligned) */
+  .body .maskwrap:has(.dim){ padding:.5rem; line-height:1.35 }   /* pad + restore leading for the empty-state hint (the base line-height:0 keeps the canvas aligned but collapses the wrapping text) */
   .body .maskwrap img{ width:100%; display:block; border-radius:.45rem }
   .body .maskwrap canvas{ position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; touch-action:none }
   .body .ubtn{ padding:.4rem .4rem; font-size:.78rem; background:var(--panel2); border:1px solid var(--line);

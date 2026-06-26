@@ -2260,6 +2260,7 @@ body{ background:
 .field .file-prev audio{ width:100%; max-width:280px; margin-top:.4rem; display:block; }
 /* Inpaint control: brush canvas overlaid exactly on the source image */
 .field .maskwrap2{ position:relative; line-height:0; display:inline-block; max-width:280px; margin-top:.4rem; }
+.field .maskwrap2:has(.muted){ line-height:1.35; padding:.5rem; }   /* restore leading for the wrapping empty-state hint (base line-height:0 keeps the canvas aligned) */
 .field .maskwrap2 img{ width:100%; max-width:280px; border-radius:.5rem; border:1px solid var(--line); display:block; }
 .field .maskwrap2 canvas{ position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; touch-action:none; border-radius:.5rem; }
 .field .brushrow{ display:flex; align-items:center; gap:.7rem; margin-top:.5rem; flex-wrap:wrap; }
