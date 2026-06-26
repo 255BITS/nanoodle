@@ -346,7 +346,6 @@
     <div id="addpop"></div>
   </div>
   <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run</button>
-  <button id="gallery" title="Browse example &amp; contest noodles — open one to remix it">🖼️ Gallery</button>
   <button id="makeapp" title="Turn this workflow into a shareable app">✨ Create app</button>
   <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Share</button>
   <button id="save" title="download this graph as JSON">⭳ Save</button>
@@ -2446,7 +2445,7 @@ $("run").onclick = runAll;
 
 /* ---------- responsive toolbar: collapse secondary actions into the ⋯ menu on phones ----------
    Buttons keep their handlers (they're moved, not cloned). On desktop everything sits inline. */
-const RELOC = ["gallery","makeapp","share","save","load","signin","pastebtn","signout","status"];  // order shown in the menu
+const RELOC = ["makeapp","share","save","load","signin","pastebtn","signout","status"];  // order shown in the menu
 const mqMobile = matchMedia("(max-width:640px)");
 let topOrder = null;
 function layoutBar(){
@@ -2734,7 +2733,7 @@ async function openGallery(){
   list.forEach(e=> grid.appendChild(galleryCard(e)));
 }
 function closeGallery(){ $("gallerymodal").hidden = true; }
-$("gallery").onclick = openGallery;
+// No toolbar button for now — the gallery still opens via a "#gallery=<slug>" deep link (see boot).
 $("galleryclose").onclick = closeGallery;
 $("gallerymodal").addEventListener("click", e=>{ if(e.target.id==="gallerymodal") closeGallery(); });   // click the dim backdrop
 addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("gallerymodal").hidden) closeGallery(); });
@@ -2819,14 +2818,12 @@ $("signout").onclick = ()=> setKey(null);
   if(!restored && location.hash.startsWith("#gallery=")) restored = await loadGalleryEntry(decodeURIComponent(location.hash.slice(9)));
   if(!restored && location.hash.length > 3) restored = await loadFromHash();   // opened a shared link
   if(!restored) restored = load();                                // else last local graph
-  // brand-new visitor landing on the bare page: welcome them with the gallery (once ever)
-  const firstVisit = !restored && !location.hash && !location.search
-    && !localStorage.getItem("noodle_graph") && !localStorage.getItem("noodle_seen_gallery");
   if(!restored) restored = await loadDefault();                   // else noodle-graph.json
   if(!restored) seed();                                           // else built-in starter
   updateTitle();                                                  // reflect whether an app's workflow is loaded
   redraw();
-  if(firstVisit) openGallery();                                   // show what's possible over the default graph
+  // Brand-new visitors land straight on a simple working flow (the default graph) —
+  // no gallery modal in the way. The 🖼️ Gallery button is there when they want to browse.
   try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
   renderAuth();
   // pull the full model catalogs in the background, then show per-node prices
