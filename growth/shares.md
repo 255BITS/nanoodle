@@ -12,10 +12,11 @@ Columns: date · venue · angle used · result (upvotes, comments, signups, what
 | (planned) | nano-gpt Discord #community-projects | Noodle Contest launch — 3×133 Nano, "show your coolest noodle" (see contest.md) | pending |
 | (planned) | nano-gpt Discord #nanocurrency | Contest cross-post, Nano-holder angle (build→earn Nano, no signup) | pending |
 | Jun 26 (planned) | r/nanocurrency (subreddit) | Contest launch, pay-per-call Nano utility angle + 3×133 XNO (draft B2 in contest-announcement.md) | pending |
+| Jun 26 (proposed) | r/selfhosted | Single .html export, zero server, BYO-key — anchored on model-catalog-without-key ship (Jun 25) | pending — Mikkel to post |
 
 ## Ideas / candidate venues
 
-- r/selfhosted — "no server, no build step, single .html, runs in your browser"
+- ~~r/selfhosted~~ — proposed Jun 26
 - r/LocalLLaMA — BYO-key playground, talks straight to model APIs
 - Show HN — the export-to-standalone-app angle
 - AlternativeTo / Product Hunt / indie directories
