@@ -54,6 +54,7 @@ const ctx = {
     `<div><label>${label}</label><textarea data-f="prompt" placeholder="${ph}"></textarea></div>`,
   audioRun: () => {},
   mountUpload: () => {},
+  mountInpaint: () => {},
   mountFileUpload: () => {},
   collectImageInputs: () => [],
   setNodeProgress: () => {},
@@ -86,19 +87,19 @@ const eq = (got, want, label) => {
 const ok = (c, m) => { if (!c) failures.push(m); };
 
 // dragging FROM an output → consumers of that type
-eq(keys("out", "image"), ["edit", "ivideo", "llm", "lipsync", "vision"],
-  "image output → nodes that take an image (incl. LLM's dynamic image ports)");
+eq(keys("out", "image"), ["edit", "inpaint", "ivideo", "llm", "lipsync", "vision"],
+  "image output → nodes that take an image (incl. LLM's dynamic image ports + Inpaint's image/mask)");
 eq(keys("out", "audio"), ["lipsync", "transcribe"],
   "audio output → nodes that take audio");
 eq(keys("out", "video"), ["combine", "vedit", "vframes"],
   "video output → nodes that take video (combine joins clips; vframes extracts stills)");
 // transcribe is excluded: its only text field is a plain <input> (language), not a wirable textarea
-eq(keys("out", "text"), ["edit", "image", "ivideo", "join", "llm", "lipsync", "music", "tts", "tvideo", "vedit", "vision"],
+eq(keys("out", "text"), ["edit", "image", "inpaint", "ivideo", "join", "llm", "lipsync", "music", "tts", "tvideo", "vedit", "vision"],
   "text output → nodes with a text input OR a wirable text field");
 
 // dragging FROM an input → producers of that type
-eq(keys("in", "image"), ["edit", "image", "upload", "vframes"],
-  "image input → nodes that produce an image (vframes emits frame stills)");
+eq(keys("in", "image"), ["edit", "image", "inpaint", "upload", "vframes"],
+  "image input → nodes that produce an image (inpaint repaints; vframes emits frame stills)");
 eq(keys("in", "audio"), ["aupload", "music", "tts"],
   "audio input → nodes that produce audio");
 eq(keys("in", "video"), ["combine", "ivideo", "lipsync", "tvideo", "vedit", "vupload"],
