@@ -432,6 +432,24 @@ function normChat(m){
   return { id:m.id, name:m.name||m.id, created:m.created, vision:!!m.capabilities?.vision,
     price: p.prompt!=null ? `$${(+p.prompt).toFixed(2)}/$${(+p.completion).toFixed(2)} ·1M` : "" };
 }
+// Edit models verified live (2026-06-26) to HONOR a brushed mask on the inpaint path: the masked
+// region is repainted while pixels OUTSIDE the mask stay essentially untouched (measured avg change
+// outside the mask < 6/255 against a synthetic source+mask). These don't REQUIRE a mask the way
+// flux-lora/inpainting does, so they remain in the plain edit picker too — they only ALSO become
+// pickable in the Inpaint node. NOT metadata-derivable: many models advertise "inpainting" yet
+// silently regenerate the whole image when handed a mask (ideogram-v2/v3/v4, qwen-image, seedream-v4,
+// glm-image-edit, most flux-2-*-image-to-image) — those are deliberately excluded. Method + full
+// results: proof/inpaint-mask-verification.md (re-run it when NanoGPT adds models). Trust the brush,
+// not the description.
+const INPAINT_OK = new Set([
+  "bria-fibo", "bria-fibo-edit",
+  "nano-banana", "nano-banana-2", "nano-banana-pro", "nano-banana-edit",
+  "nano-banana-pro-edit", "nano-banana-pro-edit-ultra",
+  "reve-2-edit", "reve-2-remix",
+  "pruna-ai/p-image/edit", "pruna-ai/p-image/edit-lora",
+  "kling-image-o1", "fal-ai/boogu-image/edit", "gemini-flash-edit", "flux-kontext",
+  "imagineart/imagineart-2.0-edit-preview/image-to-image",
+]);
 function normImg(m){
   const per = m.pricing?.per_image||{};
   const v = per.square ?? per.square_hd ?? Object.values(per)[0];
@@ -451,10 +469,14 @@ function normImg(m){
   // The Inpaint node (issue #19) supplies a maskDataUrl, so inpaint models are pickable THERE via the
   // `inpaint` flag — just kept out of the plain gen/edit pickers (which send no mask) to avoid the 400.
   const needsMask = /inpaint/i.test(m.id);
+  // Inpaint node = the true mask-requiring inpainters (needsMask) PLUS edit models verified to honor
+  // a mask without requiring one (INPAINT_OK above). Only the `inpaint` flag widens, never `needsMask`,
+  // so these optional-mask models stay in the plain edit picker too.
+  const inpaintOk = needsMask || INPAINT_OK.has(m.id);
   return { id:m.id, name:m.name||m.id, created:m.created,
     edit: !needsMask && (needsSrc || !!m.capabilities?.image_to_image),  // accepts an image input (text+image->image | image->image)
     gen: needsSrc ? false : (mod ? mod.startsWith("text") : !m.capabilities?.image_to_image),  // text-only generators; excludes edit-only models
-    inpaint: needsMask,                                                  // needs image + mask → the Inpaint node
+    inpaint: inpaintOk,                                                  // needs/honors image + mask → the Inpaint node
     price: v!=null ? `$${(+v).toFixed(3)}/img` : "" };
 }
 function normVideo(m){
