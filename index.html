@@ -807,22 +807,39 @@ function refreshImageParams(n){
   if((n.type!=="image" && n.type!=="edit") || !n.el) return;
   const box = n.el.querySelector("[data-loraparams]"); if(!box) return;
   if(!modelHasLora(n.fields.model)){ box.innerHTML=""; return; }
-  const open = (n.fields.loraUrl||"").trim() ? " open" : "";
-  box.innerHTML = `<details class="adv"${open}><summary>🎨 LoRA (style adapter)</summary>
-    <div><label>LoRA URL</label><input data-f="loraUrl" value="${esc(n.fields.loraUrl||"")}" placeholder="https://huggingface.co/…/resolve/main/x.safetensors"/></div>
-    <div><label>strength (0.1–4)</label><input type="number" data-f="loraStrength" step="0.05" min="0.1" max="4" value="${esc(n.fields.loraStrength??"")}" placeholder="1"/></div>
-    <div class="fhint">HuggingFace .safetensors link or any direct URL — or <a href="#" data-loraeg>try an example ↗</a>. CivitAI must be re-hosted (its links can't be fetched).</div></details>`;
-  box.querySelectorAll("[data-f]").forEach(inp=>{
-    const f = inp.dataset.f;
-    inp.addEventListener("input", ()=>{ n.fields[f] = inp.value; save(); });
-    inp.addEventListener("pointerdown", e=>e.stopPropagation());   // don't drag node when editing
+  // materialize rows (migrating the original single-field shape) so listeners mutate stored state
+  const rows = nodeLoras(n).slice();
+  if(!rows.length) rows.push({ url:"", strength:"" });          // always show one row to fill
+  n.fields.loras = rows; delete n.fields.loraUrl; delete n.fields.loraStrength;
+  const cap = loraCap(n.fields.model);
+  const open = rows.some(r=>(r.url||"").trim()) ? " open" : "";
+  const rowHTML = (r,i)=>`<div class="lorarow" data-i="${i}" style="display:flex;gap:4px;align-items:center;margin:3px 0">
+      <input data-lu style="flex:1;min-width:0" placeholder="https://huggingface.co/…/resolve/main/x.safetensors" value="${esc(r.url||"")}"/>
+      <input data-ls type="number" step="0.05" min="0.1" max="4" style="width:56px" title="strength (0.1–4)" placeholder="1" value="${esc(r.strength??"")}"/>
+      ${rows.length>1 ? `<button type="button" data-lx class="ubtn" title="remove" style="padding:2px 7px">×</button>` : ""}
+    </div>`;
+  const footer = (rows.length < cap)
+    ? `<a href="#" data-ladd>+ add LoRA</a>`
+    : `<span class="dim">max ${cap} for this model</span>`;
+  box.innerHTML = `<details class="adv"${open}><summary>🎨 LoRA${rows.length>1?` · ${rows.length}`:" (style adapter)"}</summary>
+    ${rows.map(rowHTML).join("")}
+    <div class="fhint" style="display:flex;justify-content:space-between;gap:8px">${footer}<a href="#" data-loraeg>try an example ↗</a></div>
+    <div class="fhint">HuggingFace .safetensors link or any direct URL — stack a few to blend styles. CivitAI must be re-hosted.</div></details>`;
+  box.querySelectorAll(".lorarow").forEach(row=>{
+    const i = +row.dataset.i;
+    const lu = row.querySelector("[data-lu]"), ls = row.querySelector("[data-ls]"), lx = row.querySelector("[data-lx]");
+    lu.addEventListener("input", ()=>{ rows[i].url = lu.value; save(); });
+    ls.addEventListener("input", ()=>{ rows[i].strength = ls.value; save(); });
+    [lu,ls].forEach(el=> el.addEventListener("pointerdown", e=>e.stopPropagation()));  // don't drag node when editing
+    if(lx) lx.onclick = (e)=>{ e.preventDefault(); rows.splice(i,1); save(); refreshImageParams(n); };
   });
+  const add = box.querySelector("[data-ladd]");
+  if(add) add.onclick = (e)=>{ e.preventDefault(); rows.push({ url:"", strength:"" }); save(); refreshImageParams(n); };
   // one-tap working example: a public Ghibli-style Flux LoRA (verified live) + a matching prompt
   const eg = box.querySelector("[data-loraeg]");
   if(eg) eg.onclick = (e)=>{
     e.preventDefault();
-    n.fields.loraUrl = "https://huggingface.co/aleksa-codes/flux-ghibsky-illustration/resolve/main/lora.safetensors";
-    n.fields.loraStrength = "1";
+    rows[0] = { url:"https://huggingface.co/aleksa-codes/flux-ghibsky-illustration/resolve/main/lora.safetensors", strength:"1" };
     if(!(n.fields.prompt||"").trim()){          // seed a prompt with the LoRA's trigger word so a click → a wow
       n.fields.prompt = "GHIBSKY style, a cozy cottage by a calm lake at sunset, lush rolling hills, soft clouds";
       const pt = n.el.querySelector('[data-f="prompt"]'); if(pt) pt.value = n.fields.prompt;
@@ -2293,20 +2310,40 @@ function normalizeLoraUrl(raw){
 }
 // only models whose id carries "lora" accept an adapter (flux-lora, *-dev-lora, p-image/*-lora, …)
 function modelHasLora(model){ return /lora/i.test(String(model||"")); }
-// map url+strength onto the param names the selected lora model expects (from the catalog)
-function loraBodyFor(model, url, strength){
-  var m = String(model||""), s = (strength==null||strength==="") ? 1 : Number(strength);
-  if(isNaN(s)) s = 1;
-  if(/p-image/i.test(m))              return { lora_weights:url, lora_scale:s };
-  if(/flux-2|z-image|klein/i.test(m)) return { lora_url_1:url, lora_scale_1:s };
-  return { lora_url:url, lora_strength:s };            // flux-lora and friends
+// how many LoRAs a model can stack (from the catalog's lora_url_1..N / fal loras-array shapes)
+function loraCap(model){
+  var m = String(model||"");
+  if(/flux-2-dev-lora/i.test(m)) return 4;
+  if(/z-image-turbo-lora|klein/i.test(m)) return 3;
+  if(/flux-lora/i.test(m)) return 4;                    // fal "loras" array (verified live)
+  return 1;                                              // p-image and anything else: single
 }
-// request params for a node's LoRA — {} when none; throws on a bad URL before any paid call
+// a node's LoRA rows as [{url,strength}], migrating the original single-field shape
+function nodeLoras(n){
+  if(Array.isArray(n.fields.loras)) return n.fields.loras;
+  if((n.fields.loraUrl||"").trim() || (n.fields.loraStrength||"")!=="")
+    return [{ url:n.fields.loraUrl||"", strength:n.fields.loraStrength||"" }];
+  return [];
+}
+// map the normalized rows onto the param names the selected lora model expects (from the catalog)
+function loraBodyFor(model, items){       // items: [{url,scale}], 1..cap, already normalized
+  var m = String(model||""), sc = function(v){ return isNaN(v) ? 1 : v; };
+  if(/p-image/i.test(m)) return { lora_weights:items[0].url, lora_scale:sc(items[0].scale) };
+  if(/flux-2|z-image|klein/i.test(m)){
+    var b = {}; items.forEach(function(it,i){ b["lora_url_"+(i+1)]=it.url; b["lora_scale_"+(i+1)]=sc(it.scale); }); return b;
+  }
+  if(items.length===1) return { lora_url:items[0].url, lora_strength:sc(items[0].scale) };  // proven single shape
+  return { loras: items.map(function(it){ return { path:it.url, scale:sc(it.scale) }; }) };  // fal stack (verified)
+}
+// request params for a node's LoRA(s) — {} when none; throws on a bad URL before any paid call
 function loraParams(n){
   if(!modelHasLora(n.fields.model)) return {};
-  var url = normalizeLoraUrl(n.fields.loraUrl);
-  if(!url) return {};
-  return loraBodyFor(n.fields.model, url, n.fields.loraStrength);
+  var rows = nodeLoras(n).filter(function(r){ return r && (r.url||"").trim(); });
+  if(!rows.length) return {};
+  var items = rows.slice(0, loraCap(n.fields.model)).map(function(r){
+    return { url: normalizeLoraUrl(r.url), scale: (r.strength==null||r.strength==="") ? 1 : Number(r.strength) };
+  });
+  return loraBodyFor(n.fields.model, items);
 }
 const CTX = {
   async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra){
