@@ -9,15 +9,15 @@ Columns: date · venue · angle used · result (upvotes, comments, signups, what
 | (prior) | r/nanotrade | — | — |
 | (prior) | nano-gpt.com (community) | — | — |
 | (prior) | r/monero | — | — |
-| (planned) | nano-gpt Discord #community-projects | Noodle Contest launch — 3×133 Nano, "show your coolest noodle" (see contest.md) | pending |
-| (planned) | nano-gpt Discord #nanocurrency | Contest cross-post, Nano-holder angle (build→earn Nano, no signup) | pending |
-| Jun 26 (planned) | r/nanocurrency (subreddit) | Contest launch, pay-per-call Nano utility angle + 3×133 XNO (draft B2 in contest-announcement.md) | pending |
-| Jun 26 (proposed) | r/selfhosted | Single .html export, zero server, BYO-key — anchored on model-catalog-without-key ship (Jun 25) | pending — Mikkel to post |
-| Jun 26 (proposed) | r/StableDiffusion (Self-Promo Sunday thread, post Jun 28) | Inpaint node — browser inpainting, no install, BYO key, 17+ mask-aware models, exports to .html | pending — Mikkel to post Sunday |
+| Jun 26 | r/nanocurrency (subreddit) | 🍜 Noodle Cookoff launch — pay-per-call Nano utility + 3×133 XNO, image of a robot-assistant noodle (cookoff-reddit-post.md) | posted — URL TBD |
+| Jun 26 | nano-gpt Discord #community-projects | Cookoff launch, primary entry channel (3×133 XNO, 3 categories) | posted ✓ (confirmed by author) |
+| Jun 26 | "posted everywhere" — other venues | Cookoff launch blast (venues TBD — fill in from history) | posted — list TBD |
+
+> Jun 26: 🍜 Noodle Cookoff went live. Also shipped a rainbow floating-button announcement + modal in-app (index.html, on main) and wired the Discord invite into it. Contest window: Jun 26 → Jul 12 (23:59 UTC).
 
 ## Ideas / candidate venues
 
-- ~~r/selfhosted~~ — proposed Jun 26
+- r/selfhosted — "no server, no build step, single .html, runs in your browser"
 - r/LocalLLaMA — BYO-key playground, talks straight to model APIs
 - Show HN — the export-to-standalone-app angle
 - AlternativeTo / Product Hunt / indie directories

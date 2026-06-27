@@ -25,7 +25,8 @@ viral one.
 
 1. **🛠 Most Useful** — the noodle you'd actually open again. Host's pick on craft.
 2. **🎨 Most Beautiful / Weird** — the one that makes people go "whoa." Host's pick.
-3. **❤️ People's Choice** — most-hearted entry in #community-projects. Pure votes.
+3. **❤️ People's Choice** — most popular entry by community votes: Discord hearts +
+   Reddit upvotes, summed if posted in both. Pure votes; encourages noise-making.
 
 > Why a hybrid: pure "most hearted" rewards the biggest Discord following and the
 > loudest vote-begging, not the coolest build. Two host-judged categories protect
@@ -47,7 +48,7 @@ viral one.
 
 ## Rules
 
-- **Window:** opens **June 26, 2026**, closes **July 10, 2026** at 23:59 UTC.
+- **Window:** opens **June 26, 2026**, closes **July 12, 2026** at 23:59 UTC.
 - **Max 2 entries per person.** One category each. No spam reposts.
 - Entry must be a working nanoodle **share link** (not a screenshot) and must run
   for someone using **their own** key — i.e. self-contained, no private uploads
@@ -58,7 +59,8 @@ viral one.
 
 ## Judging
 
-- **People's Choice:** highest ❤️ count on the entry message at close.
+- **People's Choice:** highest combined vote count at close — Discord ❤️ on the
+  entry message + upvotes on the Reddit post, summed if the entrant posted both.
 - **Most Useful / Most Beautiful-Weird:** host pick from all entries, leaning on
   hearts as a signal but not bound by them.
 - Announced within ~3 days of close, in #community-projects.
