@@ -572,6 +572,7 @@ function normImg(m){
     edit: !needsMask && (needsSrc || !!m.capabilities?.image_to_image),  // accepts an image input (text+image->image | image->image)
     gen: needsSrc ? false : (mod ? mod.startsWith("text") : !m.capabilities?.image_to_image),  // text-only generators; excludes edit-only models
     inpaint: inpaintOk,                                                  // needs/honors image + mask → the Inpaint node
+    lora: imageTakesLora(m.id),                                          // accepts a LoRA (v1 image catalog hides lora params → name allow-list)
     price: v!=null ? `$${(+v).toFixed(3)}/img` : "" };
 }
 function normVideo(m){
@@ -582,10 +583,16 @@ function normVideo(m){
   } else if(p.per_video!=null) price=`$${(+p.per_video).toFixed(2)}/clip`;
   else if(p.per_second!=null) price=`~$${(+p.per_second*(p.default_duration||5)).toFixed(2)}/clip`;
   else if(p.base_price!=null) price=`~$${(+p.base_price).toFixed(2)}/clip`;
+  // the video catalog DOES expose lora params, so gate on the real thing: a lora_url slot
+  // means we can drive it (the spicy model only offers a "loras" override → correctly excluded)
+  const sp=m.supported_parameters||{}, pp=sp.parameters||sp;
+  const lora = Object.keys(pp).some(k=>/^lora_url/i.test(k));
   return { id:m.id, name:m.name||m.id, created:m.created,
     t2v:!!c.text_to_video, i2v:!!c.image_to_video,
     v2v:!!c.video_to_video,                          // edits/extends/upscales a SOURCE video (→ vedit node)
     avatar:!!c.image_to_video && !!c.audio_input,    // image + audio → talking video (→ lipsync node)
+    lora,                                            // catalog advertises lora_url_N → the LoRA disclosure is offered
+    params: pp,                                      // per-model param descriptors → the ⚙️ Model options block
     price };
 }
 function normAudio(m){
@@ -802,6 +809,54 @@ function refreshAudioParams(n){
   addFieldPorts(n); refreshPortFills(); redraw();   // re-attach ports to the rebuilt param fields + reconnect wires
   prepTextareas(n);
 }
+// show the LoRA disclosure on an image/edit node only when its model accepts an adapter,
+// so the plain-image happy path stays untouched. Rebuilt on model-pick like the audio block.
+const LORA_NODES = { image:1, edit:1, tvideo:1, ivideo:1, vedit:1 };   // nodes that can carry a LoRA
+function refreshLoraParams(n){
+  if(!LORA_NODES[n.type] || !n.el) return;
+  const box = n.el.querySelector("[data-loraparams]"); if(!box) return;
+  if(!modelTakesLora(loraKind(n.type), n.fields.model)){ box.innerHTML=""; return; }
+  // materialize rows (migrating the original single-field shape) so listeners mutate stored state
+  const rows = nodeLoras(n).slice();
+  if(!rows.length) rows.push({ url:"", strength:"" });          // always show one row to fill
+  n.fields.loras = rows; delete n.fields.loraUrl; delete n.fields.loraStrength;
+  const cap = loraCap(n.fields.model);
+  const eg = LORA_EXAMPLES[loraFamily(n.fields.model)];         // verified example for this family (or none)
+  const open = rows.some(r=>(r.url||"").trim()) ? " open" : "";
+  const rowHTML = (r,i)=>`<div class="lorarow" data-i="${i}" style="display:flex;gap:4px;align-items:center;margin:3px 0">
+      <input data-lu style="flex:1;min-width:0" placeholder="https://huggingface.co/…/resolve/main/x.safetensors" value="${esc(r.url||"")}"/>
+      <input data-ls type="number" step="0.05" min="0" max="4" style="width:56px" title="strength" placeholder="1" value="${esc(r.strength??"")}"/>
+      ${rows.length>1 ? `<button type="button" data-lx class="ubtn" title="remove" style="padding:2px 7px">×</button>` : ""}
+    </div>`;
+  const footer = (rows.length < cap)
+    ? `<a href="#" data-ladd>+ add LoRA</a>`
+    : `<span class="dim">max ${cap} for this model</span>`;
+  box.innerHTML = `<details class="adv"${open}><summary>🎨 LoRA${rows.length>1?` · ${rows.length}`:" (style adapter)"}</summary>
+    ${rows.map(rowHTML).join("")}
+    <div class="fhint" style="display:flex;justify-content:space-between;gap:8px">${footer}${eg?`<a href="#" data-loraeg>try an example ↗</a>`:""}</div>
+    <div class="fhint">HuggingFace .safetensors link or any direct URL — stack a few to blend styles. CivitAI must be re-hosted.</div></details>`;
+  box.querySelectorAll(".lorarow").forEach(row=>{
+    const i = +row.dataset.i;
+    const lu = row.querySelector("[data-lu]"), ls = row.querySelector("[data-ls]"), lx = row.querySelector("[data-lx]");
+    lu.addEventListener("input", ()=>{ rows[i].url = lu.value; save(); });
+    ls.addEventListener("input", ()=>{ rows[i].strength = ls.value; save(); });
+    [lu,ls].forEach(el=> el.addEventListener("pointerdown", e=>e.stopPropagation()));  // don't drag node when editing
+    if(lx) lx.onclick = (e)=>{ e.preventDefault(); rows.splice(i,1); save(); refreshLoraParams(n); };
+  });
+  const add = box.querySelector("[data-ladd]");
+  if(add) add.onclick = (e)=>{ e.preventDefault(); rows.push({ url:"", strength:"" }); save(); refreshLoraParams(n); };
+  // one-tap working example: a verified, base-matching LoRA for THIS model's family + a matching prompt
+  const egl = box.querySelector("[data-loraeg]");
+  if(egl && eg) egl.onclick = (e)=>{
+    e.preventDefault();
+    rows[0] = { url:eg.url, strength:"1" };
+    if(!(n.fields.prompt||"").trim()){          // seed the LoRA's trigger/prompt so a click → a wow
+      n.fields.prompt = eg.prompt;
+      const pt = n.el.querySelector('[data-f="prompt"]'); if(pt) pt.value = n.fields.prompt;
+    }
+    save(); refreshLoraParams(n);
+  };
+}
 // shared body + run for the Music and Speech nodes
 function audioBody(n, promptLabel, ph){
   return `${modelFieldHTML(n)}
@@ -833,7 +888,66 @@ async function audioRun(n, inp, ctx){
   return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n),
     (q,ms)=> setNodeProgress(n, `generating audio… ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`)) };
 }
-function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshAudioParams(n); backfillModel(n); }); }
+/* ---------- general per-model options (from the catalog's own param descriptors) ----------
+   Video models advertise rich params (preset, style, effect, cameraMovement, mode, switches…)
+   in supported_parameters.parameters. Surface every CHOICE param (select ≥2 opts, or switch)
+   the node doesn't already drive, so each model's knobs light up automatically — no model names.
+   Chosen values live in n.fields.modelOpts and pass straight through to the API; play.html just
+   forwards that object, so exports need no catalog. This surfaces only CREATIVE/behavioral knobs:
+   the node owns size/length/aspect — and those drive price (per_second_by_resolution), shown on
+   the node — so re-exposing them here would silently change the bill. lora_* is the LoRA box. */
+const VIDEO_OPT_NODES = { tvideo:1, ivideo:1, vedit:1 };
+// size/length/aspect/fps: node-owned and/or price-affecting — never auto-surfaced as a "knob"
+const PRICE_OR_DIM_PARAM = /^(duration|seconds|aspect_ratio|resolution|resolution_ratio|size|orientation|fps|frames_per_second|num_frames)$/;
+function videoOptDefs(model){
+  const p = (catItem("video", model)||{}).params || {};
+  const defs = [];
+  for(const [key,d] of Object.entries(p)){
+    if(!d || typeof d!=="object") continue;
+    if(PRICE_OR_DIM_PARAM.test(key)) continue;                 // dims/price live on the node, not here
+    if(/^lora(_|$)/i.test(key)) continue;                      // the 🎨 LoRA box handles these
+    if(d.type==="select"){
+      const opts = (d.options||[]).filter(o=> o && o.value!=="" && o.value!=null);
+      if(opts.length<2) continue;                              // nothing meaningful to choose
+      defs.push({ key, label:d.label||key, type:"select", options:opts, def:d.default, desc:d.description });
+    } else if(d.type==="switch" || d.type==="boolean"){
+      defs.push({ key, label:d.label||key, type:"bool", def:d.default, desc:d.description });
+    }
+  }
+  return defs;
+}
+// rebuild the ⚙️ Model options disclosure for a video node from its current model
+function refreshModelOpts(n){
+  if(!VIDEO_OPT_NODES[n.type] || !n.el) return;
+  const box = n.el.querySelector("[data-modelopts]"); if(!box) return;
+  const defs = videoOptDefs(n.fields.model);
+  if(!defs.length){ box.innerHTML=""; return; }
+  const cur = n.fields.modelOpts || (n.fields.modelOpts = {});
+  for(const k of Object.keys(cur)) if(!defs.some(d=>d.key===k)) delete cur[k];   // drop other models' knobs
+  const ctl = (d)=>{
+    const v = cur[d.key];
+    const hint = d.desc ? `<div class="fhint">${esc(d.desc)}</div>` : "";   // the catalog's own explanation
+    if(d.type==="bool"){
+      const on = (v==null) ? (d.def===true||d.def==="true") : (v===true||v==="true");
+      return `<label class="setbool" style="margin:3px 0"><input type="checkbox" data-of="${esc(d.key)}"${on?" checked":""}/> ${esc(d.label)}</label>${hint}`;
+    }
+    const sel = (v!=null) ? v : (d.def!=null ? d.def : "");
+    return `<div style="margin:3px 0"><label>${esc(d.label)}</label><select data-of="${esc(d.key)}">${
+      d.options.map(o=>`<option value="${esc(o.value)}"${String(o.value)===String(sel)?" selected":""}>${esc(o.label!=null?o.label:o.value)}</option>`).join("")}</select>${hint}</div>`;
+  };
+  const open = Object.keys(cur).length ? " open" : "";
+  box.innerHTML = `<details class="adv"${open}><summary>⚙️ Model options${defs.length>1?` · ${defs.length}`:""}</summary>
+    ${defs.map(ctl).join("")}
+    <div class="fhint">Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.</div></details>`;
+  box.querySelectorAll("[data-of]").forEach(el=>{
+    const key = el.dataset.of;
+    el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
+      cur[key] = el.type==="checkbox" ? el.checked : el.value; save();
+    });
+    el.addEventListener("pointerdown", e=> e.stopPropagation());   // don't drag the node while choosing
+  });
+}
+function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshAudioParams(n); refreshLoraParams(n); refreshModelOpts(n); backfillModel(n); }); }
 function backfillModel(n){   // once a catalog arrives, give model nodes a sensible default if none chosen yet
   const t = NODE_TYPES[n.type];
   if(t.modelKind && !n.fields.model){
@@ -855,11 +969,18 @@ function openPicker(kind, opts){
   loadCatalog(kind).then(()=> renderPicker());
 }
 function closePicker(){ $("mpick").classList.remove("open"); $("mpickback").classList.remove("show"); picker=null; }
+// models passing the node's filter, narrowed by the search box (id or name). Shared by the
+// list render and the Enter handler so "type a few letters + Enter" picks what you SEE.
+function pickerMatches(){
+  if(!picker) return [];
+  const q = $("mpicksearch").value.trim().toLowerCase();
+  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
+  return q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+}
 function renderPicker(){
   if(!picker) return;
   const q = $("mpicksearch").value.trim().toLowerCase();
-  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
-  const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+  const matches = pickerMatches();
   $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · newest first"}`;
   const frag = document.createDocumentFragment();
   for(const m of matches.slice(0,400)){
@@ -974,11 +1095,12 @@ const NODE_TYPES = {
     body:(n)=>`
       ${modelFieldHTML(n)}
       <div><label>size</label><select data-f="size">${optsHTML(SIZES, n.fields.size||SIZES[0][0])}</select></div>
-      <div><label>prompt</label><textarea data-f="prompt" placeholder="a red panda astronaut…">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div><label>prompt</label><textarea data-f="prompt" placeholder="a red panda astronaut…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-loraparams></div>`,
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
-      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, loraParams(n)) };
     }
   },
 
@@ -990,12 +1112,13 @@ const NODE_TYPES = {
     body:(n)=>`
       ${modelFieldHTML(n)}
       <div><label>size</label><select data-f="size">${optsHTML(SIZES, n.fields.size||SIZES[0][0])}</select></div>
-      <div><label>edit instruction</label><textarea data-f="prompt" placeholder="make it night-time, add neon…">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div><label>edit instruction</label><textarea data-f="prompt" placeholder="make it night-time, add neon…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-loraparams></div>`,
     async run(n, inp, ctx){
       if(!inp.image) throw new Error("no image input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no edit instruction");
-      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image, undefined, loraParams(n)) };
     }
   },
 
@@ -1086,12 +1209,14 @@ const NODE_TYPES = {
         <div><label>duration</label><select data-f="duration">${optsHTML([["5","5 sec"],["10","10 sec"]], n.fields.duration||"5")}</select></div>
         <div><label>aspect</label><select data-f="aspect">${optsHTML([["16:9","16:9"],["9:16","9:16"],["1:1","1:1"]], n.fields.aspect||"16:9")}</select></div>
       </div>
-      <div><label>prompt</label><textarea data-f="prompt" placeholder="a drone shot over neon Tokyo at night…">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div><label>prompt</label><textarea data-f="prompt" placeholder="a drone shot over neon Tokyo at night…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-modelopts></div>
+      <div data-loraparams></div>`,
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
       const url = await ctx.genVideo(mdl(n), prompt,
-        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, null,
         (st,ms)=> setNodeProgress(n, `rendering video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
@@ -1108,12 +1233,14 @@ const NODE_TYPES = {
         <div><label>duration</label><select data-f="duration">${optsHTML([["5","5 sec"],["10","10 sec"]], n.fields.duration||"5")}</select></div>
         <div><label>aspect</label><select data-f="aspect">${optsHTML([["16:9","16:9"],["9:16","9:16"],["1:1","1:1"]], n.fields.aspect||"16:9")}</select></div>
       </div>
-      <div><label>motion prompt (optional)</label><textarea data-f="prompt" placeholder="slow push-in, hair blowing in the wind…">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div><label>motion prompt (optional)</label><textarea data-f="prompt" placeholder="slow push-in, hair blowing in the wind…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-modelopts></div>
+      <div data-loraparams></div>`,
     async run(n, inp, ctx){
       if(!inp.image) throw new Error("no image input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       const url = await ctx.genVideo(mdl(n), prompt,
-        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, inp.image,
         (st,ms)=> setNodeProgress(n, `animating… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
@@ -1126,11 +1253,14 @@ const NODE_TYPES = {
     outputs:[{name:"video", type:"video"}], preview:"video",
     body:(n)=>`
       ${modelFieldHTML(n)}
-      <div><label>instruction (optional)</label><textarea data-f="prompt" placeholder="restyle as claymation · extend the clip · upscale to 4K…">${esc(n.fields.prompt||"")}</textarea></div>`,
+      <div><label>instruction (optional)</label><textarea data-f="prompt" placeholder="restyle as claymation · extend the clip · upscale to 4K…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-modelopts></div>
+      <div data-loraparams></div>`,
     async run(n, inp, ctx){
       if(!inp.video) throw new Error("no video input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
-      const url = await ctx.genVideo(mdl(n), prompt, await videoSourceOpts(inp.video), null,
+      const opts = await videoSourceOpts(inp.video); opts.lora = loraParams(n); opts.extra = (n.fields.modelOpts||{});
+      const url = await ctx.genVideo(mdl(n), prompt, opts, null,
         (st,ms)=> setNodeProgress(n, `processing video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
@@ -1348,12 +1478,14 @@ function buildNodeEl(n){
     mp.onclick = (e)=>{
       e.stopPropagation();
       openPicker(t.modelKind, { current:n.fields.model, filter:t.modelFilter, onPick:(id)=>{
-        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); refreshImageInputs(n); save();
+        n.fields.model = id; mp.textContent = id+" ▾"; updateNodePrice(n); refreshAudioParams(n); refreshLoraParams(n); refreshModelOpts(n); refreshImageInputs(n); save();
       }});
     };
     updateNodePrice(n);
   }
   refreshAudioParams(n);
+  refreshLoraParams(n);            // LoRA disclosure on image/edit nodes (model-gated)
+  refreshModelOpts(n);            // ⚙️ Model options disclosure on video nodes (catalog-driven)
   if(t.mount) t.mount(n);            // node-specific widget wiring (e.g. upload/webcam)
   // header buttons
   el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
@@ -2237,11 +2369,116 @@ function b64ImageMime(b64){
   if(b64.startsWith("UklG"))  return "image/webp";
   return "image/png";   // unknown → sensible default; browsers sniff content regardless
 }
+/* ---------- LoRA (image style adapters) ----------
+   HuggingFace + any direct .safetensors URL only. The browser never fetches the
+   weights — it forwards the URL string and NanoGPT pulls it server-side, so this
+   needs ZERO new CSP origins. CivitAI can't be used directly (its download links
+   are signed/temporary/login-gated), so we reject those with guidance BEFORE the
+   paid call rather than let the user eat a charged 422. All pure-string, no net. */
+function normalizeLoraUrl(raw){
+  var u = String(raw||"").trim();
+  if(!u) return "";
+  if(/\b(civitai\.com|civitai\.red|civit\.ai)\b/i.test(u))
+    throw new Error("CivitAI links can't be fetched directly — download the .safetensors and re-host it (e.g. on HuggingFace), then paste that URL.");
+  if(/(^|\/\/|\.)huggingface\.co\//i.test(u)){
+    u = u.replace("/blob/", "/resolve/");              // HF file page → raw file
+    if(!/\/resolve\/.+\.safetensors(\?|$)/i.test(u))
+      throw new Error("Link the .safetensors file on HuggingFace: open it and use Copy download link (…/resolve/main/your-lora.safetensors).");
+    return u;
+  }
+  if(/^[\w.-]+\/[\w.-]+$/.test(u))                     // bare repo id, no host
+    throw new Error("That looks like a HuggingFace repo id — open the .safetensors file and copy its download link (…/resolve/main/your-lora.safetensors).");
+  if(!/^https?:\/\//i.test(u))
+    throw new Error("LoRA must be a direct https URL to a .safetensors file (HuggingFace or any host).");
+  return u;
+}
+// only models whose id carries "lora" accept an adapter (flux-lora, *-dev-lora, p-image/*-lora, …)
+// One classifier drives cap + param-shape + examples. Ordered (klein before flux-2,
+// spicy excluded — that model wants a different "loras" override we don't send). The
+// monthly scripts/check-lora-models.mjs audits the live catalog against this and flags
+// any new lora-capable model this misses. null = not lora-capable.
+function loraFamily(model){
+  var m = String(model||"");
+  if(/spicy/i.test(m)) return null;                        // wavespeed ltx-spicy uses a "loras" override we don't send
+  if(/p-image/i.test(m)) return "pimage";
+  if(/klein/i.test(m)) return "flux2klein";
+  if(/flux-2/i.test(m)) return "flux2dev";
+  if(/z-image/i.test(m)) return "zimage";
+  if(/ltx/i.test(m)) return "ltx";                         // LTX video (lora_url_N); ids lack "lora"
+  if(/lora/i.test(m)) return "flux";                       // flux-lora + generic *-lora
+  return null;
+}
+// image-vs-video kind for a lora-capable node (image/edit → image; *video → video)
+function loraKind(type){ return (type==="image"||type==="edit") ? "image" : "video"; }
+// the v1 IMAGE catalog hides lora params, so allow-list lora-capable image ids by shape:
+// any *-lora variant + flux-2-klein-*, minus inpainting (no lora_url). check-lora-models
+// audits this against the richer catalog so a new lora image model can't slip through.
+function imageTakesLora(id){
+  id = String(id||"");
+  if(/inpaint/i.test(id)) return false;            // flux-lora/inpainting etc. carry no lora_url
+  if(/klein/i.test(id)) return true;               // flux-2-klein-* (lora-capable per catalog)
+  return /(^|[-\/])lora($|[-\/])/i.test(id);        // *-lora variants (flux-lora, *-dev-lora, p-image/*-lora)
+}
+// does the PICKED model actually accept a LoRA we can send? video gates on the catalog's real
+// lora_url params (so the spicy "loras"-override model is correctly excluded); image falls back
+// to the name allow-list. Unknown/offline ids trust the family so a typed lora id still works.
+function modelTakesLora(kind, id){
+  if(!id || loraFamily(id)==null) return false;
+  var m = catItem(kind, id);
+  if(m) return !!m.lora;
+  return kind==="video" ? true : imageTakesLora(id);
+}
+// how many LoRAs a model can stack (catalog lora_url_1..N caps / fal loras-array)
+// max LoRAs a family can stack, mirroring the catalog's lora_url_N slots (audited by
+// check-lora-models). flux-lora exposes a single lora_url → 1; flux-2-dev-lora 1..4 → 4.
+function loraCap(model){
+  switch(loraFamily(model)){
+    case "flux2dev": return 4;
+    case "flux2klein": case "zimage": case "ltx": return 3;
+    default: return 1;                                      // flux-lora, pimage — single slot
+  }
+}
+// a node's LoRA rows as [{url,strength}], migrating the original single-field shape
+function nodeLoras(n){
+  if(Array.isArray(n.fields.loras)) return n.fields.loras;
+  if((n.fields.loraUrl||"").trim() || (n.fields.loraStrength||"")!=="")
+    return [{ url:n.fields.loraUrl||"", strength:n.fields.loraStrength||"" }];
+  return [];
+}
+// map the normalized rows onto the param names the selected family expects
+function loraBodyFor(model, items){       // items: [{url,scale}], 1..cap, already normalized
+  var fam = loraFamily(model), sc = function(v){ return isNaN(v) ? 1 : v; };
+  if(fam==="pimage") return { lora_weights:items[0].url, lora_scale:sc(items[0].scale) };
+  if(fam==="flux2dev" || fam==="flux2klein" || fam==="zimage" || fam==="ltx"){
+    var b = {}; items.forEach(function(it,i){ b["lora_url_"+(i+1)]=it.url; b["lora_scale_"+(i+1)]=sc(it.scale); }); return b;
+  }
+  if(items.length===1) return { lora_url:items[0].url, lora_strength:sc(items[0].scale) };  // proven single shape
+  return { loras: items.map(function(it){ return { path:it.url, scale:sc(it.scale) }; }) };  // fal stack (verified)
+}
+// request params for a node's LoRA(s) — {} when none; throws on a bad URL before any paid call
+function loraParams(n){
+  if(!modelTakesLora(loraKind(n.type), n.fields.model)) return {};
+  var rows = nodeLoras(n).filter(function(r){ return r && (r.url||"").trim(); });
+  if(!rows.length) return {};
+  var items = rows.slice(0, loraCap(n.fields.model)).map(function(r){
+    return { url: normalizeLoraUrl(r.url), scale: (r.strength==null||r.strength==="") ? 1 : Number(r.strength) };
+  });
+  return loraBodyFor(n.fields.model, items);
+}
+// hand-curated, LEAD-VERIFIED examples per family (base-specific — a FLUX.1 lora won't load on
+// z-image/flux-2/ltx). "try an example" only renders for families present here; never machine-generated.
+const LORA_EXAMPLES = {
+  flux:       { url:"https://huggingface.co/aleksa-codes/flux-ghibsky-illustration/resolve/main/lora.safetensors", prompt:"GHIBSKY style, a cozy cottage by a calm lake at sunset, lush rolling hills, soft clouds" },
+  flux2klein: { url:"https://huggingface.co/joyfox/FLUX.2-klein-AC-Style-LORA/resolve/main/flux2_klein_lowres.safetensors", prompt:"AC style, a portrait of a young woman in a sunlit garden, detailed" },
+  zimage:     { url:"https://huggingface.co/tarn59/pixel_art_style_lora_z_image_turbo/resolve/main/pixel_art_style_z_image_turbo.safetensors", prompt:"pixel art, a knight standing in a green forest clearing" },
+  ltx:        { url:"https://huggingface.co/vrgamedevgirl84/LTX_2.3_Crisp_Enhance_Style_LoRa/resolve/main/LTX2.3_Crisp_Enhance.safetensors", prompt:"a red fox trotting through a snowy forest, cinematic, crisp detail" },
+};
 const CTX = {
-  async genImage(prompt, model, size, imageDataUrl, maskDataUrl){
+  async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra){
     const body = { model, prompt, size, n:1, response_format:"b64_json" };
     if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
     if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint (verified live)
+    if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
     const r = await fetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
     if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
     const j = await r.json();
@@ -2271,6 +2508,8 @@ const CTX = {
     if(opts.videoUrl) body.videoUrl = opts.videoUrl;
     if(opts.videoDataUrl) body.videoDataUrl = opts.videoDataUrl;
     if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
+    if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
+    if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
     // NanoGPT inlines media as base64 and the edge (Vercel) rejects bodies over ~4.5 MB with a
     // header-less 413 that the browser mislabels as a CORS error. There's no upload endpoint, so
     // catch oversize locally and explain it. Video chained from another node rides as a remote
@@ -2562,7 +2801,13 @@ mqMobile.addEventListener("change", layoutBar);
 // picker interactions
 $("mpicksearch").addEventListener("input", renderPicker);
 $("mpicksearch").addEventListener("keydown", e=>{
-  if(e.key==="Enter"){ const v=$("mpicksearch").value.trim(); if(v && picker){ picker.onPick(v); closePicker(); } }
+  if(e.key==="Enter"){
+    e.preventDefault();
+    if(!picker) return;
+    const top = pickerMatches()[0], v = $("mpicksearch").value.trim();
+    if(top){ picker.onPick(top.id); closePicker(); }            // select the model you're looking at…
+    else if(v){ picker.onPick(v); closePicker(); }              // …or, with no match, take a typed id verbatim
+  }
   if(e.key==="Escape") closePicker();
 });
 $("mpickclose").onclick = closePicker;

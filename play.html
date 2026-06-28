@@ -507,16 +507,94 @@ window.NoodleApp = (function () {
   /* ---------- mdl (verbatim) ---------- */
   const mdl = (n)=>{ if(!n.fields.model) throw new Error("pick a model first"); return n.fields.model; };
 
+  /* ---------- LoRA (image style adapters), verbatim behavior from index.html ----------
+     HuggingFace + any direct .safetensors URL; the URL is forwarded to NanoGPT and
+     pulled server-side (no CSP origins). CivitAI links are signed/login-gated, so we
+     reject them with guidance before the paid call instead of eating a charged 422. */
+  function normalizeLoraUrl(raw){
+    var u = String(raw||"").trim();
+    if(!u) return "";
+    if(/\b(civitai\.com|civitai\.red|civit\.ai)\b/i.test(u))
+      throw new Error("CivitAI links can't be fetched directly — download the .safetensors and re-host it (e.g. on HuggingFace), then paste that URL.");
+    if(/(^|\/\/|\.)huggingface\.co\//i.test(u)){
+      u = u.replace("/blob/", "/resolve/");
+      if(!/\/resolve\/.+\.safetensors(\?|$)/i.test(u))
+        throw new Error("Link the .safetensors file on HuggingFace: open it and use Copy download link (…/resolve/main/your-lora.safetensors).");
+      return u;
+    }
+    if(/^[\w.-]+\/[\w.-]+$/.test(u))
+      throw new Error("That looks like a HuggingFace repo id — open the .safetensors file and copy its download link (…/resolve/main/your-lora.safetensors).");
+    if(!/^https?:\/\//i.test(u))
+      throw new Error("LoRA must be a direct https URL to a .safetensors file (HuggingFace or any host).");
+    return u;
+  }
+  function loraFamily(model){
+    var m = String(model||"");
+    if(/spicy/i.test(m)) return null;
+    if(/p-image/i.test(m)) return "pimage";
+    if(/klein/i.test(m)) return "flux2klein";
+    if(/flux-2/i.test(m)) return "flux2dev";
+    if(/z-image/i.test(m)) return "zimage";
+    if(/ltx/i.test(m)) return "ltx";
+    if(/lora/i.test(m)) return "flux";
+    return null;
+  }
+  function loraKind(type){ return (type==="image"||type==="edit") ? "image" : "video"; }
+  function imageTakesLora(id){
+    id = String(id||"");
+    if(/inpaint/i.test(id)) return false;
+    if(/klein/i.test(id)) return true;
+    return /(^|[-\/])lora($|[-\/])/i.test(id);
+  }
+  // the editor already gated LoRA INPUT to truly lora-capable models, so a name-based check
+  // here (video by family, image by allow-list) stays in lockstep without a live catalog.
+  function modelTakesLora(kind, id){
+    if(!id || loraFamily(id)==null) return false;
+    return kind==="video" ? true : imageTakesLora(id);
+  }
+  function loraCap(model){
+    switch(loraFamily(model)){
+      case "flux2dev": return 4;
+      case "flux2klein": case "zimage": case "ltx": return 3;
+      default: return 1;                                    // flux-lora, pimage — single slot
+    }
+  }
+  function nodeLoras(n){
+    if(Array.isArray(n.fields.loras)) return n.fields.loras;
+    if((n.fields.loraUrl||"").trim() || (n.fields.loraStrength||"")!=="")
+      return [{ url:n.fields.loraUrl||"", strength:n.fields.loraStrength||"" }];
+    return [];
+  }
+  function loraBodyFor(model, items){
+    var fam = loraFamily(model), sc = function(v){ return isNaN(v) ? 1 : v; };
+    if(fam==="pimage") return { lora_weights:items[0].url, lora_scale:sc(items[0].scale) };
+    if(fam==="flux2dev" || fam==="flux2klein" || fam==="zimage" || fam==="ltx"){
+      var b = {}; items.forEach(function(it,i){ b["lora_url_"+(i+1)]=it.url; b["lora_scale_"+(i+1)]=sc(it.scale); }); return b;
+    }
+    if(items.length===1) return { lora_url:items[0].url, lora_strength:sc(items[0].scale) };
+    return { loras: items.map(function(it){ return { path:it.url, scale:sc(it.scale) }; }) };
+  }
+  function loraParams(n){
+    if(!modelTakesLora(loraKind(n.type), n.fields.model)) return {};
+    var rows = nodeLoras(n).filter(function(r){ return r && (r.url||"").trim(); });
+    if(!rows.length) return {};
+    var items = rows.slice(0, loraCap(n.fields.model)).map(function(r){
+      return { url: normalizeLoraUrl(r.url), scale: (r.strength==null||r.strength==="") ? 1 : Number(r.strength) };
+    });
+    return loraBodyFor(n.fields.model, items);
+  }
+
   /* =====================================================================
      CTX — NanoGPT calls (verbatim behavior, index.html)
      ===================================================================== */
   // Per-run cost-tracking context: each node gets its own makeCtx(onCost) so a
   // generation's price lands on the right card even when siblings/lanes run at once.
   function makeCtx(onCost){ return {
-    async genImage(prompt, model, size, imageDataUrl, maskDataUrl){
+    async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra){
       const body = { model, prompt, size, n:1, response_format:"b64_json" };
       if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
       if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint
+      if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
       const r = await apiFetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
       if(!r.ok) throw new Error(r.status + ": " + (await r.text()).slice(0,160));
       const j = await r.json();
@@ -546,6 +624,8 @@ window.NoodleApp = (function () {
       if(opts.videoUrl) body.videoUrl = opts.videoUrl;
       if(opts.videoDataUrl) body.videoDataUrl = opts.videoDataUrl;
       if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
+      if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
+      if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
       // NanoGPT inlines media as base64 and the edge rejects bodies over ~4.5 MB with a header-less
       // 413 the browser mislabels as CORS. No upload endpoint → catch oversize locally and explain.
       const payload = JSON.stringify(body);
@@ -906,7 +986,7 @@ window.NoodleApp = (function () {
       async run(n, inp, ctx){
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt");
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, loraParams(n)) };
       }
     },
     edit: {
@@ -916,7 +996,7 @@ window.NoodleApp = (function () {
         if(!inp.image) throw new Error("no image input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no edit instruction");
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image, undefined, loraParams(n)) };
       }
     },
     inpaint: {
@@ -952,7 +1032,7 @@ window.NoodleApp = (function () {
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt");
         const url = await ctx.genVideo(mdl(n), prompt,
-          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, null,
           (st,ms)=> onProgress && onProgress("rendering video… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
@@ -964,7 +1044,7 @@ window.NoodleApp = (function () {
         if(!inp.image) throw new Error("no image input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         const url = await ctx.genVideo(mdl(n), prompt,
-          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, inp.image,
           (st,ms)=> onProgress && onProgress("animating… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
@@ -975,7 +1055,8 @@ window.NoodleApp = (function () {
       async run(n, inp, ctx, onProgress){
         if(!inp.video) throw new Error("no video input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
-        const url = await ctx.genVideo(mdl(n), prompt, await videoSourceOpts(inp.video), null,
+        const vopts = await videoSourceOpts(inp.video); vopts.lora = loraParams(n); vopts.extra = (n.fields.modelOpts||{});
+        const url = await ctx.genVideo(mdl(n), prompt, vopts, null,
           (st,ms)=> onProgress && onProgress("processing video… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
