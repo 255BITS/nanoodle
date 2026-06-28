@@ -321,7 +321,10 @@ const DEFAULT_MODEL = "xiaomi/mimo-v2.5-pro-ultraspeed";      // writes the chan
 const APPLY_DEFAULT = "xiaomi/mimo-v2.5-pro-ultraspeed";      // applies the diff (fast, mechanical)
 const FALLBACK_MODEL = "openai/gpt-5.4-mini";                 // auto-retry here when the chosen model is overloaded/down (429 / 5xx)
 const LS_KEY = "noodle_app_state";   // working state of the app currently open {id,title,imported,graph,files,versions,curVer}
-const RESUME_KEY = "noodle_resume";  // sessionStorage: the open app, stashed across an OAuth full-page redirect
+const RESUME_KEY = "noodle_resume_app";  // sessionStorage: the open app, stashed across an OAuth full-page redirect. NOTE the
+                                         // distinct name from the editor's "noodle_resume": the builder runs in a same-origin
+                                         // modal iframe and SHARES the tab's sessionStorage, so a shared key would let a stale
+                                         // editor stash open here as an "old app" instead of the workflow just handed off.
 const ACCENT = "#7c8cff";
 
 let MODEL = localStorage.getItem("ngpt_app_model") || DEFAULT_MODEL;
@@ -504,16 +507,94 @@ window.NoodleApp = (function () {
   /* ---------- mdl (verbatim) ---------- */
   const mdl = (n)=>{ if(!n.fields.model) throw new Error("pick a model first"); return n.fields.model; };
 
+  /* ---------- LoRA (image style adapters), verbatim behavior from index.html ----------
+     HuggingFace + any direct .safetensors URL; the URL is forwarded to NanoGPT and
+     pulled server-side (no CSP origins). CivitAI links are signed/login-gated, so we
+     reject them with guidance before the paid call instead of eating a charged 422. */
+  function normalizeLoraUrl(raw){
+    var u = String(raw||"").trim();
+    if(!u) return "";
+    if(/\b(civitai\.com|civitai\.red|civit\.ai)\b/i.test(u))
+      throw new Error("CivitAI links can't be fetched directly — download the .safetensors and re-host it (e.g. on HuggingFace), then paste that URL.");
+    if(/(^|\/\/|\.)huggingface\.co\//i.test(u)){
+      u = u.replace("/blob/", "/resolve/");
+      if(!/\/resolve\/.+\.safetensors(\?|$)/i.test(u))
+        throw new Error("Link the .safetensors file on HuggingFace: open it and use Copy download link (…/resolve/main/your-lora.safetensors).");
+      return u;
+    }
+    if(/^[\w.-]+\/[\w.-]+$/.test(u))
+      throw new Error("That looks like a HuggingFace repo id — open the .safetensors file and copy its download link (…/resolve/main/your-lora.safetensors).");
+    if(!/^https?:\/\//i.test(u))
+      throw new Error("LoRA must be a direct https URL to a .safetensors file (HuggingFace or any host).");
+    return u;
+  }
+  function loraFamily(model){
+    var m = String(model||"");
+    if(/spicy/i.test(m)) return null;
+    if(/p-image/i.test(m)) return "pimage";
+    if(/klein/i.test(m)) return "flux2klein";
+    if(/flux-2/i.test(m)) return "flux2dev";
+    if(/z-image/i.test(m)) return "zimage";
+    if(/ltx/i.test(m)) return "ltx";
+    if(/lora/i.test(m)) return "flux";
+    return null;
+  }
+  function loraKind(type){ return (type==="image"||type==="edit") ? "image" : "video"; }
+  function imageTakesLora(id){
+    id = String(id||"");
+    if(/inpaint/i.test(id)) return false;
+    if(/klein/i.test(id)) return true;
+    return /(^|[-\/])lora($|[-\/])/i.test(id);
+  }
+  // the editor already gated LoRA INPUT to truly lora-capable models, so a name-based check
+  // here (video by family, image by allow-list) stays in lockstep without a live catalog.
+  function modelTakesLora(kind, id){
+    if(!id || loraFamily(id)==null) return false;
+    return kind==="video" ? true : imageTakesLora(id);
+  }
+  function loraCap(model){
+    switch(loraFamily(model)){
+      case "flux2dev": return 4;
+      case "flux2klein": case "zimage": case "ltx": return 3;
+      default: return 1;                                    // flux-lora, pimage — single slot
+    }
+  }
+  function nodeLoras(n){
+    if(Array.isArray(n.fields.loras)) return n.fields.loras;
+    if((n.fields.loraUrl||"").trim() || (n.fields.loraStrength||"")!=="")
+      return [{ url:n.fields.loraUrl||"", strength:n.fields.loraStrength||"" }];
+    return [];
+  }
+  function loraBodyFor(model, items){
+    var fam = loraFamily(model), sc = function(v){ return isNaN(v) ? 1 : v; };
+    if(fam==="pimage") return { lora_weights:items[0].url, lora_scale:sc(items[0].scale) };
+    if(fam==="flux2dev" || fam==="flux2klein" || fam==="zimage" || fam==="ltx"){
+      var b = {}; items.forEach(function(it,i){ b["lora_url_"+(i+1)]=it.url; b["lora_scale_"+(i+1)]=sc(it.scale); }); return b;
+    }
+    if(items.length===1) return { lora_url:items[0].url, lora_strength:sc(items[0].scale) };
+    return { loras: items.map(function(it){ return { path:it.url, scale:sc(it.scale) }; }) };
+  }
+  function loraParams(n){
+    if(!modelTakesLora(loraKind(n.type), n.fields.model)) return {};
+    var rows = nodeLoras(n).filter(function(r){ return r && (r.url||"").trim(); });
+    if(!rows.length) return {};
+    var items = rows.slice(0, loraCap(n.fields.model)).map(function(r){
+      return { url: normalizeLoraUrl(r.url), scale: (r.strength==null||r.strength==="") ? 1 : Number(r.strength) };
+    });
+    return loraBodyFor(n.fields.model, items);
+  }
+
   /* =====================================================================
      CTX — NanoGPT calls (verbatim behavior, index.html)
      ===================================================================== */
   // Per-run cost-tracking context: each node gets its own makeCtx(onCost) so a
   // generation's price lands on the right card even when siblings/lanes run at once.
   function makeCtx(onCost){ return {
-    async genImage(prompt, model, size, imageDataUrl, maskDataUrl){
+    async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra){
       const body = { model, prompt, size, n:1, response_format:"b64_json" };
       if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
       if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint
+      if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
       const r = await apiFetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
       if(!r.ok) throw new Error(r.status + ": " + (await r.text()).slice(0,160));
       const j = await r.json();
@@ -539,11 +620,14 @@ window.NoodleApp = (function () {
       const body = { model, prompt };
       if(opts.duration) body.duration = opts.duration;
       if(opts.aspect_ratio) body.aspect_ratio = opts.aspect_ratio;
+      if(opts.resolution) body.resolution = opts.resolution;
       if(imageDataUrl) body.imageDataUrl = imageDataUrl;
       if(opts.videoUrl) body.videoUrl = opts.videoUrl;
       if(opts.videoDataUrl) body.videoDataUrl = opts.videoDataUrl;
       if(opts.audioUrl) body.audioUrl = opts.audioUrl;
       if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
+      if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
+      if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
       // NanoGPT inlines media as base64 and the edge rejects bodies over ~4.5 MB with a header-less
       // 413 the browser mislabels as CORS. No upload endpoint → catch oversize locally and explain.
       const payload = JSON.stringify(body);
@@ -946,7 +1030,7 @@ window.NoodleApp = (function () {
       async run(n, inp, ctx){
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt");
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0]) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, loraParams(n)) };
       }
     },
     edit: {
@@ -956,7 +1040,7 @@ window.NoodleApp = (function () {
         if(!inp.image) throw new Error("no image input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no edit instruction");
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], inp.image, undefined, loraParams(n)) };
       }
     },
     inpaint: {
@@ -992,7 +1076,7 @@ window.NoodleApp = (function () {
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt");
         const url = await ctx.genVideo(mdl(n), prompt,
-          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, null,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, null,
           (st,ms)=> onProgress && onProgress("rendering video… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
@@ -1004,7 +1088,7 @@ window.NoodleApp = (function () {
         if(!inp.image) throw new Error("no image input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         const url = await ctx.genVideo(mdl(n), prompt,
-          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9" }, inp.image,
+          { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, inp.image,
           (st,ms)=> onProgress && onProgress("animating… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
@@ -1015,7 +1099,9 @@ window.NoodleApp = (function () {
       async run(n, inp, ctx, onProgress){
         if(!inp.video) throw new Error("no video input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
-        const url = await ctx.genVideo(mdl(n), prompt, await videoSourceOpts(inp.video), null,
+        const vopts = await videoSourceOpts(inp.video); vopts.lora = loraParams(n); vopts.extra = (n.fields.modelOpts||{});
+        if(n.fields.resolution) vopts.resolution = n.fields.resolution;
+        const url = await ctx.genVideo(mdl(n), prompt, vopts, null,
           (st,ms)=> onProgress && onProgress("processing video… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase()));
         return { video: url };
       }
@@ -1307,6 +1393,10 @@ window.NoodleApp = (function () {
      "Optional settings" so every model the app uses is visible and swappable.
      ===================================================================== */
   const ASPECTS = [["16:9","16:9 landscape"],["9:16","9:16 portrait"],["1:1","1:1 square"],["4:3","4:3"],["3:4","3:4"]];
+  // Fallback dimension options, used offline / for uncatalogued ids. On the hosted play page (and in
+  // the editor) the real per-model options replace these from the live catalog — see fillDimLists().
+  const DURATIONS   = [["5","5 sec"],["10","10 sec"]];
+  const RESOLUTIONS = [["","model default"]];   // "" sends nothing → the model's own default (behavior-preserving)
   const SETTING_SPECS = {
     llm:     [{ f:"model", label:"Model", kind:"model" }],
     vision:  [{ f:"model", label:"Model", kind:"model" },
@@ -1314,16 +1404,20 @@ window.NoodleApp = (function () {
     image:   [{ f:"model", label:"Model", kind:"model" },
               { f:"size",  label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] }],
     edit:    [{ f:"model", label:"Model", kind:"model" },
+              { f:"prompt", label:"Edit instruction", kind:"textarea" },
               { f:"size",  label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] }],
     tvideo:  [{ f:"model", label:"Model", kind:"model" },
-              { f:"duration", label:"Duration (s)", kind:"number", min:1, def:"5" },
-              { f:"aspect",   label:"Aspect ratio", kind:"select", options:ASPECTS, def:"16:9" }],
+              { f:"resolution", label:"Resolution", kind:"select", options:RESOLUTIONS, def:"" },
+              { f:"aspect",   label:"Aspect ratio", kind:"select", options:ASPECTS, def:"16:9" },
+              { f:"duration", label:"Duration", kind:"select", options:DURATIONS, def:"5" }],
     ivideo:  [{ f:"model", label:"Model", kind:"model" },
               { f:"prompt", label:"Motion prompt", kind:"textarea" },
-              { f:"duration", label:"Duration (s)", kind:"number", min:1, def:"5" },
-              { f:"aspect",   label:"Aspect ratio", kind:"select", options:ASPECTS, def:"16:9" }],
+              { f:"resolution", label:"Resolution", kind:"select", options:RESOLUTIONS, def:"" },
+              { f:"aspect",   label:"Aspect ratio", kind:"select", options:ASPECTS, def:"16:9" },
+              { f:"duration", label:"Duration", kind:"select", options:DURATIONS, def:"5" }],
     vedit:   [{ f:"model", label:"Model", kind:"model" },
-              { f:"prompt", label:"Edit instruction", kind:"textarea" }],
+              { f:"prompt", label:"Edit instruction", kind:"textarea" },
+              { f:"resolution", label:"Resolution", kind:"select", options:RESOLUTIONS, def:"" }],
     lipsync: [{ f:"model", label:"Model", kind:"model" },
               { f:"prompt", label:"Guidance prompt", kind:"textarea" }],
     music:   [{ f:"model", label:"Model", kind:"model" },
@@ -1407,6 +1501,52 @@ window.NoodleApp = (function () {
     return raw.filter(m=> m && m.id && modelSuits(type, m))
               .sort((a,b)=> (b.created||0)-(a.created||0))
               .map(m=> m.id);
+  }
+  /* ---------- per-model DIMENSION options (size / resolution / aspect / duration) ----------
+     Each model's REAL dimension options ride in the public catalog — image models list their
+     supported sizes in supported_parameters.resolutions; video models expose resolution/aspect_ratio/
+     duration as select params. We rewrite the dimension <select>s from the live catalog so the user
+     only sees sizes/resolutions the chosen model actually supports (mirrors the editor's dimDefs).
+     The chosen value lives on n.fields and runs without a catalog, so exports keep working offline. */
+  const DIM_FIELDS = { size:1, resolution:1, aspect:1, duration:1 };
+  async function rawCatItem(kind, id){
+    if(!id) return null;
+    const raw = await loadCatalogRaw(kind);
+    return raw.find(m=> m && m.id===id) || null;
+  }
+  function dimOptionsFromItem(type, m){
+    const out = {}; if(!m) return out;
+    if(type==="image" || type==="edit"){
+      const res = Array.isArray(m.supported_parameters && m.supported_parameters.resolutions)
+        ? m.supported_parameters.resolutions.filter(x=> typeof x==="string" && x) : [];
+      if(res.length) out.size = res.map(r=>[r,r]);
+      return out;
+    }
+    const p = (m.supported_parameters && m.supported_parameters.parameters) || {};
+    const sel = (param)=> ((param&&param.options)||[]).filter(o=> o && o.value!=="" && o.value!=null)
+      .map(o=> [String(o.value), o.label!=null?String(o.label):String(o.value)]);
+    const r = sel(p.resolution);   if(r.length) out.resolution = [["","model default"], ...r];
+    const a = sel(p.aspect_ratio); if(a.length) out.aspect = a;
+    const d = sel(p.duration);     if(d.length) out.duration = d;
+    return out;
+  }
+  // Best-effort: rewrite each dimension <select> from the chosen model's live catalog options. Never
+  // blocks the run; an absent/empty catalog just leaves the fallback options in place.
+  function fillDimLists(){
+    (STATE.settings || []).forEach((it,i)=>{
+      if(it.kind!=="select" || !DIM_FIELDS[it.field]) return;
+      const kind = SETTING_MODEL_KIND[it.node.type]; if(!kind) return;
+      rawCatItem(kind, it.node.fields.model).then(m=>{
+        const opts = dimOptionsFromItem(it.node.type, m)[it.field];
+        if(!opts || !opts.length) return;
+        const el = document.getElementById("set_"+i);
+        if(!el || el.tagName!=="SELECT") return;
+        const cur = it.node.fields[it.field];
+        const list = (cur!=null && cur!=="" && !opts.some(o=> String(o[0])===String(cur)))
+          ? [[String(cur),String(cur)], ...opts] : opts;   // keep a stored (e.g. baked-in) value pickable
+        el.innerHTML = list.map(o=> '<option value="'+esc(o[0])+'"'+(String(o[0])===String(cur)?" selected":"")+'>'+esc(o[1])+'</option>').join("");
+      }).catch(()=>{});
+    });
   }
 
   /* =====================================================================
@@ -1553,15 +1693,15 @@ window.NoodleApp = (function () {
       ctrl = '<input type="number" id="'+id+'" '+di+a+b+s+' value="'+esc(cur==null?"":cur)+'" placeholder="'+esc(it.label)+'">';
     }
     else if(it.kind==="model"){
-      // a real <select> (opens on click) populated from the catalog by fillModelLists;
-      // a "Custom…" option reveals a text input so an offline/uncatalogued id still works.
-      const o = (v,sel)=> '<option value="'+esc(v)+'"'+(sel?" selected":"")+'>'+esc(v)+'</option>';
+      // A free-text input over a small custom dropdown (setupModelCombo): focus shows
+      // the full catalog, typing filters it like the editor's picker, and any id can
+      // be pasted free-hand (works offline / for uncatalogued ids). A native <datalist>
+      // won't do — once the input holds a model id it hides the browse-all list.
       ctrl = '<div class="modelpick">'
-           + '<select id="'+id+'" '+di+' class="modelsel">'
-           +   (cur ? o(cur,true) : '<option value="" selected disabled>Choose a model…</option>')
-           +   '<option value="__custom__">✎ Custom model id…</option>'
-           + '</select>'
-           + '<input class="modelcustom" value="'+esc(cur||"")+'" placeholder="model id" autocomplete="off" spellcheck="false" hidden>'
+           + '<input id="'+id+'" '+di+' class="modelsel" value="'+esc(cur||"")+'"'
+           +   ' role="combobox" aria-expanded="false" aria-autocomplete="list"'
+           +   ' placeholder="search models or paste an id…" autocomplete="off" spellcheck="false">'
+           + '<div class="modelmenu" hidden></div>'
            + '</div>';
     }
     else
@@ -1622,12 +1762,7 @@ window.NoodleApp = (function () {
       } else if(el.type==="checkbox"){
         el.addEventListener("change", ()=>{ it.node.fields[it.field] = el.checked; });
       } else if(el.classList.contains("modelsel")){
-        const wrap = el.closest(".modelpick"), custom = wrap.querySelector(".modelcustom");
-        el.addEventListener("change", ()=>{
-          if(el.value==="__custom__"){ custom.hidden=false; custom.focus(); it.node.fields[it.field]=custom.value.trim(); }
-          else { custom.hidden=true; it.node.fields[it.field]=el.value; }
-        });
-        custom.addEventListener("input", ()=>{ it.node.fields[it.field]=custom.value.trim(); });
+        setupModelCombo(el, it);   // searchable catalog dropdown + free-text fallback
       } else {
         const sync = ()=>{ it.node.fields[it.field] = el.value; };
         el.addEventListener("input", sync);
@@ -1635,24 +1770,59 @@ window.NoodleApp = (function () {
       }
     });
     fillModelLists();
+    fillDimLists();   // rewrite size/resolution/aspect/duration options from each model's live catalog
     box.querySelectorAll(".inpaint-ctl").forEach(ctl=> wireInpaintControl(box, ctl));
   }
-  // Best-effort: pull each model field's catalog and fill its datalist so the
-  // user can pick a different model. Never blocks the run; failures are silent.
+  // Best-effort: pull each model field's catalog into its dropdown so the user can
+  // pick a different model. Never blocks the run; failures are silent.
+  // Per-input catalog options, keyed by the live <input> so a re-render drops stale entries.
+  const MODEL_OPTS = new WeakMap();
   function fillModelLists(){
     (STATE.settings || []).forEach((it,i)=>{
       if(it.kind!=="model") return;
       modelOptionsFor(it.node.type).then(ids=>{
-        const sel = document.getElementById("set_"+i);
-        if(!sel || sel.tagName!=="SELECT" || !ids.length) return;
-        // user already switched to free-text entry — don't yank the catalog over it
-        const custom = sel.closest(".modelpick") && sel.closest(".modelpick").querySelector(".modelcustom");
-        if(custom && !custom.hidden) return;
+        const input = document.getElementById("set_"+i);
+        if(!input || !ids.length) return;
         const cur = it.node.fields[it.field];
         const all = (cur && !ids.includes(cur)) ? [cur, ...ids] : ids;   // keep the current id even if filtered out
-        sel.innerHTML = all.slice(0,300).map(id=> '<option value="'+esc(id)+'"'+(id===cur?" selected":"")+'>'+esc(id)+'</option>').join("")
-                      + '<option value="__custom__">✎ Custom model id…</option>';
+        MODEL_OPTS.set(input, all.slice(0,300));
+        if(document.activeElement===input) input.dispatchEvent(new Event("modelrefresh"));
       }).catch(()=>{});
+    });
+  }
+  // A tiny searchable dropdown over the model catalog: focus opens the full list,
+  // typing filters it, click / Enter picks, arrows navigate. Whatever ends up in
+  // the box is written to the node field, so an uncatalogued id still works.
+  function setupModelCombo(input, it){
+    const menu = input.closest(".modelpick").querySelector(".modelmenu");
+    let active = -1;
+    const opts = ()=> MODEL_OPTS.get(input) || [];
+    function open(showAll){
+      const q = showAll ? "" : input.value.trim().toLowerCase();
+      const list = opts().filter(id=> !q || id.toLowerCase().includes(q));
+      active = -1;
+      if(!list.length){ close(); return; }
+      menu.innerHTML = list.map(id=> '<button type="button" class="modelopt" data-id="'+esc(id)+'">'+esc(id)+'</button>').join("");
+      menu.hidden = false; input.setAttribute("aria-expanded","true");
+    }
+    function close(){ menu.hidden = true; input.setAttribute("aria-expanded","false"); active = -1; }
+    function pick(id){ input.value = id; it.node.fields[it.field] = id; close(); fillDimLists(); }   // new model → refresh its dim options
+    input.addEventListener("focus", ()=> open(true));
+    input.addEventListener("modelrefresh", ()=> open(true));   // catalog arrived while focused
+    input.addEventListener("input", ()=>{ it.node.fields[it.field] = input.value.trim(); open(false); });
+    input.addEventListener("blur", ()=> setTimeout(close, 120));   // let a menu click land first
+    // mousedown (not click) so the pick fires before the input blurs
+    menu.addEventListener("mousedown", (e)=>{ const b = e.target.closest(".modelopt"); if(!b) return; e.preventDefault(); pick(b.dataset.id); });
+    input.addEventListener("keydown", (e)=>{
+      if(e.key==="ArrowDown" && menu.hidden){ e.preventDefault(); return open(true); }
+      const btns = menu.hidden ? [] : Array.from(menu.querySelectorAll(".modelopt"));
+      if(e.key==="ArrowDown"){ e.preventDefault(); active = Math.min(active+1, btns.length-1); }
+      else if(e.key==="ArrowUp"){ e.preventDefault(); active = Math.max(active-1, 0); }
+      else if(e.key==="Enter" && active>=0){ e.preventDefault(); return pick(btns[active].dataset.id); }
+      else if(e.key==="Escape"){ return close(); }
+      else return;
+      btns.forEach((b,i)=> b.classList.toggle("on", i===active));
+      if(active>=0) btns[active].scrollIntoView({ block:"nearest" });
     });
   }
 
@@ -2416,8 +2586,14 @@ body{ background:
 .setgroup{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel2);
   padding:.7rem .8rem; display:flex; flex-direction:column; gap:.85rem; }
 .setgroup-h{ font-size:.78rem; font-weight:600; color:var(--dim); }
-.modelpick .modelcustom{ margin-top:.45rem; }
-.modelcustom[hidden]{ display:none; }
+.modelpick{ position:relative; }
+.modelmenu{ position:absolute; left:0; right:0; top:100%; z-index:30; margin-top:.25rem;
+  max-height:240px; overflow:auto; background:var(--panel); border:1px solid var(--line);
+  border-radius:.5rem; box-shadow:0 10px 28px #0007; padding:.25rem; display:flex; flex-direction:column; }
+.modelmenu[hidden]{ display:none; }
+.modelopt{ display:block; width:100%; text-align:left; background:none; border:0; color:var(--ink);
+  font:inherit; padding:.4rem .5rem; border-radius:.35rem; cursor:pointer; word-break:break-all; }
+.modelopt:hover, .modelopt.on{ background:var(--panel2); }
 .field .setbool{ display:flex; align-items:center; gap:.5rem; font-size:.85rem; color:var(--ink); cursor:pointer; user-select:none; }
 .field .setbool input{ accent-color:var(--accent); width:1rem; height:1rem; margin:0; }
 
@@ -3046,6 +3222,7 @@ function updateAppWorkflow(appId, newGraph){
   const app = appId ? loadApps().find(a=> a.id===appId) : null;
   if(!app){                                  // unknown/forgotten app → just open the workflow as a fresh draft
     installApp({ graph:newGraph, files:defaultFiles(newGraph), fresh:true });
+    if(appId) toast("That app’s no longer here — started a new one from this workflow");   // don't silently swap an update for a new app
     return;
   }
   const oldGraph = app.graph || { nodes:[], links:[] };
@@ -3317,6 +3494,13 @@ async function doOpenEditor(){
    Created/imported apps persist in the library (noodle_apps); only an
    uncustomized editor draft is disposable.
    ====================================================================== */
+// Consume a one-shot handoff: strip the hash from the URL (so a reload restores the SAVED
+// session, not the original handoff) AND drop the editor's belt-and-suspenders graph copy
+// (so a later hash-less visit can't reopen this stale workflow as an "old app").
+function consumeHandoff(){
+  try{ history.replaceState({}, "", location.origin + location.pathname); }catch(_){}
+  try{ localStorage.removeItem("noodle_app_handoff"); }catch(_){}
+}
 async function loadFromHash(){
   const h = location.hash;
   // #a= : full app spec {v,graph,files}, gzip (or 'u'+b64 uncompressed fallback)
@@ -3328,7 +3512,7 @@ async function loadFromHash(){
       const spec = JSON.parse(json);
       // someone else's app → keep it in "My apps", flagged as imported (it carries its own files)
       installApp({ graph:spec.graph, files:spec.files, id:newId(), imported:true });
-      history.replaceState({}, "", location.origin + location.pathname);   // don't re-import on reload
+      consumeHandoff();   // don't re-import on reload
       toast("Imported — saved to “My apps”");
       return true;
     }catch(_){ /* fall through */ }
@@ -3341,8 +3525,8 @@ async function loadFromHash(){
       const json = tag[0]==="u" ? new TextDecoder().decode(b64urlToBytes(tag.slice(1)))
                                 : await gunzip(b64urlToBytes(tag));
       const spec = JSON.parse(json);
-      history.replaceState({}, "", location.origin + location.pathname);   // consume the handoff
       updateAppWorkflow(spec.appId, spec.graph);
+      consumeHandoff();
       return true;
     }catch(_){ /* fall through */ }
   }
@@ -3353,6 +3537,7 @@ async function loadFromHash(){
                                        : new TextDecoder().decode(b64urlToBytes(h.slice(3)));
       const graph = JSON.parse(json);
       installApp({ graph, files:defaultFiles(graph), fresh:true });   // straight from the editor → lead with the prompt
+      consumeHandoff();   // a reload now restores the saved draft, not the original graph
       return true;
     }catch(_){ /* fall through */ }
   }
@@ -3369,6 +3554,14 @@ $("openeditor").onclick = doOpenEditor;                        // works in both 
 if(IN_EDITOR){
   // Esc inside the popup → ask the editor to close it (the keydown can't reach the parent)
   document.addEventListener("keydown", (e)=>{ if(e.key==="Escape"){ try{ parent.postMessage({ type:"__closeapp__" }, "*"); }catch(_){} } });
+  // The editor now hides this modal instead of tearing it down, so we stay loaded and you can
+  // come back to your app. When hidden, pause any media in the builder chrome so nothing keeps
+  // playing out of sight. (The app preview runs in a no-same-origin sandbox we can't reach into.)
+  addEventListener("message", (e)=>{
+    if(e.source===parent && e.data && e.data.type==="__appmodalhidden__"){
+      document.querySelectorAll("audio,video").forEach(m=>{ try{ m.pause(); }catch(_){} });
+    }
+  });
 }
 
 $("apply").onclick = applyCustomize;
@@ -3488,20 +3681,25 @@ async function boot(){
   migrateLegacy();
   renderAppsBtn();
 
-  // Resume the app stashed just before an OAuth redirect — it's exactly what the user
-  // was on, so it wins over every other source. Consumed once so a later reload won't reuse it.
   let loaded = false;
-  try{
-    const rs = sessionStorage.getItem(RESUME_KEY);
-    if(rs){
-      sessionStorage.removeItem(RESUME_KEY);
-      const st = JSON.parse(rs);
-      if(st && st.graph){
-        if(st.id && !loadApps().some(a=>a.id===st.id)) st.id = null;   // its library slot was lost (e.g. quota) → reopen as a draft
-        installApp(st); loaded = true;
-      }
-    }
-  }catch(_){}
+  // A handoff hash (#a=/#ga=/#g=/#j=) means a fresh, explicit user action — clicking "Create app",
+  // or opening a share/app link. That MUST win over a stale OAuth resume stash: a real OAuth return
+  // carries no hash (it never survives the redirect), so preferring the hash never steals a genuine
+  // resume. Without this, the modal could reopen the previously-resumed app and ignore the new graph.
+  const hasHandoff = /^#(a|ga|g|j)=/.test(location.hash);
+
+  // Pull (and clear) any OAuth resume stash up front — it's single-use, so consume it either way
+  // and only fall back to it when no handoff hash claimed the boot.
+  let resumeSt = null;
+  try{ const rs = sessionStorage.getItem(RESUME_KEY); if(rs){ sessionStorage.removeItem(RESUME_KEY); resumeSt = JSON.parse(rs); } }catch(_){}
+
+  if(hasHandoff) loaded = await loadFromHash();
+
+  // Resume the app stashed just before an OAuth redirect — exactly what the user was on.
+  if(!loaded && resumeSt && resumeSt.graph){
+    if(resumeSt.id && !loadApps().some(a=>a.id===resumeSt.id)) resumeSt.id = null;   // its library slot was lost (e.g. quota) → reopen as a draft
+    installApp(resumeSt); loaded = true;
+  }
 
   if(!loaded) loaded = await loadFromHash();
 
