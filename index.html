@@ -892,22 +892,25 @@ async function audioRun(n, inp, ctx){
    in supported_parameters.parameters. Surface every CHOICE param (select ≥2 opts, or switch)
    the node doesn't already drive, so each model's knobs light up automatically — no model names.
    Chosen values live in n.fields.modelOpts and pass straight through to the API; play.html just
-   forwards that object, so exports need no catalog. duration/aspect (node-driven) and lora_* (the
-   LoRA box) are excluded. */
+   forwards that object, so exports need no catalog. This surfaces only CREATIVE/behavioral knobs:
+   the node owns size/length/aspect — and those drive price (per_second_by_resolution), shown on
+   the node — so re-exposing them here would silently change the bill. lora_* is the LoRA box. */
 const VIDEO_OPT_NODES = { tvideo:1, ivideo:1, vedit:1 };
+// size/length/aspect/fps: node-owned and/or price-affecting — never auto-surfaced as a "knob"
+const PRICE_OR_DIM_PARAM = /^(duration|seconds|aspect_ratio|resolution|resolution_ratio|size|orientation|fps|frames_per_second|num_frames)$/;
 function videoOptDefs(model){
   const p = (catItem("video", model)||{}).params || {};
   const defs = [];
   for(const [key,d] of Object.entries(p)){
     if(!d || typeof d!=="object") continue;
-    if(key==="duration" || key==="aspect_ratio") continue;     // the node already controls these
+    if(PRICE_OR_DIM_PARAM.test(key)) continue;                 // dims/price live on the node, not here
     if(/^lora(_|$)/i.test(key)) continue;                      // the 🎨 LoRA box handles these
     if(d.type==="select"){
       const opts = (d.options||[]).filter(o=> o && o.value!=="" && o.value!=null);
       if(opts.length<2) continue;                              // nothing meaningful to choose
-      defs.push({ key, label:d.label||key, type:"select", options:opts, def:d.default });
+      defs.push({ key, label:d.label||key, type:"select", options:opts, def:d.default, desc:d.description });
     } else if(d.type==="switch" || d.type==="boolean"){
-      defs.push({ key, label:d.label||key, type:"bool", def:d.default });
+      defs.push({ key, label:d.label||key, type:"bool", def:d.default, desc:d.description });
     }
   }
   return defs;
@@ -922,13 +925,14 @@ function refreshModelOpts(n){
   for(const k of Object.keys(cur)) if(!defs.some(d=>d.key===k)) delete cur[k];   // drop other models' knobs
   const ctl = (d)=>{
     const v = cur[d.key];
+    const hint = d.desc ? `<div class="fhint">${esc(d.desc)}</div>` : "";   // the catalog's own explanation
     if(d.type==="bool"){
       const on = (v==null) ? (d.def===true||d.def==="true") : (v===true||v==="true");
-      return `<label class="setbool" style="margin:3px 0"><input type="checkbox" data-of="${esc(d.key)}"${on?" checked":""}/> ${esc(d.label)}</label>`;
+      return `<label class="setbool" style="margin:3px 0"><input type="checkbox" data-of="${esc(d.key)}"${on?" checked":""}/> ${esc(d.label)}</label>${hint}`;
     }
     const sel = (v!=null) ? v : (d.def!=null ? d.def : "");
     return `<div style="margin:3px 0"><label>${esc(d.label)}</label><select data-of="${esc(d.key)}">${
-      d.options.map(o=>`<option value="${esc(o.value)}"${String(o.value)===String(sel)?" selected":""}>${esc(o.label!=null?o.label:o.value)}</option>`).join("")}</select></div>`;
+      d.options.map(o=>`<option value="${esc(o.value)}"${String(o.value)===String(sel)?" selected":""}>${esc(o.label!=null?o.label:o.value)}</option>`).join("")}</select>${hint}</div>`;
   };
   const open = Object.keys(cur).length ? " open" : "";
   box.innerHTML = `<details class="adv"${open}><summary>⚙️ Model options${defs.length>1?` · ${defs.length}`:""}</summary>
