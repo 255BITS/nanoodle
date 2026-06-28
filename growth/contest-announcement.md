@@ -27,7 +27,7 @@ Match each venue's norms — don't paste the same block in both.
 > [▶ Open it](your-share-link)
 > ```
 >
-> Max 2 entries each. Closes **July 10** (23:59 UTC). Winners get featured in the
+> Max 2 entries each. Closes **July 12** (23:59 UTC). Winners get featured in the
 > in-app Gallery. Need a starting point? Open the **🖼 Gallery** in nanoodle and
 > remix one.
 >
@@ -76,7 +76,7 @@ Match each venue's norms — don't paste the same block in both.
 > **The contest:** **3 × 133 XNO**, paid straight to your Nano wallet, across three
 > categories — 🛠 Most Useful, 🎨 Most Beautiful/Weird, ❤️ People's Choice. Build
 > something, share the link in nano-gpt's Discord #community-projects, winners get
-> featured in the app's gallery. Opens **June 26**, closes **July 10** (23:59 UTC).
+> featured in the app's gallery. Opens **June 26**, closes **July 12** (23:59 UTC).
 >
 > Try it (no signup): **nanoodle.com**
 >
@@ -89,7 +89,7 @@ Match each venue's norms — don't paste the same block in both.
 
 > 👀 Look at this one from **<author>** — <one-line of what makes it cool>.
 > [▶ Open & remix it](<share-link>)
-> Contest's still open till **July 10** — #community-projects has the rules.
+> Contest's still open till **July 12** — #community-projects has the rules.
 
 ---
 
