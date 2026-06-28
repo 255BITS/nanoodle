@@ -22,11 +22,21 @@ const CATALOG_URL = "https://nano-gpt.com/api/models";
 // Both loraFamily() (shape mapping) and imageTakesLora() (the IMAGE gate — the v1 image
 // catalog hides lora params, so the app allow-lists by id and we verify that allow-list here).
 const PLAY_SRC = readFileSync(join(root, "play.html"), "utf8");
-function loadFn(name) {
-  const start = PLAY_SRC.indexOf("function " + name);
-  if (start < 0) throw new Error(name + "() not found in play.html");
-  const end = PLAY_SRC.indexOf("\n  }", start) + 4;
-  return new Function(PLAY_SRC.slice(start, end) + "\nreturn " + name + ";")();
+function loadFn(name, deps = []) {
+  const grab = (n) => {
+    const start = PLAY_SRC.indexOf("function " + n);
+    if (start < 0) throw new Error(n + "() not found in play.html");
+    return PLAY_SRC.slice(start, PLAY_SRC.indexOf("\n  }", start) + 4);
+  };
+  const src = [...deps, name].map(grab).join("\n");   // pull dependency fns into scope too
+  return new Function(src + "\nreturn " + name + ";")();
+}
+// the catalog's real stacking cap = the highest lora_url_N slot it advertises; a single
+// lora_url / lora_weights / lora_link means one slot. loraCap() must mirror this.
+function expectedCap(keys) {
+  let max = 0;
+  for (const k of keys) { const m = /^lora_url_(\d+)$/.exec(k); if (m) max = Math.max(max, +m[1]); }
+  return max || 1;
 }
 
 // Deliberately NOT supported (their LoRA mechanism differs from the lora_url/_N shapes the
@@ -67,11 +77,12 @@ const main = async () => {
 
   const loraFamily = loadFn("loraFamily");
   const imageTakesLora = loadFn("imageTakesLora");
+  const loraCap = loadFn("loraCap", ["loraFamily"]);
   const handled = [], unhandled = [], skipped = [];
   // IMAGE gate drift: the app shows the LoRA box on an image model iff imageTakesLora(id) is
   // true (the v1 catalog can't tell it). Compare against real capability so a false positive
   // (box on a non-lora model → silently ignored adapter) or false negative can't ship.
-  const gateFalsePos = [], gateFalseNeg = [];
+  const gateFalsePos = [], gateFalseNeg = [], capMismatch = [];
   for (const kind of ["image", "video"]) {
     const models = (catalog.models && catalog.models[kind]) || {};
     for (const [id, m] of Object.entries(models)) {
@@ -85,7 +96,10 @@ const main = async () => {
       if (!keys.length) continue;                     // not a LoRA model
       if (KNOWN_SKIP[id]) { skipped.push({ id, kind, why: KNOWN_SKIP[id] }); continue; }
       const fam = loraFamily(id);
-      (fam ? handled : unhandled).push({ id, kind, family: fam, loraKeys: keys.sort() });
+      if (!fam) { unhandled.push({ id, kind, family: fam, loraKeys: keys.sort() }); continue; }
+      handled.push({ id, kind, family: fam, loraKeys: keys.sort() });
+      const want = expectedCap(keys), got = loraCap(id);    // loraCap() must match the catalog's slot count
+      if (want !== got) capMismatch.push({ id, want, got });
     }
   }
   handled.sort((a, b) => a.id.localeCompare(b.id));
@@ -112,6 +126,11 @@ const main = async () => {
     fail = true;
     console.log("\nIMAGE GATE FALSE NEGATIVES — these take a LoRA but imageTakesLora() hides the box. Widen imageTakesLora() in index.html + play.html:");
     for (const g of gateFalseNeg) console.log(`  • ${g.id}  catalogLoraKeys=[${g.loraKeys.join(",")}]`);
+  }
+  if (capMismatch.length) {
+    fail = true;
+    console.log("\nLoRA CAP MISMATCH — loraCap() disagrees with the catalog's lora_url_N slots. Fix loraCap() in index.html + play.html:");
+    for (const c of capMismatch) console.log(`  • ${c.id}  loraCap=${c.got} but catalog allows ${c.want}`);
   }
   if (fail) process.exit(1);
   console.log("✓ every LoRA-capable model is handled and the image gate matches the catalog. Snapshot → lora-models.json");

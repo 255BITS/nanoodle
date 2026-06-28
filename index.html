@@ -908,11 +908,18 @@ function openPicker(kind, opts){
   loadCatalog(kind).then(()=> renderPicker());
 }
 function closePicker(){ $("mpick").classList.remove("open"); $("mpickback").classList.remove("show"); picker=null; }
+// models passing the node's filter, narrowed by the search box (id or name). Shared by the
+// list render and the Enter handler so "type a few letters + Enter" picks what you SEE.
+function pickerMatches(){
+  if(!picker) return [];
+  const q = $("mpicksearch").value.trim().toLowerCase();
+  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
+  return q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+}
 function renderPicker(){
   if(!picker) return;
   const q = $("mpicksearch").value.trim().toLowerCase();
-  const list = (catalogs[picker.kind] || []).filter(m=> passesFilter(m, picker.filter));
-  const matches = q ? list.filter(m=> m.id.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)) : list;
+  const matches = pickerMatches();
   $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"}${q?"":" · newest first"}`;
   const frag = document.createDocumentFragment();
   for(const m of matches.slice(0,400)){
@@ -2357,11 +2364,13 @@ function modelTakesLora(kind, id){
   return kind==="video" ? true : imageTakesLora(id);
 }
 // how many LoRAs a model can stack (catalog lora_url_1..N caps / fal loras-array)
+// max LoRAs a family can stack, mirroring the catalog's lora_url_N slots (audited by
+// check-lora-models). flux-lora exposes a single lora_url → 1; flux-2-dev-lora 1..4 → 4.
 function loraCap(model){
   switch(loraFamily(model)){
-    case "flux": case "flux2dev": return 4;
+    case "flux2dev": return 4;
     case "flux2klein": case "zimage": case "ltx": return 3;
-    default: return 1;                                      // pimage and single-slot models
+    default: return 1;                                      // flux-lora, pimage — single slot
   }
 }
 // a node's LoRA rows as [{url,strength}], migrating the original single-field shape
@@ -2726,7 +2735,13 @@ mqMobile.addEventListener("change", layoutBar);
 // picker interactions
 $("mpicksearch").addEventListener("input", renderPicker);
 $("mpicksearch").addEventListener("keydown", e=>{
-  if(e.key==="Enter"){ const v=$("mpicksearch").value.trim(); if(v && picker){ picker.onPick(v); closePicker(); } }
+  if(e.key==="Enter"){
+    e.preventDefault();
+    if(!picker) return;
+    const top = pickerMatches()[0], v = $("mpicksearch").value.trim();
+    if(top){ picker.onPick(top.id); closePicker(); }            // select the model you're looking at…
+    else if(v){ picker.onPick(v); closePicker(); }              // …or, with no match, take a typed id verbatim
+  }
   if(e.key==="Escape") closePicker();
 });
 $("mpickclose").onclick = closePicker;

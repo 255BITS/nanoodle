@@ -551,9 +551,9 @@ window.NoodleApp = (function () {
   }
   function loraCap(model){
     switch(loraFamily(model)){
-      case "flux": case "flux2dev": return 4;
+      case "flux2dev": return 4;
       case "flux2klein": case "zimage": case "ltx": return 3;
-      default: return 1;
+      default: return 1;                                    // flux-lora, pimage — single slot
     }
   }
   function nodeLoras(n){
