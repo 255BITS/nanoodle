@@ -317,7 +317,7 @@ import { buildEnvironment, generateDiff, smartapply, parseDiffPerFile, callLlmFo
    ====================================================================== */
 const $ = (id) => document.getElementById(id);
 const NANOGPT = "https://nano-gpt.com";
-const DEFAULT_MODEL = "xiaomi/mimo-v2.5-pro-ultraspeed";      // writes the changes (user-selectable)
+const DEFAULT_MODEL = "zai-org/glm-5.2:thinking";            // writes the changes (user-selectable)
 const APPLY_DEFAULT = "xiaomi/mimo-v2.5-pro-ultraspeed";      // applies the diff (fast, mechanical)
 const FALLBACK_MODEL = "openai/gpt-5.4-mini";                 // auto-retry here when the chosen model is overloaded/down (429 / 5xx)
 const LS_KEY = "noodle_app_state";   // working state of the app currently open {id,title,imported,graph,files,versions,curVer}
