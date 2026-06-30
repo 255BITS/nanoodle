@@ -2,6 +2,8 @@
 
 # Model Capability Coverage Audit
 
+> **Status — wave 1 shipped (2026-06-29):** roadmap ranks **1, 2, 3** (LLM sampling + JSON mode + reasoning, PR #52), **4** (unmute audio-gen video, #50), **5** (text/number video params, #53), and **10** (STT language dropdown, #51) are merged to `main`, verified by live end-to-end smoke tests, and locked by offline `check-run-compat` scenarios. **Wave 2** (in progress): #7 image batch (contract verified — `n` honored), #6 multi-ref edit (verified — `imageDataUrl` accepts an array), #8 multimodal LLM input, #9 STT timestamps/diarization.
+
 ## TL;DR
 - **The single biggest lever is `normChat`.** It extracts exactly 1 of 8 advertised chat capabilities (`vision`); the other 7 (reasoning 262, tool_calling 195, structured_output 190, video_input 73, pdf_upload 86, audio_input 32) are invisible to every node and control. Widening this one normalizer (~3 lines) is the prerequisite that unblocks three separate high-reach chat features.
 - **Chat is our deepest gap and our cheapest win.** Every one of 601 chat models runs at a hardcoded `temperature:0.8` with no `max_tokens`, no reasoning depth, and no JSON mode — even though those are standard OpenAI params nano-gpt already proxies. The text a node emits is freeform prose, which quietly undermines the core "LLM → next node" promise of a DAG playground.
