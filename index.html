@@ -4399,9 +4399,20 @@ RULES for the diff:
   versEl.addEventListener("click", e=>{ const b=e.target.closest("[data-ver]"); if(b) selectVersion(+b.getAttribute("data-ver")); });
   function selectVersion(i){
     const v = versions[i]; if(!v || i===curVer || busy) return;
+    // Canvas edits made by hand since the current version aren't a snapshot — applyGraphData
+    // below would replace the live graph and drop them. Don't interrupt to ask: just capture
+    // them as a version first, so jumping away always keeps your work and parks it in the strip
+    // to return to. toSimple ignores node positions/pan/zoom, so a plain drag isn't an "edit".
+    const cur = versions[curVer];
+    let savedAt = -1;
+    if(cur && JSON.stringify(toSimple(serializeGraph())) !== JSON.stringify(toSimple(cur.graph))){
+      versions.push({ graph: clone(serializeGraph()), goal: "your canvas edits" });
+      savedAt = versions.length - 1;
+    }
     applyGraphData(clone(v.graph)); save();
     curVer = i; renderVersions();
-    setStatus(i===0 ? "↩ Back to the starting workflow." : `↩ Back to v${i} — ${esc(v.goal)}`);
+    const back = i===0 ? "↩ Back to the starting workflow." : `↩ Back to v${i} — ${esc(v.goal)}`;
+    setStatus(savedAt >= 0 ? `${back} Your edits are safe in v${savedAt}.` : back);
   }
 
   function setBusy(on){
@@ -4494,9 +4505,10 @@ RULES for the diff:
       const dif = diff(prevSimple, next);
       if(dif.count===0){ setStatus(`No change needed — try being more specific. ${usageMeter()}`); return; }
       applyGraphData(fromSimple(next, prevInternal)); save();
-      // record versions: seed v0 from the pre-change graph on the first change; branch if editing from an older version
+      // record versions: seed v0 from the pre-change graph on the first change. Append-only —
+      // a change applied from an older version lands at the END and becomes current; we never
+      // truncate the versions after it (that silently destroyed work you could still want back).
       if(versions.length===0){ versions.push({ graph: clone(prevInternal), goal:"start" }); curVer = 0; }
-      else if(curVer < versions.length-1){ versions.length = curVer+1; }   // branch-on-edit from an older version
       versions.push({ graph: clone(serializeGraph()), goal: text });
       curVer = versions.length-1;
       renderVersions();
