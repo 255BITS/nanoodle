@@ -1360,8 +1360,12 @@ window.NoodleApp = (function () {
   // seed reproduces the same output for the same inputs, so re-running it is pure waste — reuse
   // the prior output, no second charge. A BLANK seed = random each run, so those never cache.
   // Module-level so it survives the per-run cloneGraph()+wipe and persists across Run clicks and
-  // keep-generate passes. ONE entry per node id ({sig,out}) — a new sig overwrites the old, so it
-  // can't grow with seed tweaks. Signature drops display-only knobs (sel/brush).
+  // keep-generate passes. ONE entry per node id — a new sig overwrites the old, so it can't grow
+  // with seed tweaks. An entry is either a RESOLVED result {sig,out} or an IN-FLIGHT {sig,pending}:
+  // a multi-count Run launches N lanes concurrently sharing this map, so the first lane to reach a
+  // fixed-seed node registers {sig,pending} BEFORE its paid call; the other N-1 lanes find it and
+  // await that one generation instead of each issuing a byte-identical second charge. Signature
+  // drops display-only knobs (sel/brush).
   var SEED_FIELD = { image:1, edit:1, inpaint:1, music:1 };   // seed lives in n.fields.seed
   var VIDEO_SEED_NODE = { tvideo:1, ivideo:1, vedit:1 };      // seed rides in n.fields.modelOpts.seed
   function nodeSeed(n){
@@ -1372,7 +1376,7 @@ window.NoodleApp = (function () {
   function isSeeded(n){ var s = nodeSeed(n); return s!=null && String(s).trim()!==""; }
   function sigHash(s){ var h=5381; for(var i=0;i<s.length;i++) h=((h*33) ^ s.charCodeAt(i))>>>0; return h; }
   function nodeSig(n, inp){ var f = Object.assign({}, n.fields); delete f.sel; delete f.brush; return sigHash(JSON.stringify({ t:n.type, f:f, inp:inp })); }
-  var RUN_CACHE = new Map();   // id -> {sig, out}
+  var RUN_CACHE = new Map();   // id -> {sig, out} (resolved) | {sig, pending} (in-flight, shared across concurrent lanes)
   async function runGraph(graph, opts){
     opts = opts || {};
     const onStatus = opts.onStatus, onResult = opts.onResult;
@@ -1432,28 +1436,48 @@ window.NoodleApp = (function () {
         const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
         // Deterministic skip: a seeded node with unchanged inputs reuses its prior output — no
         // second charge, no "running…" flash. Blank seed = random, so it always regenerates.
+        const seeded = isSeeded(rn);
         const sig = nodeSig(rn, inp), cached = RUN_CACHE.get(id);
-        if(isSeeded(rn) && cached && cached.sig===sig){
-          n.out = cached.out; n.costUsd = 0; n.costKnown = true;
-          onStatus && onStatus(id, "done", "done");
-          onResult && onResult(n);
+        if(seeded && cached && cached.sig===sig){
+          // Reuse a fixed-seed result: either already RESOLVED (cached.out) or an IN-FLIGHT sibling
+          // lane's generation we await instead of paying for an identical second call. Marked
+          // n.cached (not costKnown) so renderResult labels it "reused", not "subscription-free".
+          try{
+            const out = cached.out !== undefined ? cached.out : (await cached.pending || {});
+            n.out = out; n.costUsd = 0; n.cached = true;
+            onStatus && onStatus(id, "done", "done");
+            onResult && onResult(n);
+          }
+          // the owning lane deletes the entry if its generation fails; here just isolate per-node.
+          catch(err){ if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", err.message); }
           return;
         }
         onStatus && onStatus(id, "run", "running…");
         let nodeCost = 0, nodeKnown = false, didGen = false;   // didGen: this node actually called the model (onCost fires only on a real generation, never for instant local nodes like text/join/trim)
         const ctx = makeCtx((c)=>{ didGen = true; nodeCost += bumpCost(c); if(c && c.usd!=null) nodeKnown = true; });
+        let p = null;
         try{
-          n.out = await t.run(rn, inp, ctx, (msg)=> onStatus && onStatus(id, "run", msg)) || {};
-          if(isSeeded(rn)) RUN_CACHE.set(id, { sig, out:n.out });   // fixed seed → cache the result for the next pass
+          // Fixed seed: register the IN-FLIGHT generation BEFORE awaiting so a concurrent multi-count
+          // lane finds {sig,pending} and awaits THIS call rather than issuing a byte-identical paid
+          // one. Read→register is synchronous (no await between), so exactly one lane ever generates.
+          p = t.run(rn, inp, ctx, (msg)=> onStatus && onStatus(id, "run", msg));
+          if(seeded) RUN_CACHE.set(id, { sig, pending: p });
+          n.out = await p || {};
+          if(seeded) RUN_CACHE.set(id, { sig, out:n.out });   // resolved → swap pending for the result, reused next pass
           if(didGen) generated++;                          // a real model call happened — NOT a cache reuse or an instant local node (so keep mode keeps pacing only on real generations)
-          n.costUsd = nodeCost; n.costKnown = nodeKnown;
+          n.costUsd = nodeCost; n.costKnown = nodeKnown; n.cached = false;   // genuine generation, not a reused cache hit
           onStatus && onStatus(id, "done", "done");
           onResult && onResult(n);
         }
         // editor parity (runGroup): isolate per-node failures — mark error and keep going so
         // independent flows / other sinks still produce output. Do NOT rethrow.
         // Exception: a Stop-triggered abort halts the whole lane (propagate it).
-        catch(err){ if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", err.message); }
+        catch(err){
+          // don't poison the cache with a failed/aborted promise — drop our pending entry so a
+          // later lane or run can retry (only if it's still ours, not already swapped/overwritten).
+          if(seeded){ const c = RUN_CACHE.get(id); if(c && c.pending===p) RUN_CACHE.delete(id); }
+          if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", err.message);
+        }
       })();
     }
     await Promise.all(r.order.map(id=> done[id]));       // lane finishes when every node has settled
@@ -2274,7 +2298,8 @@ window.NoodleApp = (function () {
     if(val==null) return;
     const card = document.createElement("div"); card.className="card";
     const badge = runNo ? '<span class="run-badge">Run '+runNo+'</span> ' : '';
-    const cost = (n.costUsd>0) ? '<span class="rcost" title="cost of this generation">'+fmtUsd(n.costUsd)+'</span>'
+    const cost = n.cached ? '<span class="rcost" title="reused fixed-seed result — no charge">↺ reused</span>'
+               : (n.costUsd>0) ? '<span class="rcost" title="cost of this generation">'+fmtUsd(n.costUsd)+'</span>'
                : n.costKnown ? '<span class="rcost incl" title="included in your subscription">included</span>' : '';
     const head = '<div class="rhead">'+badge+esc(NODE_TYPES[n.type].em)+' '+esc(NODE_TYPES[n.type].title)+cost+'</div>';
     const gallery = (port.type==="image" && out.images && out.images.length>1) ? out.images : null;
