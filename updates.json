@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-06-30",
+    "text": "New visitors get a one-line \"press ▶ Run, or ＋ Add node\" hint (dismissible, shown once) and a 🖼️ Gallery button to browse & remix example workflows."
+  },
+  {
+    "date": "2026-06-30",
     "text": "Resize any node by dragging its bottom-right corner — and prompt boxes start bigger"
   },
   {

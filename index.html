@@ -300,6 +300,14 @@
   #legallink{ position:fixed; right:.5rem; bottom:calc(var(--db-h,3rem) + .35rem); z-index:20; font-size:.62rem; line-height:1;
               color:var(--dim); opacity:.4; text-decoration:none; pointer-events:auto; }
   #legallink:hover{ opacity:.85; text-decoration:underline }
+  #canvashint[hidden]{ display:none }
+  #canvashint{ position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:8;
+               display:flex; align-items:center; gap:.5rem; max-width:calc(100% - 1.5rem);
+               background:var(--panel); border:1px solid var(--line); border-radius:2rem;
+               padding:.4rem .45rem .4rem .85rem; font-size:.82rem; color:var(--dim); box-shadow:0 6px 22px #0007 }
+  #canvashint b{ color:var(--ink); font-weight:600 }
+  #canvashint #hintx{ border:none; background:none; color:var(--dim); cursor:pointer; font-size:1rem; line-height:1; padding:.1rem .4rem; border-radius:.4rem }
+  #canvashint #hintx:hover{ background:var(--panel2); color:var(--ink) }
   #editor{ position:fixed; inset:52px 0 var(--db-h,3rem) 0; overflow:hidden; cursor:grab;
            background-color:#0b0d12;
            background-image:radial-gradient(circle, #ffffff0d 1px, transparent 1px);
@@ -515,6 +523,7 @@
   <button id="save" title="download this graph as JSON">⭳ Save</button>
   <button id="load" title="open a graph JSON file">⭱ Load</button>
   <button id="updates" title="What’s new in nanoodle">📣 Updates<span id="updbadge" hidden></span></button>
+  <button id="gallerybtn" title="Browse & remix example workflows">🖼️ Gallery</button>
   <input id="loadfile" type="file" accept="application/json,.json" hidden />
   <div id="moremenu">
     <button id="morebtn" title="More actions">⋯</button>
@@ -649,6 +658,7 @@
 <main id="editor" aria-label="Workflow canvas">
   <svg id="wires"></svg>
   <div id="world"></div>
+  <div id="canvashint" hidden>A live AI workflow — press <b>▶ Run</b>, or <b>＋ Add node</b> to build your own.<button id="hintx" title="Got it" aria-label="Dismiss">×</button></div>
 </main>
 <div id="quickadd"></div>
 
@@ -3511,6 +3521,7 @@ function spawnCenter(type){
   const cx = (editor.clientWidth/2 - panX)/scale - 105 + (spawnN%4)*26;
   const cy = (editor.clientHeight/2 - panY)/scale - 60  + (spawnN%4)*26;
   spawnN++;
+  dismissHint();
   const n = addNode(type, Math.round(cx), Math.round(cy));
   rememberAdd(type);
   select(n); redraw();
@@ -3523,13 +3534,14 @@ $("addbtn").onclick = (e)=>{
 };
 document.addEventListener("click", e=>{ if(!$("addmenu").contains(e.target)) $("addpop").classList.remove("open"); });
 $("run").onclick = ()=>{
+  dismissHint();
   if(runningNodes.size && runAbort && !runAbort.signal.aborted){ runAbort.abort(); flash("stopping…"); updateRunButtons(); }  // ■ Stop
   else runAll();                                                                                                              // ▶ Run
 };
 
 /* ---------- responsive toolbar: collapse secondary actions into the ⋯ menu on phones ----------
    Buttons keep their handlers (they're moved, not cloned). On desktop everything sits inline. */
-const RELOC = ["makeapp","newapp","share","submitcontest","save","load","updates","signin","pastebtn","signout","status"];  // order shown in the menu
+const RELOC = ["makeapp","newapp","share","submitcontest","save","load","updates","gallerybtn","signin","pastebtn","signout","status"];  // order shown in the menu
 const mqMobile = matchMedia("(max-width:640px)");
 let topOrder = null;
 function layoutBar(){
@@ -3953,10 +3965,16 @@ async function openGallery(){
   list.forEach(e=> grid.appendChild(galleryCard(e)));
 }
 function closeGallery(){ $("gallerymodal").hidden = true; }
-// No toolbar button for now — the gallery still opens via a "#gallery=<slug>" deep link (see boot).
+$("gallerybtn").onclick = openGallery;
 $("galleryclose").onclick = closeGallery;
 $("gallerymodal").addEventListener("click", e=>{ if(e.target.id==="gallerymodal") closeGallery(); });   // click the dim backdrop
 addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("gallerymodal").hidden) closeGallery(); });
+
+/* First-run canvas hint — one quiet line, dismissed by the × or the user's first Run / Add-node.
+   Local flag only, no tracking; returning users (flag set) never see it. */
+const HINT_KEY = "noodle_hint_dismissed";
+function dismissHint(){ const h = $("canvashint"); if(h && !h.hidden){ h.hidden = true; try{ localStorage.setItem(HINT_KEY,"1"); }catch{} } }
+$("hintx").onclick = dismissHint;
 
 /* ======================================================================
    UPDATES  (a tiny changelog — static updates.json, newest first. Each commit
@@ -4111,6 +4129,7 @@ $("signout").onclick = ()=> setKey(null);
   if(!restored) seed();                                           // else built-in starter
   updateTitle();                                                  // reflect whether an app's workflow is loaded
   redraw();
+  try{ if(!localStorage.getItem(HINT_KEY)) $("canvashint").hidden = false; }catch{}   // first-run orientation line
   // Brand-new visitors land straight on a simple working flow (the default graph) — no gallery modal in the way.
   try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
   renderAuth();
