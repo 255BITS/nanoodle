@@ -4399,6 +4399,12 @@ RULES for the diff:
   versEl.addEventListener("click", e=>{ const b=e.target.closest("[data-ver]"); if(b) selectVersion(+b.getAttribute("data-ver")); });
   function selectVersion(i){
     const v = versions[i]; if(!v || i===curVer || busy) return;
+    // Canvas edits made by hand since the current version aren't a snapshot — applyGraphData
+    // below would replace the live graph and drop them. Compare on the semantic shape (toSimple
+    // ignores node positions/pan/zoom) so a plain drag never trips this, and confirm before losing real edits.
+    const cur = versions[curVer];
+    if(cur && JSON.stringify(toSimple(serializeGraph())) !== JSON.stringify(toSimple(cur.graph))
+       && !confirm(`Jump to v${i}? Your canvas edits since the current version aren't saved as a version and will be replaced.`)) return;
     applyGraphData(clone(v.graph)); save();
     curVer = i; renderVersions();
     setStatus(i===0 ? "↩ Back to the starting workflow." : `↩ Back to v${i} — ${esc(v.goal)}`);
@@ -4494,9 +4500,10 @@ RULES for the diff:
       const dif = diff(prevSimple, next);
       if(dif.count===0){ setStatus(`No change needed — try being more specific. ${usageMeter()}`); return; }
       applyGraphData(fromSimple(next, prevInternal)); save();
-      // record versions: seed v0 from the pre-change graph on the first change; branch if editing from an older version
+      // record versions: seed v0 from the pre-change graph on the first change. Append-only —
+      // a change applied from an older version lands at the END and becomes current; we never
+      // truncate the versions after it (that silently destroyed work you could still want back).
       if(versions.length===0){ versions.push({ graph: clone(prevInternal), goal:"start" }); curVer = 0; }
-      else if(curVer < versions.length-1){ versions.length = curVer+1; }   // branch-on-edit from an older version
       versions.push({ graph: clone(serializeGraph()), goal: text });
       curVer = versions.length-1;
       renderVersions();

@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-06-29",
-    "text": "Customizing an app no longer loses versions — editing off an older version now branches to a new one instead of wiping the ones after it, and switching versions warns before clearing unsaved in-app edits."
+    "text": "Version history no longer loses work — in 💬 Describe changes (editor) and app Customize, applying a change off an older version now adds a new one instead of wiping the versions after it, and jumping versions warns before replacing unsaved canvas/in-app edits."
   },
   {
     "date": "2026-06-29",
