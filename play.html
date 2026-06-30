@@ -2499,10 +2499,42 @@ window.NoodleApp = (function () {
     localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
     return id;
   }
+  // Sign-in is a full-page redirect to nano-gpt and back, which reloads this app from its
+  // NOODLE_GRAPH defaults — so anything the user typed before pressing Run signed-out would
+  // be lost. Stash the live input values (under a key distinct from the editor's RESUME_KEY
+  // and "pkce") and restore them on return in mount(), so a first run never eats their text.
+  const RUN_RESUME_KEY = "noodle_run_resume";
+  function stashRunInputs(){
+    try{
+      const vals = ((STATE && STATE.inputs) || []).map(function(it){
+        return { nodeId: it.nodeId, field: it.field, value: it.node.fields[it.field] };
+      });
+      sessionStorage.setItem(RUN_RESUME_KEY, JSON.stringify(vals));
+    }catch(_){}
+  }
+  // Consume the stash (single-use) and write values back into the freshly-derived inputs,
+  // matched by nodeId+field since materialize() rebuilt the node objects on reload. Robust:
+  // a malformed/absent stash must never block mount, so the whole thing is try/catch.
+  function restoreRunInputs(){
+    try{
+      const raw = sessionStorage.getItem(RUN_RESUME_KEY);
+      if(!raw) return;
+      sessionStorage.removeItem(RUN_RESUME_KEY);
+      const vals = JSON.parse(raw) || [];
+      const byKey = {};
+      ((STATE && STATE.inputs) || []).forEach(function(it){ byKey[it.nodeId + " " + it.field] = it; });
+      vals.forEach(function(v){
+        if(!v) return;
+        const it = byKey[v.nodeId + " " + v.field];
+        if(it && v.value != null) it.node.fields[v.field] = v.value;
+      });
+    }catch(_){}
+  }
   async function signIn(){
     const id = await clientId();
     const verifier=rand(32), state=rand(16);
     sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+    stashRunInputs();   // preserve what the user typed across the full-page OAuth redirect
     const u=new URL(NANOGPT + "/oauth/authorize");
     u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256",invitation_code:"W3x83yU3"}).toString();
     location.assign(u.toString());
@@ -2590,8 +2622,9 @@ window.NoodleApp = (function () {
 
     renderAuth();
     handleRedirect().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message)).finally(renderAuth);
+    restoreRunInputs();   // bring back anything typed before a sign-in redirect, before the first paint
     renderInputs();
-    buildDirtyTrack();   // snapshot AFTER renderInputs so lazy-applied defaults read as the baseline, not as edits
+    buildDirtyTrack();   // snapshot AFTER renderInputs (and the restore) so restored values read as the baseline, not as edits
     renderCount();
     renderLoop();
     ensureCostMeter();   // place the (hidden) "spent on this app" meter now → stable layout
