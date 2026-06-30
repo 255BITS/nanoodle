@@ -622,6 +622,8 @@ function normAudio(m){
   const mod = arch.modality||"", out = mod.split("->")[1]||"";
   const sp = m.supported_parameters || {};
   const voices = Array.isArray(sp.voices) ? sp.voices.filter(v=>typeof v==="string") : [];
+  // some STT models advertise a fixed language list → the Transcribe node offers a <select> instead of free text
+  const langs = Array.isArray(sp.supported_languages) ? sp.supported_languages.filter(x=>typeof x==="string") : [];
   // TODO(nanogpt): drop this guard once /api/v1/audio-models reports real modality (see
   // NANOGPT-audio-modality-bug.md). NanoGPT tags ~12 audio endpoints "text->music" that aren't:
   // lyrics generators (text->text), song analyzers (audio->text), stem/clone, the upload helper,
@@ -638,7 +640,7 @@ function normAudio(m){
   // speech→text (transcription). voice-clone models are mislabeled audio_stt but emit a voice-id,
   // not a transcript — exclude them by id so they don't pollute the Transcribe node.
   const stt = (!!c.speech_to_text || m.category==="audio_stt") && !/clone/i.test(m.id);
-  return { id:m.id, name:m.name||m.id, created:m.created, owner:m.owned_by||"", voices, params:sp,
+  return { id:m.id, name:m.name||m.id, created:m.created, owner:m.owned_by||"", voices, langs, params:sp,
     tts, gen, music: gen && !tts, stt, price };
 }
 
@@ -1524,9 +1526,23 @@ const NODE_TYPES = {
     modelKind:"audio", modelFilter:"stt",
     inputs:[{name:"audio", type:"audio"}],
     outputs:[{name:"text", type:"text"}], preview:"text",
-    body:(n)=>`
+    body:(n)=>{
+      const cur = n.fields.language||"auto";
+      const langs = (catItem("audio", n.fields.model)||{}).langs || [];
+      const style = "width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem";
+      // models that advertise a fixed language list → pick from it; the rest only auto-detect → free text
+      let langCtrl;
+      if(Array.isArray(langs) && langs.length){
+        const opts = ["auto", ...langs.filter(l=>l!=="auto")];
+        if(cur && !opts.includes(cur)) opts.push(cur);   // keep a stored value pickable
+        langCtrl = `<select data-f="language" style="${style}">${opts.map(l=>`<option value="${esc(l)}"${l===cur?" selected":""}>${esc(l)}</option>`).join("")}</select>`;
+      } else {
+        langCtrl = `<input data-f="language" value="${esc(cur)}" placeholder="auto" style="${style}"/>`;
+      }
+      return `
       ${modelFieldHTML(n)}
-      <div><label>language</label><input data-f="language" value="${esc(n.fields.language||"auto")}" placeholder="auto" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem"/></div>`,
+      <div><label>language</label>${langCtrl}</div>`;
+    },
     async run(n, inp, ctx){
       if(!inp.audio) throw new Error("no audio input");
       return { text: await ctx.transcribe(mdl(n), inp.audio, (n.fields.language||"auto").trim()) };
