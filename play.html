@@ -3017,7 +3017,17 @@ function bundle(files){
 
 // marvis/index-style preamble: storage shims (the sandbox blocks real localStorage in
 // the live preview) + Escape→parent so the builder can leave fullscreen.
-const PREVIEW_PREAMBLE =
+//
+// PREVIEW_CSP: a per-app <meta> CSP that re-seals the iframe's network egress to exactly
+// what an app legitimately needs (self / blob: / nano-gpt). The srcdoc inherits the parent
+// /play header CSP, and the browser enforces EVERY delivered policy — so even though that
+// header now also lists the URL shorteners (for the trusted Share UI in the parent chrome),
+// this tighter connect-src wins by intersection and a malicious shared app still cannot
+// fetch-exfiltrate the viewer's inputs/outputs to da.gd/tinyurl/clck.ru. Preview-only: the
+// exported bundle never carries this (it sets its own headers / runs standalone from file://).
+const PREVIEW_CSP =
+  '<meta http-equiv="Content-Security-Policy" content="connect-src \'self\' blob: https://nano-gpt.com">';
+const PREVIEW_PREAMBLE = PREVIEW_CSP +
   '<script>(function(){function s(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null;},setItem:function(k,v){m[k]=String(v);},removeItem:function(k){delete m[k];},clear:function(){m={};},key:function(i){return Object.keys(m)[i]||null;},get length(){return Object.keys(m).length;}};}' +
   'try{window.localStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"localStorage",{value:s(),configurable:true});}catch(_){}}' +
   'try{window.sessionStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"sessionStorage",{value:s(),configurable:true});}catch(_){}}})();' +
