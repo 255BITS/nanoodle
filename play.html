@@ -1579,6 +1579,37 @@ window.NoodleApp = (function () {
       }).catch(()=>{});
     });
   }
+  // Best-effort: STT models that advertise a fixed language list (supported_parameters.supported_languages)
+  // get a <select> (auto + each language) instead of the free-text language box; models that only auto-detect
+  // keep the text input. Mirrors fillDimLists' catalog-driven rewrite, but the control TYPE may change, so we
+  // swap the whole element and re-wire it onto the live field. Never blocks a run — an absent catalog leaves
+  // the text input in place.
+  function fillLangLists(){
+    (STATE.settings || []).forEach((it,i)=>{
+      if(it.node.type!=="transcribe" || it.field!=="language") return;
+      rawCatItem("audio", it.node.fields.model).then(m=>{
+        const el = document.getElementById("set_"+i); if(!el) return;
+        const sp = (m && m.supported_parameters) || {};
+        const langs = Array.isArray(sp.supported_languages) ? sp.supported_languages.filter(x=>typeof x==="string") : [];
+        const cur = it.node.fields[it.field] || "auto";
+        let ctrl;
+        if(langs.length){
+          const opts = ["auto", ...langs.filter(l=>l!=="auto")];
+          if(cur && opts.indexOf(cur)<0) opts.push(cur);   // keep a stored value pickable
+          ctrl = document.createElement("select");
+          ctrl.innerHTML = opts.map(l=> '<option value="'+esc(l)+'"'+(String(l)===String(cur)?" selected":"")+'>'+esc(l)+'</option>').join("");
+        } else {
+          if(el.tagName!=="SELECT") return;   // already free text → nothing to swap
+          ctrl = document.createElement("input");
+          ctrl.value = cur;
+          ctrl.setAttribute("placeholder", it.label);
+        }
+        ctrl.id = el.id; ctrl.setAttribute("data-ns","set"); ctrl.setAttribute("data-i", String(i));
+        ctrl.addEventListener(ctrl.tagName==="SELECT"?"change":"input", ()=>{ it.node.fields[it.field] = ctrl.value; checkDirty(); });
+        el.replaceWith(ctrl);
+      }).catch(()=>{});
+    });
+  }
 
   /* =====================================================================
      DESCRIBE — a plain-English account of what the graph actually does:
@@ -1829,6 +1860,7 @@ window.NoodleApp = (function () {
     });
     fillModelLists();
     fillDimLists();   // rewrite size/resolution/aspect/duration options from each model's live catalog
+    fillLangLists();  // swap the Transcribe language box for a <select> when the model lists supported languages
     box.querySelectorAll(".inpaint-ctl").forEach(ctl=> wireInpaintControl(box, ctl));
   }
   // Best-effort: pull each model field's catalog into its dropdown so the user can
@@ -1864,7 +1896,7 @@ window.NoodleApp = (function () {
       menu.hidden = false; input.setAttribute("aria-expanded","true");
     }
     function close(){ menu.hidden = true; input.setAttribute("aria-expanded","false"); active = -1; }
-    function pick(id){ input.value = id; it.node.fields[it.field] = id; close(); fillDimLists(); checkDirty(); }   // new model → refresh its dim options
+    function pick(id){ input.value = id; it.node.fields[it.field] = id; close(); fillDimLists(); fillLangLists(); checkDirty(); }   // new model → refresh its dim/language options
     input.addEventListener("focus", ()=> open(true));
     input.addEventListener("modelrefresh", ()=> open(true));   // catalog arrived while focused
     input.addEventListener("input", ()=>{ it.node.fields[it.field] = input.value.trim(); open(false); checkDirty(); });
