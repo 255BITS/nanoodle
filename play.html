@@ -624,7 +624,7 @@ window.NoodleApp = (function () {
       if(txt==null) throw new Error("no text in response");
       return typeof txt==="string" ? txt : txt.map(p=>p.text||"").join("");
     },
-    // async video: submit → poll /api/video/status until COMPLETED (up to 5 min)
+    // async video: submit → poll /api/video/status until COMPLETED (up to 10 min)
     // opts also carries optional source media: videoUrl/videoDataUrl (edit/extend/upscale)
     // and audioDataUrl (lipsync/avatar). duration/aspect only sent when set.
     async genVideo(model, prompt, opts, imageDataUrl, onProgress){
@@ -652,7 +652,7 @@ window.NoodleApp = (function () {
       const runId = j.runId || j.id;
       if(!runId) throw new Error("no runId returned");
       const t0 = Date.now();
-      while(Date.now()-t0 < 300000){
+      while(Date.now()-t0 < 600000){                  // 10 min — the job runs server-side, so patience here is cheap
         await sleep(5000);
         let s; try{ s = await (await apiFetch(NANOGPT + "/api/video/status?requestId=" + encodeURIComponent(runId), {headers:authHeaders()})).json(); }
         catch(e){ continue; }
@@ -666,7 +666,7 @@ window.NoodleApp = (function () {
         }
         if(["FAILED","ERROR","CANCELED"].includes(st)) throw new Error("video failed: " + ((s.data && s.data.error) || st));
       }
-      throw new Error("video timed out (5 min)");
+      throw new Error("Still rendering after 10 min — the job is likely still running on NanoGPT's side. Try running it again in a bit; a finished render usually returns fast.");
     },
     // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
     async genAudio(model, input, extra, onProgress){

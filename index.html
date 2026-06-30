@@ -1312,7 +1312,7 @@ const NODE_TYPES = {
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       if(!prompt) throw new Error("no prompt");
       const url = await ctx.genVideo(mdl(n), prompt,
-        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, null,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}), runKey:n.id }, null,
         (st,ms)=> setNodeProgress(n, `rendering video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
@@ -1333,7 +1333,7 @@ const NODE_TYPES = {
       if(!inp.image) throw new Error("no image input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       const url = await ctx.genVideo(mdl(n), prompt,
-        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}) }, inp.image,
+        { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}), runKey:n.id }, inp.image,
         (st,ms)=> setNodeProgress(n, `animating… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
@@ -1353,7 +1353,7 @@ const NODE_TYPES = {
     async run(n, inp, ctx){
       if(!inp.video) throw new Error("no video input");
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
-      const opts = await videoSourceOpts(inp.video); opts.lora = loraParams(n); opts.extra = (n.fields.modelOpts||{});
+      const opts = await videoSourceOpts(inp.video); opts.lora = loraParams(n); opts.extra = (n.fields.modelOpts||{}); opts.runKey = n.id;
       if(n.fields.resolution) opts.resolution = n.fields.resolution;
       if(n.fields.aspect) opts.aspect_ratio = n.fields.aspect;
       if(n.fields.duration) opts.duration = n.fields.duration;
@@ -1462,6 +1462,7 @@ const NODE_TYPES = {
           }
           try{ opts = { audioDataUrl: await urlToDataUrl(tmp) }; } finally { URL.revokeObjectURL(tmp); }
         } else opts = await audioSourceOpts(inp.audio);
+        opts.runKey = n.id;
         try{
           return { video: await ctx.genVideo(mdl(n), prompt, opts, inp.image, prog) };
         }catch(e){
@@ -2639,6 +2640,11 @@ const LORA_EXAMPLES = {
   zimage:     { url:"https://huggingface.co/tarn59/pixel_art_style_lora_z_image_turbo/resolve/main/pixel_art_style_z_image_turbo.safetensors", prompt:"pixel art, a knight standing in a green forest clearing" },
   ltx:        { url:"https://huggingface.co/vrgamedevgirl84/LTX_2.3_Crisp_Enhance_Style_LoRa/resolve/main/LTX2.3_Crisp_Enhance.safetensors", prompt:"a red fox trotting through a snowy forest, cinematic, crisp detail" },
 };
+// A submitted video job runs server-side regardless of whether our poll loop is still watching.
+// If we stop polling (timeout), the job — and the credits already spent — aren't lost: stash its
+// runId keyed by the calling node so the next run resumes the same job instead of paying to
+// re-submit. In-memory only; a transient runId has no business in a saved or shared graph.
+const PENDING_VIDEO = new Map();   // nodeId → runId of an in-flight (timed-out) video job
 const CTX = {
   async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra){
     const body = { model, prompt, size, n:1, response_format:"b64_json" };
@@ -2663,7 +2669,7 @@ const CTX = {
     if(txt==null) throw new Error("no text in response");
     return typeof txt==="string" ? txt : txt.map(p=>p.text||"").join("");
   },
-  // async video: submit → poll /api/video/status until COMPLETED (up to 5 min)
+  // async video: submit → poll /api/video/status until COMPLETED (up to 10 min)
   // opts also carries optional source media for editing models: videoUrl/videoDataUrl
   // (extend/edit/upscale) and audioDataUrl (lipsync/avatar). duration/aspect only sent when set.
   async genVideo(model, prompt, opts, imageDataUrl, onProgress){
@@ -2682,18 +2688,25 @@ const CTX = {
     // header-less 413 that the browser mislabels as a CORS error. There's no upload endpoint, so
     // catch oversize locally and explain it. Video chained from another node rides as a remote
     // videoUrl (not inlined), so this mainly bites large audio (full songs) on the lipsync node.
-    const payload = JSON.stringify(body);
-    if(payload.length > MEDIA_INLINE_MAX)
-      throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. A shorter clip works well — or build this flow into an app (✨ Create app) and run it offline.");
-    let r;
-    try{ r = await fetch(`${NANOGPT}/api/generate-video`, {method:"POST", headers:authHeaders(), body:payload}); }
-    catch(e){ throw new Error(`couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip, or build this into an app and run it offline. (${e.message||e})`); }
-    if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
-    const j = await r.json(); accrue(j);
-    const runId = j.runId || j.id;
-    if(!runId) throw new Error("no runId returned");
+    // Resume an earlier job that timed out on this node (opts.runKey = node id) — the work is still
+    // running server-side, so skip submit (and the second charge) and go straight back to polling.
+    const runKey = opts.runKey;
+    let runId = (runKey && PENDING_VIDEO.get(runKey)) || null;
+    if(!runId){
+      const payload = JSON.stringify(body);
+      if(payload.length > MEDIA_INLINE_MAX)
+        throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. A shorter clip works well — or build this flow into an app (✨ Create app) and run it offline.");
+      let r;
+      try{ r = await fetch(`${NANOGPT}/api/generate-video`, {method:"POST", headers:authHeaders(), body:payload}); }
+      catch(e){ throw new Error(`couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip, or build this into an app and run it offline. (${e.message||e})`); }
+      if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
+      const j = await r.json(); accrue(j);
+      runId = j.runId || j.id;
+      if(!runId) throw new Error("no runId returned");
+      if(runKey) PENDING_VIDEO.set(runKey, runId);   // remember it the moment it exists, so a timeout is recoverable
+    }
     const t0 = Date.now();
-    while(Date.now()-t0 < 300000){
+    while(Date.now()-t0 < 600000){                   // 10 min — the job runs server-side, so patience here is cheap
       await sleep(5000);
       let s; try{ s = await (await fetch(`${NANOGPT}/api/video/status?requestId=${encodeURIComponent(runId)}`, {headers:authHeaders()})).json(); }
       catch{ continue; }
@@ -2703,11 +2716,18 @@ const CTX = {
         const out = s.data?.output || s.output || {};
         const url = out.video?.url || out.url || (Array.isArray(out.video) ? out.video[0]?.url : null);
         if(!url) throw new Error("completed but no video url");
+        if(runKey) PENDING_VIDEO.delete(runKey);
         return url;
       }
-      if(["FAILED","ERROR","CANCELED"].includes(st)) throw new Error("video failed: " + (s.data?.error || st));
+      if(["FAILED","ERROR","CANCELED"].includes(st)){
+        if(runKey) PENDING_VIDEO.delete(runKey);     // genuinely dead — don't let a later run resume it
+        throw new Error("video failed: " + (s.data?.error || st));
+      }
     }
-    throw new Error("video timed out (5 min)");
+    // Don't discard the job: the runId stays in PENDING_VIDEO so re-running this node picks it back up.
+    throw new Error(runKey
+      ? "Still rendering after 10 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished video (you won't be charged twice)."
+      : "video timed out (10 min)");
   },
   // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
   // extra = the dynamic, model-specific params already resolved by the node (lyrics, voice, duration, …).
