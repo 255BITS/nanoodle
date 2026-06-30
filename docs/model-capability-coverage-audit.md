@@ -2,7 +2,10 @@
 
 # Model Capability Coverage Audit
 
-> **Status — wave 1 shipped (2026-06-29):** roadmap ranks **1, 2, 3** (LLM sampling + JSON mode + reasoning, PR #52), **4** (unmute audio-gen video, #50), **5** (text/number video params, #53), and **10** (STT language dropdown, #51) are merged to `main`, verified by live end-to-end smoke tests, and locked by offline `check-run-compat` scenarios. **Wave 2** (in progress): #7 image batch (contract verified — `n` honored), #6 multi-ref edit (verified — `imageDataUrl` accepts an array), #8 multimodal LLM input, #9 STT timestamps/diarization.
+> **Status (2026-06-29) — 9 of the top items shipped to `main`, all live-smoke-verified + locked by offline `check-run-compat` scenarios:**
+> - **Wave 1:** ranks **1/2/3** LLM sampling + JSON mode + reasoning (PR #52), **4** unmute audio-gen video (#50), **5** text/number video params (#53), **10** STT language dropdown (#51).
+> - **Wave 2:** **#7** image batch variations + `fixed_image_count` fix (#55), **#6** multi-reference image edit / compositing (#58), **#8** audio input to the LLM node (#54, audio half).
+> - **Deferred:** **#8 video input** (frames/URL-only, riskier) and **#9 STT timestamps/diarization** — the `Elevenlabs-STT` verbose endpoint 400'd on probe; needs the contract debugged before building. **#11 end-frame** and **#12 fps** remain as smaller follow-ups.
 
 ## TL;DR
 - **The single biggest lever is `normChat`.** It extracts exactly 1 of 8 advertised chat capabilities (`vision`); the other 7 (reasoning 262, tool_calling 195, structured_output 190, video_input 73, pdf_upload 86, audio_input 32) are invisible to every node and control. Widening this one normalizer (~3 lines) is the prerequisite that unblocks three separate high-reach chat features.
