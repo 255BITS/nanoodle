@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-06-29",
+    "text": "Customizing an app no longer loses versions — editing off an older version now branches to a new one instead of wiping the ones after it, and switching versions warns before clearing unsaved in-app edits."
+  },
+  {
+    "date": "2026-06-29",
     "text": "Video nodes no longer show generation modes they can't use — a Text→Video node won't offer \"Edit Video\" or \"Reference to Video\" anymore."
   },
   {
