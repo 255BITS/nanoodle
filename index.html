@@ -201,6 +201,7 @@
   #describestatus{ font-size:.8rem; min-height:1.1em; margin-top:.45rem; color:var(--dim); }
   #describestatus:empty{ display:none }
   #describestatus .ok{ color:var(--good) } #describestatus .err{ color:var(--bad) }
+  #describestatus .meter{ font-family:ui-monospace,SFMono-Regular,Menlo,monospace; color:var(--dim); opacity:.9; white-space:nowrap; margin-left:.35rem; }
   #describeversions{ display:flex; flex-wrap:wrap; gap:.3rem; align-items:center; margin-top:.45rem; }
   #describeversions:empty{ display:none }
   #describeversions .vlabel{ font-size:.74rem; color:var(--dim); margin-right:.05rem; }
@@ -3952,16 +3953,18 @@ RULES for the diff:
     return (links||[]).map(l=> typeof l.from==="string" ? { from:l.from, to:l.to } : { from:`${l.from.node}.${l.from.port}`, to:`${l.to.node}.${l.to.port}` });
   }
   // → { rawDiff, next }  (next = simplified graph). Throws with a friendly message on failure.
-  async function runGptdiff(prevSimple, instruction, model){
+  async function runGptdiff(prevSimple, instruction, model, clients){
     const gd = await lib();
     const key = getKey();
     const before = { [GRAPH_FILE]: JSON.stringify(prevSimple, null, 2) };   // pretty → line-granular diff
     const env = gd.buildEnvironment(before);
-    const rawDiff = await gd.generateDiff(env, instruction, { apiKey:key, model, prepend: await contract(), temperature:0 });
+    const rawDiff = await gd.generateDiff(env, instruction, { apiKey:key, model, prepend: await contract(), temperature:0, callLlm: clients && clients.gen });
     const parsed = gd.parseDiffPerFile(rawDiff);
     if(!rawDiff.trim() || !parsed.length) throw new Error("no applicable change — try rephrasing the request");
-    // smartapply: deterministic patch first, LLM-assisted apply if it doesn't land cleanly.
-    const updated = await gd.smartapply(rawDiff, before, { apiKey:key });
+    // smartapply: deterministic patch first, LLM-assisted apply (metered) if it doesn't land cleanly.
+    const applyLlm = clients && clients.apply;
+    const updated = await gd.smartapply(rawDiff, before, { apiKey:key,
+      callLlmForApply: applyLlm ? (pa,or,fd,mo,op)=> gd.callLlmForApply(pa,or,fd,mo,{ ...op, callLlm: applyLlm }) : undefined });
     const outText = updated[GRAPH_FILE];
     if(outText==null) throw new Error("the diff didn’t touch the workflow");
     let next;
@@ -4034,6 +4037,56 @@ RULES for the diff:
   }
   function setStatus(html, cls){ statusEl.innerHTML = html ? `<span class="${cls||""}">${html}</span>` : ""; }
 
+  // ---- token-usage meter (parity with the app builder): ↑ in · ↓ out · $cost, live during the run ----
+  const USAGE = { inTok:0, outTok:0, cost:0, exact:true };
+  function resetUsage(){ USAGE.inTok=USAGE.outTok=USAGE.cost=0; USAGE.exact=true; }
+  const estTok = s=> Math.ceil((s?String(s).length:0)/4);
+  const fmtTok = n=> n>=1000 ? (n/1000).toFixed(n>=10000?0:1)+"k" : String(Math.round(n));
+  function usageMeter(live){
+    const inT = USAGE.inTok + (live?live.inTok:0), outT = USAGE.outTok + (live?live.outTok:0);
+    if(!inT && !outT) return "";
+    const cost = USAGE.cost + (live?(live.cost||0):0);
+    const approx = !USAGE.exact || (live && live.live);
+    return `<span class="meter">↑ ${fmtTok(inT)} · ↓ ${fmtTok(outT)}${cost?` · ${approx?"~":""}$${cost.toFixed(4)}`:""}</span>`;
+  }
+  // streaming LLM client injected into gptdiff-js (same role as play's streamingCallLlm): streams the
+  // reply, repaints the meter live, then commits exact tokens + cost from x_nanogpt_pricing and bumps
+  // the editor's top-bar spend via accrue(). Uses the editor's own key/endpoint (no new origin).
+  function meteredCallLlm(phaseLabel){
+    return async ({ model, messages, maxTokens=null, temperature=1.0 })=>{
+      const inEst = (messages||[]).reduce((n,m)=> n+estTok(typeof m.content==="string"?m.content:JSON.stringify(m.content)), 0);
+      let outTok = 0;
+      const paint = ()=> setStatus(`<span class="db-spin"></span>${esc(phaseLabel)}… ${usageMeter({inTok:inEst,outTok,cost:0,live:true})}`);
+      paint();
+      const body = { model, messages, temperature, stream:true, ...(maxTokens?{max_tokens:maxTokens}:{}) };
+      const r = await fetch(CHAT_ENDPOINT, { method:"POST", headers:authHeaders(), body:JSON.stringify(body) });
+      if(!r.ok) throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`);
+      const reader = r.body.getReader(), dec = new TextDecoder();
+      let buf="", content="", reasoning="", pricing=null, lastPaint=0;
+      for(;;){
+        const { value, done } = await reader.read(); if(done) break;
+        buf += dec.decode(value, { stream:true });
+        const lines = buf.split("\n"); buf = lines.pop();
+        for(const line of lines){
+          const t = line.trim(); if(!t.startsWith("data:")) continue;
+          const data = t.slice(5).trim(); if(data==="[DONE]") continue;
+          let j; try{ j = JSON.parse(data); }catch{ continue; }
+          const d = j.choices?.[0]?.delta;
+          if(d){ if(d.content) content+=d.content; if(d.reasoning) reasoning+=d.reasoning; outTok = estTok(content)+estTok(reasoning);
+            const now = (typeof performance!=="undefined"?performance.now():0);
+            if(now-lastPaint>120){ lastPaint=now; paint(); } }
+          if(j.x_nanogpt_pricing) pricing = j.x_nanogpt_pricing;
+        }
+      }
+      USAGE.inTok  += (pricing && pricing.inputTokens!=null)  ? pricing.inputTokens  : inEst;
+      USAGE.outTok += (pricing && pricing.outputTokens!=null) ? pricing.outputTokens : outTok;
+      const exactCost = pricing && (pricing.costUsd!=null ? pricing.costUsd : pricing.cost);
+      if(exactCost!=null) USAGE.cost += Number(exactCost); else USAGE.exact = false;
+      if(pricing){ try{ accrue({ x_nanogpt_pricing: pricing }); }catch(_){} }   // editor top-bar spend
+      return { choices:[{ message:{ content: content.trim() ? content : reasoning } }] };
+    };
+  }
+
   function pulse(ids){
     for(const id of ids){
       const n = graph.nodes.find(x=>x.id===id);
@@ -4059,13 +4112,14 @@ RULES for the diff:
     if(!getKey()){ setStatus("⚠ Add your nano-gpt key first — “paste key” up top.", "err"); return; }
     const prevInternal = serializeGraph();
     const prevSimple = toSimple(prevInternal);
-    setBusy(true); setStatus(`<span class="db-spin"></span>planning your change…`);
+    setBusy(true); resetUsage(); setStatus(`<span class="db-spin"></span>planning your change…`);
+    const clients = { gen: meteredCallLlm("planning your change"), apply: meteredCallLlm("applying the change") };
     try{
-      const { next } = await runGptdiff(prevSimple, text, descModel);
+      const { next } = await runGptdiff(prevSimple, text, descModel, clients);
       const valid = validate(next);
       if(!valid.ok) throw new Error(valid.errs[0]);
       const dif = diff(prevSimple, next);
-      if(dif.count===0){ setStatus("No change needed — try being more specific."); return; }
+      if(dif.count===0){ setStatus(`No change needed — try being more specific. ${usageMeter()}`); return; }
       applyGraphData(fromSimple(next, prevInternal)); save();
       // record versions: seed v0 from the pre-change graph on the first change; branch if editing from an older version
       if(versions.length===0){ versions.push({ graph: clone(prevInternal), goal:"start" }); curVer = 0; }
@@ -4075,9 +4129,9 @@ RULES for the diff:
       renderVersions();
       input.value = "";
       pulse(dif.added.map(n=>n.id));
-      setStatus(`✓ ${esc(summarize(dif))}.`, "ok");
+      setStatus(`✓ ${esc(summarize(dif))}. ${usageMeter()}`, "ok");
     }catch(e){
-      setStatus("⚠ " + esc(e.message || String(e)), "err");
+      setStatus(`⚠ ${esc(e.message || String(e))} ${usageMeter()}`, "err");
     }finally{ setBusy(false); }
   }
 })();
