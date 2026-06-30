@@ -1,6 +1,18 @@
 [
   {
     "date": "2026-06-29",
+    "text": "LLM node can now take an audio input — wire a clip (or a 🗣️ Speech node) into a model that listens, to transcribe, describe, or critique what it hears."
+  },
+  {
+    "date": "2026-06-29",
+    "text": "Edit node now accepts multiple reference images — composite a product, a scene, and a face together on models that support it (Nano-Banana, Seedream…)."
+  },
+  {
+    "date": "2026-06-29",
+    "text": "Image nodes can generate several variations at once — pick the best from a thumbnail strip (and models that always return 4, like Midjourney, no longer waste the extra 3)."
+  },
+  {
+    "date": "2026-06-29",
     "text": "Transcribe: models with a fixed language list now offer a dropdown instead of a free-text box, so you can't mistype a language code."
   },
   {
