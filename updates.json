@@ -1,6 +1,22 @@
 [
   {
     "date": "2026-06-29",
+    "text": "Transcribe: models with a fixed language list now offer a dropdown instead of a free-text box, so you can't mistype a language code."
+  },
+  {
+    "date": "2026-06-29",
+    "text": "Video nodes expose more per-model knobs — negative prompt, seed, CFG and other text/number options now show up under ⚙️ Model options."
+  },
+  {
+    "date": "2026-06-29",
+    "text": "Video models that generate sound (Veo 3, Kling, Seedance…) now play their audio in the preview instead of staying silently muted."
+  },
+  {
+    "date": "2026-06-29",
+    "text": "LLM node ⚙️ advanced: set temperature & max tokens, force JSON output, and pick reasoning effort (with an optional thinking trace) — controls light up per model."
+  },
+  {
+    "date": "2026-06-29",
     "text": "Avatar / lipsync now works with a 🗣️ Speech node's audio — fixed a \"Failed to fetch\" that blocked turning text-to-speech into a talking video."
   },
   {
