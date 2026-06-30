@@ -1431,6 +1431,7 @@ const NODE_TYPES = {
       ${modelFieldHTML(n)}
       <div data-dims></div>
       <div><label>prompt</label><textarea data-f="prompt" placeholder="a red panda astronaut…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div><label>seed <span class="dim">· blank = random, fix to repeat (re-run won't regenerate)</span></label><input type="number" data-f="seed" placeholder="random" value="${esc(n.fields.seed??"")}"/></div>
       <div data-loraparams></div>`,
     async run(n, inp, ctx){
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
@@ -1439,7 +1440,7 @@ const NODE_TYPES = {
       const want = Math.max(1, Math.min(maxOut, parseInt(n.fields.variations,10)||1));
       // always take the multi path: even a single-image request can come back with N (fixed_image_count
       // models return 4), and we want to surface every image the user paid for, not discard them.
-      const urls = await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, loraParams(n), {n:want, multi:true});
+      const urls = await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, imgExtra(n), {n:want, multi:true});
       const sel = Math.min(Math.max(0, parseInt(n.fields.sel,10)||0), urls.length-1);   // remembered pick, clamped to what came back
       return { image: urls[sel], images: urls };
     }
@@ -1455,6 +1456,7 @@ const NODE_TYPES = {
       ${modelFieldHTML(n)}
       <div data-dims></div>
       <div><label>edit instruction</label><textarea data-f="prompt" placeholder="make it night-time, add neon…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div><label>seed <span class="dim">· blank = random, fix to repeat (re-run won't regenerate)</span></label><input type="number" data-f="seed" placeholder="random" value="${esc(n.fields.seed??"")}"/></div>
       <div data-loraparams></div>`,
     async run(n, inp, ctx){
       const imgs = collectImageInputs(inp, n);   // wired source images, in port order (image, image2, …)
@@ -1465,7 +1467,7 @@ const NODE_TYPES = {
       if(imgs.reduce((s,u)=> s + (u?u.length:0), 0) > MEDIA_INLINE_MAX)
         throw new Error("reference images too large (~4 MB combined limit) — use fewer or smaller images");
       const src = imgs.length>1 ? imgs : imgs[0];   // array → multi-image composite; string → single edit (unchanged)
-      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], src, undefined, loraParams(n)) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], src, undefined, imgExtra(n)) };
     }
   },
 
@@ -1509,7 +1511,8 @@ const NODE_TYPES = {
       ${sourceCtrls}
       ${maskCtrls}
       <div><label>size</label><select data-f="size">${optsHTML(SIZES, n.fields.size||SIZES[0][0])}</select></div>
-      <div><label>what to paint in</label><textarea data-f="prompt" placeholder="a red coffee mug, a small bird…">${esc(n.fields.prompt||"")}</textarea></div>`;
+      <div><label>what to paint in</label><textarea data-f="prompt" placeholder="a red coffee mug, a small bird…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div><label>seed <span class="dim">· blank = random, fix to repeat (re-run won't regenerate)</span></label><input type="number" data-f="seed" placeholder="random" value="${esc(n.fields.seed??"")}"/></div>`;
     },
     mount: mountInpaint,
     async run(n, inp, ctx){
@@ -1522,7 +1525,7 @@ const NODE_TYPES = {
       const mask = await maskToSource(rawMask, source);   // composite onto black at the source's pixel size
       if((source.length + mask.length) > MEDIA_INLINE_MAX)
         throw new Error("image too large (~4 MB limit) — use a smaller source image");
-      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], source, mask) };
+      return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], source, mask, imgExtra(n)) };
     }
   },
 
@@ -2771,6 +2774,25 @@ function updateRunButtons(){
   run.disabled = draining;                         // mid-stop: ignore clicks until the run unwinds
 }
 
+/* ---------- deterministic-skip cache ----------
+   A node with a FIXED seed reproduces the same output for the same inputs, so re-running it
+   is pure waste — surface the existing result as done without spending a call. A BLANK seed
+   means "roll a fresh one each run" (random), so those never cache and always regenerate.
+   The signature spans every field that shapes the request (minus the display-only variation
+   pick) plus the resolved upstream inputs, so any edit to a knob or upstream output busts it.
+   Runtime-only (n._sig); never serialized (see serializeGraph). */
+const SEED_FIELD = { image:1, edit:1, inpaint:1, music:1 };   // nodes whose seed lives in n.fields.seed
+function nodeSeed(n){
+  if(SEED_FIELD[n.type]) return n.fields.seed;
+  if(VIDEO_OPT_NODES[n.type]) return n.fields.modelOpts?.seed;   // video seed rides in the catalog modelOpts
+  return undefined;
+}
+function isSeeded(n){ const s = nodeSeed(n); return s!=null && String(s).trim()!==""; }   // a concrete seed → deterministic
+function sigHash(s){ let h=5381; for(let i=0;i<s.length;i++) h=((h*33) ^ s.charCodeAt(i))>>>0; return h; }
+function nodeSig(n, inp){
+  const f = {...n.fields}; delete f.sel; delete f.brush;   // display-only knobs (variation pick, inpaint brush radius) don't change the output
+  return sigHash(JSON.stringify({ t:n.type, f, inp }));
+}
 // Run one group: lock its whole connected component, execute the ancestors of `seedIds` in topo order.
 // Multiple groups run concurrently because callers don't await each other.
 async function runGroup(seedIds){
@@ -2830,8 +2852,12 @@ async function runGroup(seedIds){
           if(v!=null) fieldOverrides[l.to.port] = v;
         }
         const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
+        // Deterministic skip: a seeded node with unchanged inputs would just reproduce its existing
+        // output, so surface it as done — no second charge. Blank seed = random, so never skip.
+        const sig = nodeSig(rn, inp);
+        if(isSeeded(rn) && n._sig===sig && n.out && Object.keys(n.out).length){ showResult(n); setStatus(n, "done"); return; }
         setStatus(n, "run");
-        try{ n.out = await t.run(rn, inp, CTX) || {}; showResult(n); setStatus(n, "done");
+        try{ n.out = await t.run(rn, inp, CTX) || {}; n._sig = sig; showResult(n); setStatus(n, "done");
           // a downstream Inpaint node brushing a WIRED source can now load its canvas from this output
           for(const l of graph.links){
             const dn = l.from.node===n.id ? byId(l.to.node) : null;
@@ -2956,6 +2982,14 @@ function loraBodyFor(model, items){       // items: [{url,scale}], 1..cap, alrea
   return { loras: items.map(function(it){ return { path:it.url, scale:sc(it.scale) }; }) };  // fal stack (verified)
 }
 // request params for a node's LoRA(s) — {} when none; throws on a bad URL before any paid call
+// per-call image params: any LoRA, plus a fixed seed when set (only-when-nonempty, so a model
+// that ignores seed simply never receives it — and the deterministic-skip cache reuses the
+// result regardless, making "same seed → same image" hold even if the model isn't seed-honest)
+function imgExtra(n){
+  const e = loraParams(n), s = n.fields.seed;
+  if(s!=null && String(s).trim()!=="" && !isNaN(Number(s))) e.seed = Number(s);
+  return e;
+}
 function loraParams(n){
   if(!modelTakesLora(loraKind(n.type), n.fields.model)) return {};
   var rows = nodeLoras(n).filter(function(r){ return r && (r.url||"").trim(); });

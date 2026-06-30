@@ -605,6 +605,13 @@ window.NoodleApp = (function () {
     });
     return loraBodyFor(n.fields.model, items);
   }
+  // per-call image params: LoRA + a fixed seed when set (only-when-nonempty). Mirrors index.html's
+  // imgExtra so an exported/standalone run produces the same request as the editor.
+  function imgExtra(n){
+    var e = loraParams(n), s = n.fields.seed;
+    if(s!=null && String(s).trim()!=="" && !isNaN(Number(s))) e.seed = Number(s);
+    return e;
+  }
 
   /* =====================================================================
      CTX — NanoGPT calls (verbatim behavior, index.html)
@@ -1101,7 +1108,7 @@ window.NoodleApp = (function () {
         if(!prompt) throw new Error("no prompt");
         const want = Math.max(1, parseInt(n.fields.variations,10)||1);
         // always multi: even n:1 can return N (fixed_image_count models) — surface every image paid for.
-        const urls = await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, loraParams(n), {n:want, multi:true});
+        const urls = await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, imgExtra(n), {n:want, multi:true});
         const sel = Math.min(Math.max(0, parseInt(n.fields.sel,10)||0), urls.length-1);
         return { image: urls[sel], images: urls };
       }
@@ -1118,7 +1125,7 @@ window.NoodleApp = (function () {
         if(imgs.reduce(function(s,u){ return s + (u?u.length:0); }, 0) > MEDIA_INLINE_MAX)
           throw new Error("reference images too large (~4 MB combined limit) — use fewer or smaller images");
         const src = imgs.length>1 ? imgs : imgs[0];   // array → multi-image composite; string → single edit (unchanged)
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], src, undefined, loraParams(n)) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], src, undefined, imgExtra(n)) };
       }
     },
     inpaint: {
@@ -1132,7 +1139,7 @@ window.NoodleApp = (function () {
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt — say what to paint into the brushed area");
         const mask = await maskToSource(rawMask, source);
-        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], source, mask) };
+        return { image: await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], source, mask, imgExtra(n)) };
       }
     },
     vision: {
@@ -1500,10 +1507,12 @@ window.NoodleApp = (function () {
               { f:"q",     label:"Question", kind:"textarea", def:"Describe this image." }],
     image:   [{ f:"model", label:"Model", kind:"model" },
               { f:"size",  label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] },
-              { f:"variations", label:"Variations", kind:"number", min:1, def:"1" }],
+              { f:"variations", label:"Variations", kind:"number", min:1, def:"1" },
+              { f:"seed", label:"Seed", kind:"number" }],
     edit:    [{ f:"model", label:"Model", kind:"model" },
               { f:"prompt", label:"Edit instruction", kind:"textarea" },
-              { f:"size",  label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] }],
+              { f:"size",  label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] },
+              { f:"seed", label:"Seed", kind:"number" }],
     tvideo:  [{ f:"model", label:"Model", kind:"model" },
               { f:"resolution", label:"Resolution", kind:"select", options:RESOLUTIONS, def:"" },
               { f:"aspect",   label:"Aspect ratio", kind:"select", options:ASPECTS, def:"16:9" },
