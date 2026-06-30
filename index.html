@@ -610,6 +610,7 @@ function normVideo(m){
     avatar:!!c.image_to_video && !!c.audio_input && !multiAudio,    // image + single audio → talking video (→ lipsync node)
     lora,                                            // catalog advertises lora_url_N → the LoRA disclosure is offered
     params: pp,                                      // per-model param descriptors → the ⚙️ Model options block
+    defaults: sp.defaults || {},                     // catalog's per-param default values → placeholders in ⚙️ Model options
     pricing: p,                                      // raw pricing → live price recomputed as resolution/duration change
     price };
 }
@@ -917,19 +918,38 @@ async function audioRun(n, inp, ctx){
 const VIDEO_OPT_NODES = { tvideo:1, ivideo:1, vedit:1 };
 // size/length/aspect/fps: node-owned and/or price-affecting — never auto-surfaced as a "knob"
 const PRICE_OR_DIM_PARAM = /^(duration|seconds|aspect_ratio|resolution|resolution_ratio|size|orientation|fps|frames_per_second|num_frames)$/;
+// free-text/number params that are really URLs, media references, or JSON lists — they need real
+// wiring (image/video/audio ports, the 🎨 LoRA box), not a footgun free-text box, so they're never
+// surfaced as a knob. Driven off the key + descriptor (no model names); selects/switches are unaffected.
+function videoFreetextSkip(key, d){
+  if(/(^|_)(image|images|video|videos|audio|audios)(_urls?)?$/i.test(key)) return true;   // media references
+  if(/_urls?$/i.test(key)) return true;                                                    // any URL slot
+  if(/^(loras|element_list|multi_prompt|last_image|end_image|prompt)$/i.test(key)) return true; // JSON lists / frame URLs / would clobber the node's main prompt
+  const txt = (d.description||"") + " " + (d.placeholder||"");
+  if(/\bJSON (array|object)\b|\bURLs?\b/i.test(txt)) return true;                           // descriptor itself declares a URL/list
+  return false;
+}
 function videoOptDefs(model){
-  const p = (catItem("video", model)||{}).params || {};
+  const it = catItem("video", model) || {};
+  const p = it.params || {}, dflt = it.defaults || {};
   const defs = [];
   for(const [key,d] of Object.entries(p)){
     if(!d || typeof d!=="object") continue;
     if(PRICE_OR_DIM_PARAM.test(key)) continue;                 // dims/price live on the node, not here
     if(/^lora(_|$)/i.test(key)) continue;                      // the 🎨 LoRA box handles these
+    const def = dflt[key]!=null ? dflt[key] : d.default;       // catalog default → placeholder/initial
     if(d.type==="select"){
       const opts = (d.options||[]).filter(o=> o && o.value!=="" && o.value!=null);
       if(opts.length<2) continue;                              // nothing meaningful to choose
-      defs.push({ key, label:d.label||key, type:"select", options:opts, def:d.default, desc:d.description });
+      defs.push({ key, label:d.label||key, type:"select", options:opts, def, desc:d.description });
     } else if(d.type==="switch" || d.type==="boolean"){
-      defs.push({ key, label:d.label||key, type:"bool", def:d.default, desc:d.description });
+      defs.push({ key, label:d.label||key, type:"bool", def, desc:d.description });
+    } else if((d.type==="text" || d.type==="string" || d.type==="number") && !videoFreetextSkip(key,d)){
+      // free-text/number knobs (negative_prompt, seed, cfg_scale, num_inference_steps…) — sent
+      // only-when-nonempty (see refreshModelOpts), so the model's own default applies when blank.
+      const long = d.type!=="number" && /prompt|description|instruction/i.test(key);
+      defs.push({ key, label:d.label||key, type:(d.type==="number"?"number":(long?"textarea":"text")),
+        def, desc:d.description, min:d.min, max:d.max, step:d.step, ph:d.placeholder });
     }
   }
   return defs;
@@ -949,6 +969,17 @@ function refreshModelOpts(n){
       const on = (v==null) ? (d.def===true||d.def==="true") : (v===true||v==="true");
       return `<label class="setbool" style="margin:3px 0"><input type="checkbox" data-of="${esc(d.key)}"${on?" checked":""}/> ${esc(d.label)}</label>${hint}`;
     }
+    if(d.type==="text" || d.type==="textarea" || d.type==="number"){
+      const val = (v!=null) ? v : "";                          // stored value; empty → show default as placeholder, send nothing
+      const ph  = (d.def!=null && d.def!=="") ? String(d.def) : (d.ph||"");
+      const rng = (d.type==="number" && d.min!=null && d.max!=null) ? ` (${esc(d.min)}–${esc(d.max)})` : "";
+      const lab = `<label>${esc(d.label)}${rng}</label>`;
+      if(d.type==="textarea")
+        return `<div style="margin:3px 0">${lab}<textarea data-of="${esc(d.key)}" style="min-height:40px" placeholder="${esc(ph)}">${esc(val)}</textarea>${hint}</div>`;
+      if(d.type==="number")
+        return `<div style="margin:3px 0">${lab}<input type="number" data-of="${esc(d.key)}" step="${esc(d.step!=null?d.step:"any")}"${d.min!=null?` min="${esc(d.min)}"`:""}${d.max!=null?` max="${esc(d.max)}"`:""} value="${esc(val)}" placeholder="${esc(ph)}"/>${hint}</div>`;
+      return `<div style="margin:3px 0">${lab}<input type="text" data-of="${esc(d.key)}" value="${esc(val)}" placeholder="${esc(ph)}"/>${hint}</div>`;
+    }
     const sel = (v!=null) ? v : (d.def!=null ? d.def : "");
     return `<div style="margin:3px 0"><label>${esc(d.label)}</label><select data-of="${esc(d.key)}">${
       d.options.map(o=>`<option value="${esc(o.value)}"${String(o.value)===String(sel)?" selected":""}>${esc(o.label!=null?o.label:o.value)}</option>`).join("")}</select>${hint}</div>`;
@@ -960,7 +991,11 @@ function refreshModelOpts(n){
   box.querySelectorAll("[data-of]").forEach(el=>{
     const key = el.dataset.of;
     el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
-      cur[key] = el.type==="checkbox" ? el.checked : el.value; save();
+      if(el.type==="checkbox") cur[key] = el.checked;
+      else if(el.value==="") delete cur[key];                      // omit empty → the model's own default applies (send-only-when-nonempty)
+      else if(el.type==="number"){ const num=Number(el.value); cur[key] = isNaN(num) ? el.value : num; }
+      else cur[key] = el.value;                                    // select / text / textarea
+      save();
     });
     el.addEventListener("pointerdown", e=> e.stopPropagation());   // don't drag the node while choosing
   });
