@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-01",
+    "text": "Your shared and exported apps now show a \"~$X / run\" cost estimate right next to the Run button, so people know what a run costs before they spend."
+  },
+  {
+    "date": "2026-07-01",
     "text": "See what a workflow costs before you run it — a live \"~$X to run\" estimate now sits bottom-right, and every model shows its price in the picker (video models that used to display a blank now show a per-clip estimate)."
   },
   {
