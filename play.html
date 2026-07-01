@@ -762,7 +762,10 @@ window.NoodleApp = (function () {
     },
     async genChat(messages, model, opts){
       opts = opts || {};
-      const body = { model, messages: withLocale(messages) };           // withLocale injects the app locale so model output matches the UI language
+      // withLocale injects "respond in <app language>" so prose output matches the app language.
+      // Skip it for JSON/structured mode: the directive corrupts json_object output and localizes
+      // tokens a downstream node may switch on (e.g. positive/negative → positivo/negativo).
+      const body = { model, messages: opts.response_format ? messages : withLocale(messages) };
       body.temperature = (opts.temperature!=null && opts.temperature!=="") ? +opts.temperature : 0.8;
       if(opts.max_tokens) body.max_tokens = +opts.max_tokens;
       if(opts.response_format) body.response_format = opts.response_format;   // {type:"json_object"} for JSON mode
