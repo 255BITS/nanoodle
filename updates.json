@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-01",
+    "text": "Shared and exported apps now greet signed-out visitors with a short, honest note — this runs AI on your own nano-gpt key, the key stays in your browser, and each run shows what it cost."
+  },
+  {
+    "date": "2026-07-01",
     "text": "Combine is fixed — clips now join instantly and exactly, with audio locked to picture: no more freezing partway, drifting out of sync, dropped frames at seams, or over-long output. Matching formats stitch losslessly."
   },
   {
