@@ -431,9 +431,10 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* key entry */
-  #keyrow{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:50; display:none; gap:.5rem;
+  #keyrow{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:50; display:none; gap:.5rem; flex-wrap:wrap;
            background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.6rem; align-items:center; box-shadow:0 12px 40px #0008}
   #keyrow.open{display:flex}
+  #keynote{ flex-basis:100%; font-size:.72rem }
   #keyrow input{ width:330px; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.45rem .55rem }
   .pill{ font-size:.66rem; padding:.05rem .4rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff }
   .dim{ color:var(--dim) }
@@ -553,6 +554,9 @@
 </header>
 
 <div id="keyrow">
+  <span id="keynote" class="dim">Running calls models on your NanoGPT key.</span>
+  <button id="keysignin" class="btn">sign in</button>
+  <span class="dim">or</span>
   <input id="keyinput" type="password" autocomplete="off" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" />
   <button id="keysave" class="btn">save</button>
   <span class="dim" style="font-size:.72rem;color:var(--dim)">nano-gpt.com → Settings → API</span>
@@ -4236,15 +4240,17 @@ async function handleRedirect(){
   if(!r.ok) throw new Error("token: "+(await r.text()));
   setKey((await r.json()).access_token);
 }
-// Run while signed out kicks off the same sign-in the bar button uses, instead of just nagging.
+// Run while signed out surfaces the inline choice (sign in OR paste a key) instead of silently redirecting.
 function ensureAuth(){
   if(getKey()) return true;
-  if(/^https?:$/.test(location.protocol)) signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
-  else { $("keyrow").classList.add("open"); $("keyinput").focus(); flash("paste a nano-gpt.com API key to run"); }
+  $("keysignin").style.display = /^https?:$/.test(location.protocol) ? "" : "none";
+  $("keyrow").classList.add("open"); $("keyinput").focus();
   return false;
 }
 $("signin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
 $("pastebtn").onclick = ()=>{ $("keyrow").classList.add("open"); $("keyinput").focus(); };
+$("keysignin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
+addEventListener("keydown", e=>{ if(e.key==="Escape" && $("keyrow").classList.contains("open")){ e.preventDefault(); $("keyrow").classList.remove("open"); } });
 $("keysave").onclick = ()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("keyrow").classList.remove("open"); } };
 $("signout").onclick = ()=> setKey(null);
 
