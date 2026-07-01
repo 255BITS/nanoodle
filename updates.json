@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-01",
+    "text": "New one-time hint teaches you to drag between ● ports to connect, or drop a wire on empty canvas to quick-add a node."
+  },
+  {
+    "date": "2026-07-01",
     "text": "Combine is fixed — clips now join instantly and exactly, with audio locked to picture: no more freezing partway, drifting out of sync, dropped frames at seams, or over-long output. Matching formats stitch losslessly."
   },
   {
