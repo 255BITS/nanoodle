@@ -13,6 +13,10 @@
   },
   {
     "date": "2026-06-30",
+    "text": "First time you open the app builder, a one-time dismissible hint explains that ✎ Edit workflow takes you back to the graph and keeps your app."
+  },
+  {
+    "date": "2026-06-30",
     "text": "Shorter share links + share-to-social — the Share menu can now shrink a link (TinyURL/da.gd) and post straight to X, Reddit, Facebook or email, and exported apps now show a proper title card when shared on social."
   },
   {
