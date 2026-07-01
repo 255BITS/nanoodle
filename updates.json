@@ -17,6 +17,10 @@
   },
   {
     "date": "2026-06-30",
+    "text": "New visitors get a one-line \"press ▶ Run, or ＋ Add node\" hint (dismissible, shown once) and a 🖼️ Gallery button to browse & remix example workflows."
+  },
+  {
+    "date": "2026-06-30",
     "text": "Shorter share links + share-to-social — the Share menu can now shrink a link (TinyURL/da.gd) and post straight to X, Reddit, Facebook or email, and exported apps now show a proper title card when shared on social."
   },
   {
