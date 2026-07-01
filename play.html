@@ -3085,6 +3085,38 @@ window.NoodleApp = (function () {
       return !(r.status===401 || r.status===403);
     }catch(_){ return true; }
   }
+  // Warm landing for a shared-app / exported recipient who lands here without a key:
+  // styles injected at runtime (mirroring injectCostStyles, with var() fallbacks) so a
+  // gptdiff-customized shell that rewrote its CSS still renders the card themed.
+  function injectAuthIntroStyles(){
+    if(document.getElementById("noodle-authintro-style")) return;
+    const s = document.createElement("style"); s.id = "noodle-authintro-style";
+    s.textContent =
+      '.auth-intro{margin:.6rem 0 .5rem;padding:.75rem .85rem;border:1px solid var(--line,#2a3150);'
+        + 'border-radius:var(--radius,.7rem);background:var(--panel,#161a27);max-width:52ch;text-align:left;}'
+      + '.auth-intro p{margin:.2rem 0;font-size:.8rem;color:var(--dim,#8b93b4);line-height:1.5;}'
+      + '.auth-intro .auth-why{color:var(--ink,#e6e9f5);font-weight:600;font-size:.85rem;margin-bottom:.35rem;}'
+      + '.auth-intro .auth-new{margin-top:.4rem;}'
+      + '.auth-intro a{color:var(--accent,#7c8cff);text-decoration:none;}'
+      + '.auth-intro a:hover{text-decoration:underline;}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  function authIntro(embedded){
+    injectAuthIntroStyles();
+    // The "create an account" call to action differs by surface: a standalone / exported
+    // app runs un-sandboxed, so a plain new-tab link works. The #a= share-link preview
+    // runs in a sandboxed iframe with no allow-popups, where a target=_blank link is dead
+    // — there we point at the top bar, which is un-sandboxed and owns sign-in / sign-up.
+    const newAcct = embedded
+      ? '<p class="auth-new">new to nano-gpt? use <b>Sign in</b> at the top — creating an account is free.</p>'
+      : '<p class="auth-new">new to nano-gpt? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a></p>';
+    return '<div class="auth-intro">'
+      + '<p class="auth-why">this app runs AI on your own nano-gpt key</p>'
+      + '<p>the models are called straight from your browser — nanoodle has no server and no analytics, so nothing runs until you add a key.</p>'
+      + '<p>your key stays on this device. you pay nano-gpt per run, on your own key, and each run shows what it cost — setup takes about a minute.</p>'
+      + newAcct
+      + '</div>';
+  }
   function renderAuth(){
     const box = $("app-auth"); if(!box) return;
     // Embedded in the builder, auth belongs to the parent (it holds the key and proxies
@@ -3094,7 +3126,7 @@ window.NoodleApp = (function () {
       // (no "signed in" indicator) and only nudge when not yet signed in.
       box.innerHTML = parentAuthed
         ? ''
-        : '<span class="dim">sign in from the bar at the top to run this app</span>';
+        : authIntro(true) + '<span class="dim">sign in from the bar at the top to run this app</span>';
       return;
     }
     const ok = !!getKey();
@@ -3105,7 +3137,8 @@ window.NoodleApp = (function () {
     const canOAuth = /^https?:$/.test(location.protocol);
     box.innerHTML = ok
       ? '<span class="authok">signed in ✓</span> <button class="link" id="auth-out">sign out</button>'
-      : (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
+      : authIntro(false)
+      + (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
       + '<button class="link" id="auth-paste">paste key</button>'
       + ' <span class="keyrow" id="auth-keyrow" hidden>'
       + '<input id="auth-keyinput" type="password" placeholder="nano-gpt API key" autocomplete="off">'
