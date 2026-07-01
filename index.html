@@ -328,6 +328,7 @@
   .node[data-status=run]{ border-color:var(--warn) }
   .node[data-status=done]{ border-color:var(--good) }
   .node[data-status=error]{ border-color:var(--bad) }
+  .node[data-status=skip]{ border-color:var(--dim); border-style:dashed }
   .node header{ display:flex; align-items:center; gap:.4rem; padding:.45rem .55rem; cursor:grab;
                 border-bottom:1px solid var(--line); border-radius:.7rem .7rem 0 0; }
   .node header.t-image{ background:linear-gradient(90deg,#ff79c622,transparent) }
@@ -347,6 +348,7 @@
   .node[data-status=run] .dot{ background:var(--warn); animation:pulse 1s infinite }
   .node[data-status=done] .dot{ background:var(--good) }
   .node[data-status=error] .dot{ background:var(--bad) }
+  .node[data-status=skip] .dot{ background:var(--dim) }
   @keyframes pulse{50%{opacity:.3}}
 
   .ports{ display:flex; justify-content:space-between; padding:.45rem 0 .2rem; }
@@ -429,9 +431,10 @@
   @keyframes sp{to{transform:rotate(360deg)}}
 
   /* key entry */
-  #keyrow{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:50; display:none; gap:.5rem;
+  #keyrow{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:50; display:none; gap:.5rem; flex-wrap:wrap;
            background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.6rem; align-items:center; box-shadow:0 12px 40px #0008}
   #keyrow.open{display:flex}
+  #keynote{ flex-basis:100%; font-size:.72rem }
   #keyrow input{ width:330px; background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.45rem .55rem }
   .pill{ font-size:.66rem; padding:.05rem .4rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff }
   .dim{ color:var(--dim) }
@@ -496,6 +499,27 @@
     .node header .hbtn{ padding:6px 9px; font-size:1rem }
     .result .acts button{ padding:.45rem .65rem; font-size:.8rem }
   }
+
+  /* ---------- share popover (ported from play.html's app share) ---------- */
+  #shareback{ position:fixed; inset:0; z-index:190; }
+  #sharemenu{ position:fixed; right:.6rem; top:3rem; z-index:191; width:min(360px,94vw);
+              max-height:80vh; overflow:auto; background:var(--panel); border:1px solid var(--line);
+              border-radius:.7rem; box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.55rem .6rem; }
+  #sharemenu[hidden], #shareback[hidden]{ display:none; }
+  .sm-head{ font-size:.72rem; text-transform:uppercase; letter-spacing:.08em; color:var(--dim); padding:.3rem .5rem .35rem; }
+  .sm-urlrow{ display:flex; gap:.4rem; align-items:center; }
+  .sm-url{ flex:1; min-width:0; font-size:.78rem; font-family:ui-monospace,monospace; color:var(--dim);
+           background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.4rem .5rem; }
+  .sm-copy{ flex:none; }
+  .sm-note{ font-size:.74rem; color:var(--dim); margin:.4rem .15rem .1rem; line-height:1.4; }
+  .sm-warn{ font-size:.74rem; color:var(--dim); margin:.15rem .15rem .35rem; line-height:1.45;
+            border-left:2px solid var(--accent); padding:.1rem .5rem; }
+  .sm-svc, .sm-social{ display:flex; gap:.4rem; flex-wrap:wrap; }
+  .sm-svc button, .sm-social a{ font-size:.82rem; padding:.4rem .6rem; border-radius:.5rem; cursor:pointer;
+            background:var(--panel2); border:1px solid var(--line); color:var(--ink); text-decoration:none;
+            display:inline-flex; align-items:center; gap:.3rem; }
+  .sm-svc button:hover, .sm-social a:hover{ background:var(--panel); border-color:var(--accent); }
+  .sm-svc button:disabled{ opacity:.5; cursor:progress; }
 </style>
 </head>
 <body>
@@ -511,7 +535,7 @@
   <button id="makeapp" title="Turn this workflow into a shareable app">✨ Create app</button>
   <button id="newapp" title="Start a NEW app from this workflow (don’t update the one you’re editing)" hidden>✨ New</button>
   <button id="share" title="Copy a link that loads this exact workflow — paste it to share with anyone">🔗 Share</button>
-  <button id="submitcontest" title="Enter this in the Noodle Cookoff">🏆 Submit</button>
+  <button id="submitcontest" title="Enter this in the Noodle Cookoff">🏆 Cookoff</button>
   <button id="save" title="download this graph as JSON">⭳ Save</button>
   <button id="load" title="open a graph JSON file">⭱ Load</button>
   <button id="updates" title="What’s new in nanoodle">📣 Updates<span id="updbadge" hidden></span></button>
@@ -530,7 +554,10 @@
 </header>
 
 <div id="keyrow">
-  <input id="keyinput" type="text" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" />
+  <span id="keynote" class="dim">Running calls models on your NanoGPT key.</span>
+  <button id="keysignin" class="btn">sign in</button>
+  <span class="dim">or</span>
+  <input id="keyinput" type="password" autocomplete="off" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" />
   <button id="keysave" class="btn">save</button>
   <span class="dim" style="font-size:.72rem;color:var(--dim)">nano-gpt.com → Settings → API</span>
 </div>
@@ -632,6 +659,7 @@
       <span id="sublinkhint" class="sub-linkhint">Opens your creation as a ready-to-run app — what people click to try it. Best for entries.</span>
       <div class="sub-linkrow">
         <input id="submitlink" type="text" readonly value="" aria-label="Your entry link" />
+        <button id="submitshort" class="sub-copy" title="Shorten this link (via da.gd) — nicer to post">✂ Shorten</button>
         <button id="submitcopy" class="sub-copy">Copy link</button>
       </div>
     </div>
@@ -645,6 +673,32 @@
     </div>
   </div>
 </div>
+
+<!-- SHARE popover — copy / shorten (opt-in, 3rd-party) / share-to-social. Same as the app share. -->
+<div id="sharemenu" hidden>
+  <div class="sm-head">Share this workflow</div>
+  <div class="sm-urlrow">
+    <input id="sm-url" class="sm-url" readonly />
+    <button id="sm-copy" class="sm-copy">Copy</button>
+  </div>
+  <p class="sm-note">This link opens your exact workflow for anyone to run or remix.</p>
+
+  <div class="sm-head">Make it shorter — optional</div>
+  <p class="sm-warn">Sends this link to a third-party shortener so <em>they</em> host it. They can see the workflow.</p>
+  <div class="sm-svc">
+    <button data-svc="tinyurl">TinyURL</button>
+    <button data-svc="dagd">da.gd</button>
+  </div>
+
+  <div class="sm-head">Share to</div>
+  <div class="sm-social">
+    <a data-soc="x" target="_blank" rel="noopener">𝕏</a>
+    <a data-soc="reddit" target="_blank" rel="noopener">Reddit</a>
+    <a data-soc="facebook" target="_blank" rel="noopener">Facebook</a>
+    <a data-soc="email">Email</a>
+  </div>
+</div>
+<div id="shareback" hidden></div>
 
 <main id="editor" aria-label="Workflow canvas">
   <svg id="wires"></svg>
@@ -791,7 +845,7 @@ function normAudio(m){
   // not a transcript — exclude them by id so they don't pollute the Transcribe node.
   const stt = (!!c.speech_to_text || m.category==="audio_stt") && !/clone/i.test(m.id);
   return { id:m.id, name:m.name||m.id, created:m.created, owner:m.owned_by||"", voices, langs, params:sp,
-    tts, gen, music: gen && !tts, stt, price };
+    tts, gen, music: gen && !tts, stt, pricing:p, price };   // raw pricing kept so transcribe can estimate from per_minute
 }
 
 const CATALOG = {
@@ -1335,6 +1389,13 @@ function livePrice(kind, fields){
     }
   }
   return it.price||"";
+}
+// raw per-image USD for (model,size) from the catalog — the number behind livePrice's "$/img"
+// string. Used to estimate image spend, which /v1/images/generations omits from its response.
+function imageUnitUsd(model, size){
+  const per = catItem("image", model)?.sizePrices || {};
+  const v = per[size] ?? per.square ?? per.square_hd ?? Object.values(per)[0];
+  return (v!=null && isFinite(+v)) ? +v : null;
 }
 function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshDims(n); refreshAudioParams(n); refreshLoraParams(n); refreshModelOpts(n); backfillModel(n); }); }
 function backfillModel(n){   // once a catalog arrives, give model nodes a sensible default if none chosen yet
@@ -1928,7 +1989,7 @@ function buildNodeEl(n){
       <span class="em">${t.em}</span><span class="ttl">${t.title}</span>
       <span class="dot"></span>
       <button class="hbtn" data-act="run" title="run this branch">▶</button>
-      <button class="hbtn" data-act="del" title="delete">✕</button>
+      <button class="hbtn" data-act="del" title="delete (Del)">✕</button>
     </header>
     <div class="ports">
       <div class="col in">${inRows}</div>
@@ -1965,7 +2026,7 @@ function buildNodeEl(n){
   refreshLlmOpts(n);              // ⚙️ advanced (sampling/reasoning) disclosure on the LLM node
   if(t.mount) t.mount(n);            // node-specific widget wiring (e.g. upload/webcam)
   // header buttons
-  el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); removeNode(n.id); };
+  el.querySelector('[data-act=del]').onclick = (e)=>{ e.stopPropagation(); if(runningNodes.has(n.id)){ flash("can’t delete while running — Stop first"); return; } removeNode(n.id); };  // don't discard an in-flight (already-charged) run or orphan a downstream node
   el.querySelector('[data-act=run]').onclick  = (e)=>{ e.stopPropagation(); runGroup([n.id]); };
   // selection + drag
   const header = el.querySelector("header");
@@ -2313,6 +2374,14 @@ function setStopped(n){
   n.el.dataset.status = "idle";
   const r = n.el.querySelector(".result");
   if(r){ r.classList.add("show"); r.innerHTML = `<div style="color:var(--dim)">■ stopped</div>`; }
+}
+// A node we never ran because an upstream node failed/cycled: not its own fault and never charged,
+// so show it as blocked — no stale-input run, no misleading "missing input" error.
+function setSkipped(n){
+  if(!n?.el) return;
+  n.el.dataset.status = "skip";
+  const r = n.el.querySelector(".result");
+  if(r){ r.classList.add("show"); r.innerHTML = `<div style="color:var(--dim)">⤼ skipped — upstream failed</div>`; }
 }
 function setNodeProgress(n, msg){
   if(!n.el) return;
@@ -2749,8 +2818,12 @@ editor.addEventListener("wheel", e=>{
 // delete selected node with keyboard (when not typing)
 window.addEventListener("keydown", e=>{
   if((e.ctrlKey||e.metaKey) && e.key==="Enter"){ e.preventDefault(); runAll(); return; }   // run every flow
-  if((e.key==="Delete"||e.key==="Backspace") && selected && !/^(TEXTAREA|INPUT|SELECT)$/.test(document.activeElement.tagName)){
-    removeNode(selected.id);
+  if((e.key==="Delete"||e.key==="Backspace") && selected){
+    const ae=document.activeElement;   // ignore while any control/editable holds focus (▶/model-picker BUTTON, fields) — Backspace is browser-back muscle memory
+    if(!/^(TEXTAREA|INPUT|SELECT|BUTTON)$/.test(ae.tagName) && !ae.isContentEditable){
+      if(runningNodes.has(selected.id)){ flash("can’t delete while running — Stop first"); return; }   // don't discard an in-flight (already-charged) run or orphan a downstream node
+      removeNode(selected.id);
+    }
   }
 });
 window.addEventListener("resize", redraw);
@@ -2870,6 +2943,7 @@ async function runGroup(seedIds){
     // Each node fires as soon as its OWN inputs resolve, so sibling branches
     // (a→b, a→c) run concurrently rather than serializing down the topo order.
     const done = {};                                  // id → promise, so dependents await just their inputs
+    const failed = new Set(cyclic);                   // ids that errored (or are in a cycle) → output is invalid, so dependents must NOT run on its stale .out
     const depsOf = (id)=>{                             // upstream node ids feeding this node (within the run set)
       const s = new Set();
       for(const l of graph.links) if(l.to.node===id && ids.has(l.from.node)) s.add(l.from.node);
@@ -2880,6 +2954,9 @@ async function runGroup(seedIds){
       done[id] = (async ()=>{
         await Promise.all(deps.map(d=> done[d]));       // wait on this node's inputs only
         const n = byId(id); if(!n) return;
+        // Poison-propagate: a failed/cyclic upstream node has no valid output, so running here would
+        // feed this node the parent's STALE .out and reach a PAID call. Skip (transitively) instead.
+        if(deps.some(d=> failed.has(d))){ failed.add(id); setSkipped(n); return; }
         const t = NODE_TYPES[n.type], inp = {};
         for(const port of t.inputs){
           const l = graph.links.find(x=> x.to.node===id && x.to.port===port.name);
@@ -2923,7 +3000,7 @@ async function runGroup(seedIds){
         }
         catch(err){
           if(ctl.signal.aborted || err?.name==="AbortError") setStopped(n);   // user hit Stop — not a failure
-          else setStatus(n, "error", err.message);
+          else { setStatus(n, "error", err.message); failed.add(id); }        // real failure → poison dependents (no stale-input charge)
         }
       })();
     }
@@ -3085,7 +3162,10 @@ const CTX = {
     const j = await r.json();
     const urls = (j.data||[]).map(d=> d.b64_json ? `data:${b64ImageMime(d.b64_json)};base64,${d.b64_json}` : d.url).filter(Boolean);
     if(!urls.length) throw new Error("no image in response");
-    accrue(j); return opts.multi ? urls : urls[0];
+    // /v1/images/generations returns no cost field (live-confirmed), so estimate from the catalog's
+    // per-size price × the number of images ACTUALLY returned (some models force N regardless of opts.n).
+    const unit = imageUnitUsd(model, size);
+    accrue(j, unit!=null ? unit*urls.length : null); return opts.multi ? urls : urls[0];
   },
   async genChat(messages, model, opts){
     opts = opts || {};
@@ -3212,8 +3292,14 @@ const CTX = {
     const r = await fetch(`${NANOGPT}/api/v1/audio/transcriptions`, {method:"POST",
       headers:{ Authorization:`Bearer ${k}`, "x-api-key":k }, body:fd, signal:runSignal()});
     if(!r.ok){ flagAuth(r); throw new Error(`${r.status}: ${(await r.text()).slice(0,160)}`); }
-    const j = await r.json(); accrue(j);
-    if(j?.metadata?.cost!=null && isFinite(+j.metadata.cost)) stats.cost += +j.metadata.cost;   // cost rides in metadata here
+    const j = await r.json();
+    // The transcription endpoint carries no top-level cost (live: {text, language, duration}); a few
+    // providers tuck it in j.metadata.cost. When neither is present, estimate from duration (seconds)
+    // × the catalog per-minute rate so a paid run never reads as $0 — real metered cost always wins.
+    const mUsd = j?.metadata?.cost, dur = +j?.duration;
+    const perMin = catItem("audio", model)?.pricing?.per_minute;
+    const estUsd = (isFinite(dur) && perMin!=null && isFinite(+perMin)) ? (dur/60)*(+perMin) : null;
+    accrue((mUsd!=null && isFinite(+mUsd)) ? Object.assign({}, j, {cost:+mUsd}) : j, estUsd);
     const txt = j.transcription ?? j.text ?? j.data?.transcription ?? j.data?.text;
     if(txt==null) throw new Error("no transcription in response");
     return txt;
@@ -3411,7 +3497,11 @@ function authHeaders(){ const k=getKey(); return { Authorization:`Bearer ${k}`, 
 // user won't re-paste). Clear it so the chrome flips back to signed-out + signposts the fix; the caller
 // still throws so the run loop surfaces the error. (Generation endpoints are CORS-enabled → status readable.)
 function flagAuth(r){ if(r.status===401||r.status===403){ setKey(null); flash("your key was rejected — sign in or paste a valid nano-gpt.com key"); } }
-function accrue(j){
+// estUsd: a catalog-derived fallback price for endpoints whose response carries no cost field
+// (image generations and transcriptions — live-confirmed). Real cost (j.cost / x_nanogpt_pricing)
+// always wins; the estimate only fires when none is present, and it marks the session inexact ("~")
+// so the meter never silently reads $0 for a genuinely paid run.
+function accrue(j, estUsd){
   stats.count++;
   // images/video/audio price top-level (j.cost); chat completions ride it in
   // x_nanogpt_pricing (costUsd|cost) — without this, LLM calls never bump spend.
@@ -3421,7 +3511,9 @@ function accrue(j){
   const usd = (typeof j?.cost==="number" && j.cost>0) ? j.cost
             : (pUsd!=null && isFinite(Number(pUsd))) ? Number(pUsd)
             : (typeof j?.cost==="number") ? j.cost : null;
-  if(usd!=null) stats.cost += usd; else stats.exact=false;
+  if(usd!=null) stats.cost += usd;                                                                  // real cost → counted, meter stays exact
+  else if(typeof estUsd==="number" && isFinite(estUsd)){ stats.cost += estUsd; stats.exact=false; } // catalog estimate → counted, but flag the session as inexact
+  else stats.exact=false;                                                                           // no price at all → total is a lower bound
   if(typeof j?.remainingBalance==="number") stats.balance = j.remainingBalance;
   else if(p && typeof p.remainingBalance==="number") stats.balance = p.remainingBalance;
   paintCost();
@@ -3590,6 +3682,20 @@ function shareableGraph(){
   });
   return g;
 }
+// SECURITY (mirror of the share-out blanking above, for the import side): a shared #g=/#j= link
+// auto-applies on open with no Run/gesture. Upload-node media fields are ALWAYS data: URLs locally
+// (FileReader / canvas.toDataURL), so any remote value here can only be an injected beacon — the
+// default <audio>/<video> preload would fetch it and leak the viewer's IP/UA/open-timestamp on open.
+// Blank any non-data:/blob: upload media on import (legit uploads are untouched; generated outputs
+// ride in n.out, not n.fields, so remote outputs are unaffected).
+const SAFE_MEDIA_RE = /^(data:|blob:)/;
+function stripInjectedMedia(n){
+  if(!n.fields) return;
+  const f = UPLOAD_FIELD[n.type];                                   // upload→image, aupload→audio, vupload→video
+  if(f && n.fields[f] && !SAFE_MEDIA_RE.test(n.fields[f])) n.fields[f] = "";
+  if(n.type==="inpaint") for(const k of ["image","mask"])           // source photo + brushed mask, both data: locally
+    if(n.fields[k] && !SAFE_MEDIA_RE.test(n.fields[k])) n.fields[k] = "";
+}
 function applyGraphData(d){
   world.innerHTML=""; selected=null;
   graph = { nodes:[], links:[] };
@@ -3598,7 +3704,7 @@ function applyGraphData(d){
   for(const sn of (d.nodes||[])){
     const type = ALIAS[sn.type] || sn.type;
     if(!NODE_TYPES[type]) continue;               // skip unknown node types gracefully
-    const n={ ...sn, type, out:{}, el:null }; graph.nodes.push(n); buildNodeEl(n);
+    const n={ ...sn, type, out:{}, el:null }; stripInjectedMedia(n); graph.nodes.push(n); buildNodeEl(n);
   }
   // keep only links whose endpoints survived
   const ids = new Set(graph.nodes.map(n=>n.id));
@@ -3610,8 +3716,8 @@ function applyGraphData(d){
   }
   // rebuild id counters so new nodes/links never collide with loaded ones
   const num = (s)=> parseInt(String(s).replace(/\D/g,""),10) || 0;
-  nid = Math.max(d.nid||0, 0, ...graph.nodes.map(n=>num(n.id))) + 1;
-  lid = Math.max(d.lid||0, 0, ...graph.links.map(l=>num(l.id))) + 1;
+  nid = Math.max(num(d.nid), 0, ...graph.nodes.map(n=>num(n.id))) + 1;
+  lid = Math.max(num(d.lid), 0, ...graph.links.map(l=>num(l.id))) + 1;
   graph.nodes.forEach(n=>{ recompactImageLinks(n); refreshImageInputs(n); recompactVideoLinks(n); refreshVideoInputs(n); });   // links loaded → compact + grow image/clip ports
   redraw(); refreshPortFills(); refreshAllPrices();
 }
@@ -3695,21 +3801,49 @@ async function buildShareUrl(target){
   if(target==="app") return location.origin + "/play.html" + hash;     // real file → resolves on the live site and locally
   return location.origin + location.pathname + location.search + hash;
 }
+// URL shorteners (TinyURL GET, da.gd POST for long links). The editor's connect-src allows https:
+// and runs only first-party code over declarative graphs — no untrusted app — so calling a
+// shortener here has no exfiltration surface (unlike play.html's preview, sealed by PREVIEW_CSP).
+async function shortenWith(svc, longUrl){
+  let r, t;
+  if(svc==="tinyurl"){
+    r = await fetch("https://tinyurl.com/api-create.php?url="+encodeURIComponent(longUrl));
+    t = (await r.text()).trim();
+  } else if(svc==="dagd"){
+    r = await fetch("https://da.gd/shorten", { method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body:"url="+encodeURIComponent(longUrl) });
+    t = (await r.text()).trim();
+  } else { throw new Error("unknown service"); }
+  if(!/^https?:\/\/\S+$/.test(t)) throw new Error(t.slice(0,80) || "no link returned");
+  return t;
+}
 async function shareUrl(){
   const url = await buildShareUrl();
   history.replaceState({}, "", url);                 // surface it in the address bar too
   const big = url.length > 8000 ? ` (${(url.length/1024).toFixed(0)}kB)` : "";
   const ok = await copyText(url);
   toast(ok
-    ? `✓ Share link copied! Paste it anywhere — it opens this exact workflow${big}`
-    : `Share link is in the address bar — copy it to share this workflow${big}`, ok?"":"err");
-  const b = $("share");                                   // flip the button itself for unmistakable feedback
-  if(b && ok){ const o=b.textContent; b.textContent="✓ Link copied!"; b.classList.add("ok");
-    setTimeout(()=>{ b.textContent=o; b.classList.remove("ok"); }, 1800); }
-  // Catch the wow moment: a link is on the clipboard — nudge them to enter it in the Cookoff.
-  // The popup builds its own APP link (what to post for the contest); back off once dismissed.
-  if(ok && !suppressShareNudge) openSubmit(true);
+    ? `✓ Share link copied${big} — shorten or share it below`
+    : `Share link is in the address bar${big} — copy it below`, ok?"":"err");
+  openShareMenu(url);                                // same popover the app share uses: copy / shorten / share-to-social
 }
+// ---- share popover (ported from play.html's app share; reused here for the workflow link) ----
+let curShareUrl = "";   // the link the popover currently reflects (long, or a shortened one)
+function setShareUrl(u){
+  curShareUrl = u;
+  $("sm-url").value = u;
+  const text = "Built this workflow with nanoodle — open it to remix (bring your own key, runs in your browser):";
+  const eu = encodeURIComponent(u), et = encodeURIComponent(text), ti = encodeURIComponent("A nanoodle workflow");
+  const soc = {
+    x:        `https://twitter.com/intent/tweet?text=${et}&url=${eu}`,
+    reddit:   `https://www.reddit.com/submit?url=${eu}&title=${ti}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${eu}`,
+    email:    `mailto:?subject=${ti}&body=${et}%0A%0A${eu}`,
+  };
+  document.querySelectorAll("#sharemenu .sm-social a").forEach(a => a.href = soc[a.dataset.soc]);
+}
+function openShareMenu(url){ setShareUrl(url); $("sharemenu").hidden = false; $("shareback").hidden = false; }
+function closeShareMenu(){ $("sharemenu").hidden = true; $("shareback").hidden = true; }
 // Set when this editor session is editing the workflow of an existing app (carried in
 // via #ga= or the modal's __editflow__ message). "Create app" hands the graph back under
 // this id so the app updates in place instead of spawning a fresh default app.
@@ -3761,6 +3895,26 @@ async function loadFromHash(){
   }catch{ return false; }
 }
 $("share").onclick = ()=> shareUrl().catch(e=> flash("share failed: "+e.message));
+$("shareback").onclick = closeShareMenu;
+$("sm-copy").onclick = async ()=>{ const ok = await copyText(curShareUrl); toast(ok?"✓ Copied":"copy failed", ok?"":"err"); };
+$("sm-url").onclick = ()=> $("sm-url").select();
+document.querySelectorAll("#sharemenu .sm-svc button").forEach(btn => btn.onclick = async ()=>{
+  const svc = btn.dataset.svc, label = btn.textContent.trim();
+  const longUrl = location.origin + location.pathname + location.search + location.hash;   // shorten the full current link
+  const others = [...document.querySelectorAll("#sharemenu .sm-svc button")];
+  others.forEach(b=> b.disabled = true);
+  const o = btn.textContent; btn.textContent = "…";
+  try{
+    const short = await shortenWith(svc, longUrl);
+    setShareUrl(short);
+    const ok = await copyText(short);
+    toast(ok ? `✓ Short link copied — via ${label}` : `Short link ready — copy it above`, ok?"":"err");
+  }catch(e){
+    toast(`${label} couldn't shorten it (${e.message}) — try da.gd for very long links, or share the full link`, "err");
+  }finally{ btn.textContent = o; others.forEach(b=> b.disabled = false); }
+});
+document.querySelectorAll('#sharemenu .sm-social a[data-soc="email"]').forEach(a=> a.onclick = ()=> closeShareMenu());
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("sharemenu").hidden){ e.stopPropagation(); closeShareMenu(); } }, true);
 // Turn this workflow into a standalone app (play.html). Hand off the graph via the
 // existing #g= packing; stash a localStorage copy as a belt-and-suspenders fallback.
 // Open the app builder as a popup over the editor (play.html in a modal iframe), so it
@@ -3819,7 +3973,10 @@ addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("appmodal").hidden) c
 
 // 🍜 Noodle Cookoff promo — opens a static announcement modal; the ✕ on the button dismisses it for good.
 const cookoffBtn = $("cookoffbtn");
-try{ if(localStorage.getItem("noodle_cookoff_dismissed")) cookoffBtn.hidden = true; }catch(_){}
+// Contest ends Jul 12, 23:59 UTC — after that, retire the entry button + promo so they don't rot for new users.
+const COOKOFF_OVER = Date.now() > Date.parse("2026-07-12T23:59:59Z");
+if(COOKOFF_OVER) $("submitcontest").hidden = true;
+try{ if(COOKOFF_OVER || localStorage.getItem("noodle_cookoff_dismissed")) cookoffBtn.hidden = true; }catch(_){}
 function closeCookoff(){ $("cookoffmodal").hidden = true; }
 function dismissCookoff(e){ e.stopPropagation(); cookoffBtn.hidden = true; try{ localStorage.setItem("noodle_cookoff_dismissed","1"); }catch(_){} }
 $("cookoffdismiss").onclick = dismissCookoff;
@@ -3881,6 +4038,18 @@ $("submitcopy").onclick = async ()=>{
   const b = $("submitcopy");
   if(ok){ b.textContent = "✓ Copied"; b.classList.add("ok"); setTimeout(()=>{ b.textContent="Copy link"; b.classList.remove("ok"); }, 1800); }
   else { toast("Couldn't copy — select the link and copy it manually", "err"); }
+};
+$("submitshort").onclick = async ()=>{
+  const inp = $("submitlink"), b = $("submitshort"), o = b.textContent;
+  if(!/^https?:\/\//.test(inp.value)) return;            // nothing to shorten yet
+  b.textContent = "…"; b.disabled = true;
+  try{
+    inp.value = await shortenWith("dagd", inp.value);    // replace in place so Copy/post uses the short one
+    inp.select();
+    b.textContent = "✓ Short"; b.classList.add("ok");
+    setTimeout(()=>{ b.textContent = o; b.classList.remove("ok"); }, 1800);
+  }catch(e){ b.textContent = o; toast("shorten failed: "+e.message, "err"); }
+  finally{ b.disabled = false; }
 };
 addEventListener("message", e=>{
   if(e.source!==$("appmodalframe").contentWindow || !e.data) return;
@@ -4078,15 +4247,17 @@ async function handleRedirect(){
   if(!r.ok) throw new Error("token: "+(await r.text()));
   setKey((await r.json()).access_token);
 }
-// Run while signed out kicks off the same sign-in the bar button uses, instead of just nagging.
+// Run while signed out surfaces the inline choice (sign in OR paste a key) instead of silently redirecting.
 function ensureAuth(){
   if(getKey()) return true;
-  if(/^https?:$/.test(location.protocol)) signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
-  else { $("keyrow").classList.add("open"); $("keyinput").focus(); flash("paste a nano-gpt.com API key to run"); }
+  $("keysignin").style.display = /^https?:$/.test(location.protocol) ? "" : "none";
+  $("keyrow").classList.add("open"); $("keyinput").focus();
   return false;
 }
 $("signin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
 $("pastebtn").onclick = ()=>{ $("keyrow").classList.add("open"); $("keyinput").focus(); };
+$("keysignin").onclick = ()=> signIn().catch(e=> $("status").textContent="sign-in error: "+e.message);
+addEventListener("keydown", e=>{ if(e.key==="Escape" && $("keyrow").classList.contains("open")){ e.preventDefault(); $("keyrow").classList.remove("open"); } });
 // Validate a pasted key against the CORS-enabled chat endpoint BEFORE storing it (an empty body is rejected
 // for auth *before* any model runs — no charge), so a typo'd/expired key never lands us in a false "ready ✓".
 // Network-tolerant: only a readable 401/403 is a rejection; offline / CORS / any other status passes, so a
@@ -4431,10 +4602,16 @@ RULES for the diff:
     // Canvas edits made by hand since the current version aren't a snapshot — applyGraphData
     // below would replace the live graph and drop them. Don't interrupt to ask: just capture
     // them as a version first, so jumping away always keeps your work and parks it in the strip
-    // to return to. toSimple ignores node positions/pan/zoom, so a plain drag isn't an "edit".
+    // to return to. Compare workflow CONTENT (fields incl. uploaded media), not layout: a plain
+    // drag/pan/resize isn't an edit, but dropping in a photo IS. (toSimple strips media — it's
+    // for the planner — so it must NOT be used here, or media-only edits get silently destroyed.)
+    const contentSig = g => JSON.stringify({
+      nodes:(g.nodes||[]).map(n=>({ id:n.id, type:n.type, fields:n.fields||{} })),
+      links:(g.links||[]).map(l=>({ from:`${l.from.node}.${l.from.port}`, to:`${l.to.node}.${l.to.port}` })),
+    });
     const cur = versions[curVer];
     let savedAt = -1;
-    if(cur && JSON.stringify(toSimple(serializeGraph())) !== JSON.stringify(toSimple(cur.graph))){
+    if(cur && contentSig(serializeGraph()) !== contentSig(cur.graph)){
       versions.push({ graph: clone(serializeGraph()), goal: "your canvas edits" });
       savedAt = versions.length - 1;
     }

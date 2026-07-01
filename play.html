@@ -103,6 +103,27 @@
   .am-new:hover{ background:var(--accent-soft); }
   .am-empty{ padding:.6rem .55rem; color:var(--dim); font-size:.82rem; }
 
+  /* ---------- share popover (mirrors #appsmenu) ---------- */
+  #shareback{ position:fixed; inset:0; z-index:90; }
+  #sharemenu{ position:fixed; right:.6rem; top:3rem; z-index:91; width:min(360px,94vw);
+              max-height:80vh; overflow:auto; background:var(--panel); border:1px solid var(--line);
+              border-radius:.7rem; box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.55rem .6rem; }
+  #sharemenu[hidden], #shareback[hidden]{ display:none; }
+  .sm-urlrow{ display:flex; gap:.4rem; align-items:center; }
+  .sm-url{ flex:1; min-width:0; font-size:.78rem; font-family:ui-monospace,monospace; color:var(--dim);
+           background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.4rem .5rem; }
+  .sm-copy{ flex:none; }
+  .sm-note{ font-size:.74rem; color:var(--faint); margin:.4rem .15rem .1rem; line-height:1.4; }
+  .sm-warn{ font-size:.74rem; color:var(--dim); margin:.15rem .15rem .35rem; line-height:1.45;
+            border-left:2px solid var(--accent-line); padding:.1rem .5rem; }
+  .sm-svc, .sm-social{ display:flex; gap:.4rem; flex-wrap:wrap; }
+  .sm-svc button, .sm-social a{ font-size:.82rem; padding:.4rem .6rem; border-radius:.5rem; cursor:pointer;
+            background:var(--panel2); border:1px solid var(--line); color:var(--text); text-decoration:none;
+            display:inline-flex; align-items:center; gap:.3rem; }
+  .sm-svc button:hover, .sm-social a:hover{ background:var(--accent-soft); border-color:var(--accent-line); }
+  .sm-svc button:disabled{ opacity:.5; cursor:progress; }
+  .sm-flag{ font-size:.66rem; color:var(--faint); }
+
   /* ---------- paste-key row ---------- */
   #key{ display:none; align-items:center; gap:.5rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); background:#11141f; position:relative; z-index:70; }
   #key input{ max-width:420px; flex:0 1 420px; }
@@ -254,9 +275,35 @@
 </div>
 <div id="appsback" hidden></div>
 
+<!-- SHARE popover — copy / shorten (opt-in, 3rd-party) / share-to-social. All client-side. -->
+<div id="sharemenu" hidden>
+  <div class="am-head">Share this app</div>
+  <div class="sm-urlrow">
+    <input id="sm-url" class="sm-url" readonly />
+    <button id="sm-copy" class="sm-copy">Copy</button>
+  </div>
+  <p class="sm-note">The whole app lives in this link — nothing hits a server when someone opens it. That's why it can get long.</p>
+
+  <div class="am-head">Make it shorter — optional</div>
+  <p class="sm-warn">Sends this link to a third-party shortener so <em>they</em> host it. They can see the app.</p>
+  <div class="sm-svc">
+    <button data-svc="tinyurl">TinyURL</button>
+    <button data-svc="dagd">da.gd</button>
+  </div>
+
+  <div class="am-head">Share to</div>
+  <div class="sm-social">
+    <a data-soc="x" target="_blank" rel="noopener">𝕏</a>
+    <a data-soc="reddit" target="_blank" rel="noopener">Reddit</a>
+    <a data-soc="facebook" target="_blank" rel="noopener">Facebook</a>
+    <a data-soc="email">Email</a>
+  </div>
+</div>
+<div id="shareback" hidden></div>
+
 <!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
 <div id="key">
-  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="text" autocomplete="off" />
+  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="password" autocomplete="off" />
   <button id="keysave" class="link">save key</button>
   <span class="dim" style="font-size:.78rem">— from <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">nano-gpt.com</a> → Settings → API</span>
 </div>
@@ -514,10 +561,34 @@ window.NoodleApp = (function () {
   // so the caller can also attribute it to that node's output card.
   function bumpCost(c){
     COST.count++;
-    if(c && c.usd!=null) COST.total += c.usd; else COST.exact = false;   // unknown price → total is a lower bound
+    if(c && c.usd!=null){ COST.total += c.usd; if(c.estimate) COST.exact = false; }   // estimate counts toward the total but keeps the meter honest (~)
+    else COST.exact = false;                                                           // unknown price → total is a lower bound
     if(c && c.balance!=null) COST.balance = c.balance;
     paintCost();
     return (c && c.usd!=null) ? c.usd : 0;
+  }
+  // Estimate spend when an API response carries no cost field — image generations and transcriptions
+  // return none (live-confirmed). The per-unit price rides in the public catalog (per_image by size,
+  // per_minute for STT), so a paid run never reads as $0; bumpCost flags it as an estimate ("~").
+  // Real cost always wins — these only run when costFromJson found none. Best-effort: any failure
+  // (offline / blocked) yields null and the meter keeps its current behavior.
+  async function estImageUsd(model, size, count){
+    try{
+      const m = await rawCatItem("image", model);
+      const per = (m && m.pricing && m.pricing.per_image) || {};
+      const v = per[size]!=null ? per[size]
+              : per.square!=null ? per.square
+              : per.square_hd!=null ? per.square_hd
+              : Object.values(per)[0];
+      return (v!=null && isFinite(+v)) ? +v * (count||1) : null;
+    }catch(e){ return null; }
+  }
+  async function estTranscribeUsd(model, durationSec){
+    try{
+      const m = await rawCatItem("audio", model);
+      const perMin = m && m.pricing && m.pricing.per_minute;
+      return (isFinite(+durationSec) && perMin!=null && isFinite(+perMin)) ? (+durationSec/60)*(+perMin) : null;
+    }catch(e){ return null; }
   }
 
   /* ---------- mdl (verbatim) ---------- */
@@ -621,9 +692,21 @@ window.NoodleApp = (function () {
   /* =====================================================================
      CTX — NanoGPT calls (verbatim behavior, index.html)
      ===================================================================== */
+  // A video job bills at /api/generate-video submit but can outlast our 10-min poll window. Keep its
+  // runId at module scope (keyed on node id, threaded via makeCtx) so re-running the SAME node RESUMES
+  // the in-flight job instead of POSTing — and paying — again. We also stash a content signature, so
+  // editing the node's inputs (new prompt/media) submits a correct fresh job rather than resuming a
+  // stale render. Set on submit, kept on the 10-min timeout, deleted on COMPLETED/FAILED. Module-level,
+  // so it survives re-runs in both the exported file and the builder preview iframe.
+  const PENDING_VIDEO = new Map();   // nodeId -> {runId, sig} of an in-flight (possibly timed-out) video job
+  function videoSig(s){              // djb2, tiny + backtick-free; detects input edits so we never resume a stale job
+    let h = 5381;
+    for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0;
+    return h.toString(36);
+  }
   // Per-run cost-tracking context: each node gets its own makeCtx(onCost) so a
   // generation's price lands on the right card even when siblings/lanes run at once.
-  function makeCtx(onCost){ return {
+  function makeCtx(onCost, runKey){ return {
     // opts.n = images to request (default 1); opts.multi=true returns ALL of them as an array (the gen
     // node's pick-one gallery). Every other caller omits opts and gets one url back, unchanged. Some
     // models always return 4 regardless of n — multi callers surface them all instead of discarding 3.
@@ -638,7 +721,9 @@ window.NoodleApp = (function () {
       const j = await r.json();
       const urls = (j.data||[]).map(function(d){ return d.b64_json ? "data:" + b64ImageMime(d.b64_json) + ";base64," + d.b64_json : d.url; }).filter(Boolean);
       if(!urls.length) throw new Error("no image in response");
-      onCost(costFromJson(j)); return opts.multi ? urls : urls[0];
+      const c = costFromJson(j);   // /v1/images/generations returns no cost field → estimate from the catalog per-size price × images returned
+      if(c.usd==null){ const est = await estImageUsd(model, size, urls.length); if(est!=null){ c.usd = est; c.estimate = true; } }
+      onCost(c); return opts.multi ? urls : urls[0];
     },
     async genChat(messages, model, opts){
       opts = opts || {};
@@ -679,15 +764,25 @@ window.NoodleApp = (function () {
       // NanoGPT inlines media as base64 and the edge rejects bodies over ~4.5 MB with a header-less
       // 413 the browser mislabels as CORS. No upload endpoint → catch oversize locally and explain.
       const payload = JSON.stringify(body);
-      if(payload.length > MEDIA_INLINE_MAX)
-        throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. A shorter clip works well — or build this flow into an app (✨ Create app) and run it offline.");
-      let r;
-      try{ r = await apiFetch(NANOGPT + "/api/generate-video", {method:"POST", headers:authHeaders(), body:payload}); }
-      catch(e){ throw new Error("couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip, or build this into an app and run it offline. (" + (e.message||e) + ")"); }
-      if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
-      const j = await r.json(); onCost(costFromJson(j));
-      const runId = j.runId || j.id;
-      if(!runId) throw new Error("no runId returned");
+      // Resume a job that timed out on an earlier run of THIS node: the work keeps running server-side,
+      // so an unchanged re-run skips submit (and the duplicate charge) and goes straight back to polling.
+      // The stored signature guards against a stale resume — edit the node's inputs and the payload sig
+      // changes, so we submit a correct fresh job instead of returning the old render.
+      const sig = videoSig(payload);
+      const prev = runKey ? PENDING_VIDEO.get(runKey) : null;
+      let runId = (prev && prev.sig===sig) ? prev.runId : null;
+      if(!runId){
+        if(payload.length > MEDIA_INLINE_MAX)
+          throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. A shorter clip works well — or build this flow into an app (✨ Create app) and run it offline.");
+        let r;
+        try{ r = await apiFetch(NANOGPT + "/api/generate-video", {method:"POST", headers:authHeaders(), body:payload}); }
+        catch(e){ throw new Error("couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip, or build this into an app and run it offline. (" + (e.message||e) + ")"); }
+        if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
+        const j = await r.json(); onCost(costFromJson(j));
+        runId = j.runId || j.id;
+        if(!runId) throw new Error("no runId returned");
+        if(runKey) PENDING_VIDEO.set(runKey, {runId:runId, sig:sig});   // remember it the moment it exists, so a timeout is recoverable
+      }
       const t0 = Date.now();
       while(Date.now()-t0 < 600000){                  // 10 min — the job runs server-side, so patience here is cheap
         await sleep(5000);
@@ -699,11 +794,15 @@ window.NoodleApp = (function () {
           const out = (s.data && s.data.output) || s.output || {};
           const url = (out.video && out.video.url) || out.url || (Array.isArray(out.video) ? out.video[0] && out.video[0].url : null);
           if(!url) throw new Error("completed but no video url");
+          if(runKey) PENDING_VIDEO.delete(runKey);
           return url;
         }
-        if(["FAILED","ERROR","CANCELED"].includes(st)) throw new Error("video failed: " + ((s.data && s.data.error) || st));
+        if(["FAILED","ERROR","CANCELED"].includes(st)){ if(runKey) PENDING_VIDEO.delete(runKey); throw new Error("video failed: " + ((s.data && s.data.error) || st)); }
       }
-      throw new Error("Still rendering after 10 min — the job is likely still running on NanoGPT's side. Try running it again in a bit; a finished render usually returns fast.");
+      // Keep the runId in PENDING_VIDEO so re-running this node picks the job back up instead of paying twice.
+      throw new Error(runKey
+        ? "Still rendering after 10 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished video (you won't be charged twice)."
+        : "Still rendering after 10 min — the job is likely still running on NanoGPT's side. Try running it again in a bit; a finished render usually returns fast.");
     },
     // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
     async genAudio(model, input, extra, onProgress){
@@ -757,7 +856,10 @@ window.NoodleApp = (function () {
       const r = await fetch(NANOGPT + "/api/v1/audio/transcriptions", {method:"POST",
         headers:{ Authorization:"Bearer " + k, "x-api-key":k }, body:fd});
       if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
-      const j = await r.json(); onCost(costFromJson(j));
+      const j = await r.json();
+      const c = costFromJson(j);   // endpoint returns {text, language, duration} with no cost → estimate from duration × catalog per_minute
+      if(c.usd==null){ const est = await estTranscribeUsd(model, +j.duration); if(est!=null){ c.usd = est; c.estimate = true; } }
+      onCost(c);
       const txt = j.transcription != null ? j.transcription
                 : j.text != null ? j.text
                 : (j.data && (j.data.transcription != null ? j.data.transcription : j.data.text));
@@ -1112,7 +1214,15 @@ window.NoodleApp = (function () {
       async run(n, inp, ctx){
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         if(!prompt) throw new Error("no prompt");
-        const want = Math.max(1, parseInt(n.fields.variations,10)||1);
+        let want = Math.max(1, parseInt(n.fields.variations,10)||1);
+        // Clamp to the model's real max output so we never request — or get billed for — more images
+        // than the model supports. Mirrors the editor's conservative default (index.html: max_output_images
+        // || 1): a catalog item present but not advertising the field is treated as single-output and clamped
+        // to 1. Best-effort: only when the item is genuinely absent (offline / export with no network) does
+        // rawCatItem return null → leave want unclamped so exports keep running the model's own behavior.
+        const _catIt = await rawCatItem("image", mdl(n));
+        const _maxOut = _catIt ? ((_catIt.supported_parameters && _catIt.supported_parameters.max_output_images) || 1) : null;
+        if(_maxOut != null) want = Math.min(want, _maxOut);
         // always multi: even n:1 can return N (fixed_image_count models) — surface every image paid for.
         const urls = await ctx.genImage(prompt, mdl(n), n.fields.size||SIZES[0][0], undefined, undefined, imgExtra(n), {n:want, multi:true});
         const sel = Math.min(Math.max(0, parseInt(n.fields.sel,10)||0), urls.length-1);
@@ -1447,7 +1557,7 @@ window.NoodleApp = (function () {
         }
         onStatus && onStatus(id, "run", "running…");
         let nodeCost = 0, nodeKnown = false, didGen = false;   // didGen: this node actually called the model (onCost fires only on a real generation, never for instant local nodes like text/join/trim)
-        const ctx = makeCtx((c)=>{ didGen = true; nodeCost += bumpCost(c); if(c && c.usd!=null) nodeKnown = true; });
+        const ctx = makeCtx((c)=>{ didGen = true; nodeCost += bumpCost(c); if(c && c.usd!=null) nodeKnown = true; }, id);
         try{
           n.out = await t.run(rn, inp, ctx, (msg)=> onStatus && onStatus(id, "run", msg)) || {};
           if(isSeeded(rn)) RUN_CACHE.set(id, { sig, out:n.out });   // fixed seed → cache the result for the next pass
@@ -2505,10 +2615,42 @@ window.NoodleApp = (function () {
     localStorage.setItem("ngpt_client",JSON.stringify({id,redirect:REDIRECT_URI}));
     return id;
   }
+  // Sign-in is a full-page redirect to nano-gpt and back, which reloads this app from its
+  // NOODLE_GRAPH defaults — so anything the user typed before pressing Run signed-out would
+  // be lost. Stash the live input values (under a key distinct from the editor's RESUME_KEY
+  // and "pkce") and restore them on return in mount(), so a first run never eats their text.
+  const RUN_RESUME_KEY = "noodle_run_resume";
+  function stashRunInputs(){
+    try{
+      const vals = ((STATE && STATE.inputs) || []).map(function(it){
+        return { nodeId: it.nodeId, field: it.field, value: it.node.fields[it.field] };
+      });
+      sessionStorage.setItem(RUN_RESUME_KEY, JSON.stringify(vals));
+    }catch(_){}
+  }
+  // Consume the stash (single-use) and write values back into the freshly-derived inputs,
+  // matched by nodeId+field since materialize() rebuilt the node objects on reload. Robust:
+  // a malformed/absent stash must never block mount, so the whole thing is try/catch.
+  function restoreRunInputs(){
+    try{
+      const raw = sessionStorage.getItem(RUN_RESUME_KEY);
+      if(!raw) return;
+      sessionStorage.removeItem(RUN_RESUME_KEY);
+      const vals = JSON.parse(raw) || [];
+      const byKey = {};
+      ((STATE && STATE.inputs) || []).forEach(function(it){ byKey[it.nodeId + " " + it.field] = it; });
+      vals.forEach(function(v){
+        if(!v) return;
+        const it = byKey[v.nodeId + " " + v.field];
+        if(it && v.value != null) it.node.fields[v.field] = v.value;
+      });
+    }catch(_){}
+  }
   async function signIn(){
     const id = await clientId();
     const verifier=rand(32), state=rand(16);
     sessionStorage.setItem("pkce",JSON.stringify({verifier,state,id}));
+    stashRunInputs();   // preserve what the user typed across the full-page OAuth redirect
     const u=new URL(NANOGPT + "/oauth/authorize");
     u.search=new URLSearchParams({response_type:"code",client_id:id,redirect_uri:REDIRECT_URI,scope:"api.use models.read",state,code_challenge:await sha256url(verifier),code_challenge_method:"S256",invitation_code:"W3x83yU3"}).toString();
     location.assign(u.toString());
@@ -2524,6 +2666,19 @@ window.NoodleApp = (function () {
       body:new URLSearchParams({grant_type:"authorization_code",client_id:saved.id,redirect_uri:REDIRECT_URI,code:p.get("code"),code_verifier:saved.verifier})});
     if(!r.ok) throw new Error("token: "+(await r.text()));
     setKey((await r.json()).access_token);
+  }
+  // Save-time key probe (standalone). chat/completions is CORS-enabled and checks auth BEFORE
+  // body validation, so an empty body never generates and never charges: a good key 400s, a bad
+  // key 401s. Returns false ONLY on a definitive auth rejection; a network/CORS hiccup returns
+  // true so an offline user is never locked out of a key they pasted correctly. (No backticks —
+  // this lives inside RUNTIME_JS.)
+  async function probeKey(k){
+    try{
+      const r = await fetch(CHAT_ENDPOINT, { method:"POST",
+        headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" },
+        body:"{}" });
+      return !(r.status===401 || r.status===403);
+    }catch(_){ return true; }
   }
   function renderAuth(){
     const box = $("app-auth"); if(!box) return;
@@ -2557,7 +2712,17 @@ window.NoodleApp = (function () {
     } else {
       if(canOAuth) $("auth-in").onclick = ()=> signIn().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message));
       $("auth-paste").onclick = ()=>{ $("auth-keyrow").hidden=false; $("auth-keyinput").focus(); };
-      $("auth-keysave").onclick = ()=>{ const k=$("auth-keyinput").value.trim(); if(k){ setKey(k); } };
+      $("auth-keysave").onclick = async ()=>{
+        const k=$("auth-keyinput").value.trim(); if(!k) return;
+        const sb=$("auth-keysave"); sb.disabled=true; sb.textContent="checking…";
+        const valid = await probeKey(k);                 // 401/403 → reject; 200/400/offline → keep
+        if(!valid){
+          sb.disabled=false; sb.textContent="save";      // keep the row OPEN, never store → no false "signed in ✓"
+          statusLine("__auth__","error","that key was rejected by nano-gpt — check you copied the whole key");
+          $("auth-keyinput").focus(); return;
+        }
+        setKey(k);   // validated (or offline-tolerated): setKey() re-renders the header to the true signed-in state
+      };
       const ki = $("auth-keyinput");
       if(ki) ki.addEventListener("keydown", e=>{ if(e.key==="Enter") $("auth-keysave").click(); });
     }
@@ -2596,8 +2761,9 @@ window.NoodleApp = (function () {
 
     renderAuth();
     handleRedirect().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message)).finally(renderAuth);
+    restoreRunInputs();   // bring back anything typed before a sign-in redirect, before the first paint
     renderInputs();
-    buildDirtyTrack();   // snapshot AFTER renderInputs so lazy-applied defaults read as the baseline, not as edits
+    buildDirtyTrack();   // snapshot AFTER renderInputs (and the restore) so restored values read as the baseline, not as edits
     renderCount();
     renderLoop();
     ensureCostMeter();   // place the (hidden) "spent on this app" meter now → stable layout
@@ -2671,6 +2837,22 @@ function defaultFiles(graph){
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${esc(title)}</title>
+<meta name="description" content="${esc(tagline)}" />
+<!-- Per-app social card. Exported apps are standalone static files, so the crawler
+     reads these real tags (unlike #a= share links, where the app is in the invisible
+     fragment). og:image is nanoodle's branded card — fetched only by a social crawler
+     rendering the preview, never by the running app. -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="nanoodle" />
+<meta property="og:title" content="${esc(title)}" />
+<meta property="og:description" content="${esc(tagline)}" />
+<meta property="og:image" content="https://nanoodle.com/og-card.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="${esc(title)}" />
+<meta name="twitter:description" content="${esc(tagline)}" />
+<meta name="twitter:image" content="https://nanoodle.com/og-card.png" />
 <style><!-- include: app.css --></style>
 </head>
 <body>
@@ -2959,7 +3141,17 @@ function bundle(files){
 
 // marvis/index-style preamble: storage shims (the sandbox blocks real localStorage in
 // the live preview) + Escape→parent so the builder can leave fullscreen.
-const PREVIEW_PREAMBLE =
+//
+// PREVIEW_CSP: a per-app <meta> CSP that re-seals the iframe's network egress to exactly
+// what an app legitimately needs (self / blob: / nano-gpt). The srcdoc inherits the parent
+// /play header CSP, and the browser enforces EVERY delivered policy — so even though that
+// header now also lists the URL shorteners (for the trusted Share UI in the parent chrome),
+// this tighter connect-src wins by intersection and a malicious shared app still cannot
+// fetch-exfiltrate the viewer's inputs/outputs to da.gd/tinyurl. Preview-only: the
+// exported bundle never carries this (it sets its own headers / runs standalone from file://).
+const PREVIEW_CSP =
+  '<meta http-equiv="Content-Security-Policy" content="connect-src \'self\' blob: https://nano-gpt.com">';
+const PREVIEW_PREAMBLE = PREVIEW_CSP +
   '<script>(function(){function s(){var m={};return{getItem:function(k){return Object.prototype.hasOwnProperty.call(m,k)?m[k]:null;},setItem:function(k,v){m[k]=String(v);},removeItem:function(k){delete m[k];},clear:function(){m={};},key:function(i){return Object.keys(m)[i]||null;},get length(){return Object.keys(m).length;}};}' +
   'try{window.localStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"localStorage",{value:s(),configurable:true});}catch(_){}}' +
   'try{window.sessionStorage.getItem("x");}catch(e){try{Object.defineProperty(window,"sessionStorage",{value:s(),configurable:true});}catch(_){}}})();' +
@@ -3409,7 +3601,17 @@ let curImported = false;    // open app came in via a share link (#a=)
 
 const APPS_KEY = "noodle_apps";   // [{id,title,imported,graph,files,versions,curVer,updated}]
 function loadApps(){ try{ return JSON.parse(localStorage.getItem(APPS_KEY) || "[]") || []; }catch{ return []; } }
-function saveApps(apps){ try{ localStorage.setItem(APPS_KEY, JSON.stringify(apps)); }catch(_){ /* quota */ } }
+// localStorage.setItem that REPORTS success and warns the user once when storage
+// is full — silent failures here mean a reload/close quietly loses customizations.
+let lsQuotaWarned = false;
+function lsSet(key, val){
+  try{ localStorage.setItem(key, val); return true; }
+  catch(_){   // quota exceeded / private mode
+    if(!lsQuotaWarned){ lsQuotaWarned = true; toast("can’t save — uploaded media is too large for local storage; remove or downscale it", "err"); }
+    return false;
+  }
+}
+function saveApps(apps){ return lsSet(APPS_KEY, JSON.stringify(apps)); }
 function newId(){ return "app_" + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 
 // snapshot the open app as a library entry
@@ -3421,19 +3623,20 @@ function curEntry(){
 // write the working state (LS_KEY) and, if this app is in the library, upsert it there
 function writeState(){
   const e = curEntry();
-  try{ localStorage.setItem(LS_KEY, JSON.stringify({ ...e, v:1 })); }catch(_){ /* quota / private mode */ }
+  let ok = lsSet(LS_KEY, JSON.stringify({ ...e, v:1 }));
   if(CUR_ID){
     const apps = loadApps();
     const i = apps.findIndex(a=>a.id===CUR_ID);
     if(i>=0) apps[i] = e; else apps.unshift(e);
-    saveApps(apps);
+    if(!saveApps(apps)) ok = false;
   }
   renderAppsBtn();
+  return ok;
 }
 let persistTimer = null;
 function persist(){ clearTimeout(persistTimer); persistTimer = setTimeout(writeState, 300); }
 // promote a draft into the library (called on first customize / on import) and save now
-function commit(){ if(!CUR_ID) CUR_ID = newId(); clearTimeout(persistTimer); writeState(); }
+function commit(){ if(!CUR_ID) CUR_ID = newId(); clearTimeout(persistTimer); return writeState(); }
 // Stash the open app in sessionStorage right before a full-page OAuth redirect.
 // sessionStorage is a separate quota bucket and survives same-tab navigation, so the
 // app returns even when localStorage is full or a debounced autosave hasn't flushed.
@@ -3461,10 +3664,13 @@ function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig
   APP_STATE.curVer = (curVer!=null && curVer<APP_STATE.versions.length) ? curVer : APP_STATE.versions.length-1;
   $("empty").hidden = true; $("appframe").style.display = "";
   syncTitleFromFiles(); renderVersions(); renderApp();
-  if(CUR_ID) commit(); else persist();   // committed apps refresh their slot; drafts only autosave working state
+  // committed apps refresh their slot (and report whether the write stuck); drafts
+  // only schedule a debounced autosave, so there's no synchronous result to report.
+  const saved = CUR_ID ? commit() : (persist(), true);
   $("undo").disabled = APP_STATE.curVer <= 0;
   // a brand-new app (straight from the editor, never customized) leads with the prompt
   if(fresh && APP_STATE.versions.length <= 1) enterFirstRun(); else exitFirstRun();
+  return saved;
 }
 function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My nanoodle app"; renderAppsBtn(); }
 
@@ -3677,6 +3883,21 @@ function renderAuth(){
   $("signout").style.display  = signed ? "" : "none";
   $("apply").disabled = !signed || busy;
 }
+// Save-time key probe: a definitively-rejected key (401/403) → false; anything else → true.
+// /api/v1/chat/completions is CORS-enabled (unlike /api/check-balance, which a browser can't
+// reach) and checks auth BEFORE body validation, so an empty body never generates and never
+// charges: a good key 400s (kept), a bad key 401s (rejected). A network/CORS hiccup also returns
+// true, so an offline blip can never lock a user out of a key they pasted correctly.
+async function probeKey(k){
+  try{
+    const r = await fetch(NANOGPT + "/api/v1/chat/completions", {
+      method:"POST",
+      headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" },
+      body:"{}"
+    });
+    return !(r.status===401 || r.status===403);
+  }catch(_){ return true; }
+}
 // Reflect the current key (e.g. one the OAuth popup just stored) into the builder + inner app.
 // Idempotent so the storage listener and the popup poll can both call it without double-toasting.
 let _signedInReflected = false;
@@ -3694,10 +3915,14 @@ function finishSignIn(){
 const UPLOAD_FIELD = { upload:"image", aupload:"audio", vupload:"video" };
 function shareableGraph(g){
   g = g || { nodes:[], links:[] };
-  return { ...g, nodes:(g.nodes||[]).map(n => UPLOAD_FIELD[n.type] ? {...n, fields:{...(n.fields||{}), [UPLOAD_FIELD[n.type]]:""}} : n) };
+  return { ...g, nodes:(g.nodes||[]).map(n => {
+    if(n.type==="inpaint") return {...n, fields:{...(n.fields||{}), image:"", mask:""}};   // don't leak the user's photo/mask (mirror index.html shareableGraph)
+    return UPLOAD_FIELD[n.type] ? {...n, fields:{...(n.fields||{}), [UPLOAD_FIELD[n.type]]:""}} : n;
+  }) };
 }
 
-// SHARE: pack {v:1, graph, files} -> gzip -> b64url -> #a= ; copy + toast. NO key inside.
+// SHARE: pack {v:1, graph, files} -> gzip -> b64url -> #a= ; copy + open the share popover. NO key inside.
+let shareUrl = "";   // the link the popover currently reflects (long, or a shortened one)
 async function doShare(){
   try{
     const json = JSON.stringify({ v:1, graph:shareableGraph(APP_STATE.graph), files:APP_STATE.files });
@@ -3709,13 +3934,45 @@ async function doShare(){
     const ok = await copyText(url);
     const big = url.length>8000 ? ` (${(url.length/1024).toFixed(0)}kB)` : "";
     toast(ok ? (appDirty
-                 ? `✓ Link copied — the app as built, not your in-app edits${big}`
-                 : `✓ App link copied — anyone who opens it gets this exact app and signs in with their own key${big}`)
-             : `App link is in the address bar — copy it to share${big}`, ok?"":"err");
-    const b = $("share");                                  // flip the button itself for unmistakable feedback (mirrors the editor)
-    if(b && ok){ const o=b.textContent; b.textContent="✓ Link copied!"; b.classList.add("ok");
-      setTimeout(()=>{ b.textContent=o; b.classList.remove("ok"); }, 1800); }
+                 ? `✓ Link copied — the app as built, not your in-app edits${big} · shorten or share below`
+                 : `✓ Link copied${big} · shorten it or share below — recipients sign in with their own key`)
+             : `App link is in the address bar — copy it below${big}`, ok?"":"err");
+    openShareMenu(url);                                    // fast path stays one-click; options live in the popover
   }catch(e){ toast("share failed: "+e.message, "err"); }
+}
+
+// ---- share popover: copy / shorten (opt-in 3rd-party) / share-to-social. All client-side. ----
+function setShareUrl(u){
+  shareUrl = u;
+  $("sm-url").value = u;
+  const text = "Built this with nanoodle — open it (bring your own key, runs in your browser):";
+  const eu = encodeURIComponent(u), et = encodeURIComponent(text), ti = encodeURIComponent("A nanoodle app");
+  const soc = {
+    x:        `https://twitter.com/intent/tweet?text=${et}&url=${eu}`,
+    reddit:   `https://www.reddit.com/submit?url=${eu}&title=${ti}`,
+    facebook: `https://www.facebook.com/sharer/sharer.php?u=${eu}`,
+    email:    `mailto:?subject=${ti}&body=${et}%0A%0A${eu}`,
+  };
+  document.querySelectorAll("#sharemenu .sm-social a").forEach(a => a.href = soc[a.dataset.soc]);
+}
+function openShareMenu(url){ setShareUrl(url); $("sharemenu").hidden = false; $("shareback").hidden = false; }
+function closeShareMenu(){ $("sharemenu").hidden = true; $("shareback").hidden = true; }
+
+// SHORTEN — direct client-side fetch to the chosen service (no nanoodle backend in the path).
+// Both return the short URL as plain text and preserve our #a= fragment through the redirect.
+async function shortenWith(svc, longUrl){
+  let r, t;
+  if(svc==="tinyurl"){
+    r = await fetch("https://tinyurl.com/api-create.php?url="+encodeURIComponent(longUrl));
+    t = (await r.text()).trim();
+  } else if(svc==="dagd"){                                 // POST → handles very long links (GET ceilings don't apply)
+    r = await fetch("https://da.gd/shorten", { method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" },
+        body:"url="+encodeURIComponent(longUrl) });
+    t = (await r.text()).trim();
+  } else { throw new Error("unknown service"); }
+  if(!/^https?:\/\/\S+$/.test(t)) throw new Error(t.slice(0,80) || "no link returned");
+  return t;
 }
 
 // EXPORT: download bundle(files) as "<title>.html". No key inside (bundle never embeds it).
@@ -3770,9 +4027,14 @@ async function loadFromHash(){
                                 : await gunzip(b64urlToBytes(tag));
       const spec = JSON.parse(json);
       // someone else's app → keep it in "My apps", flagged as imported (it carries its own files)
-      installApp({ graph:spec.graph, files:spec.files, id:newId(), imported:true });
-      consumeHandoff();   // don't re-import on reload
-      toast("Imported — saved to “My apps”");
+      const saved = installApp({ graph:spec.graph, files:spec.files, id:newId(), imported:true });
+      if(saved){
+        consumeHandoff();   // don't re-import on reload
+        toast("Imported — saved to “My apps”");
+      }else{
+        // quota full: nothing persisted. Keep the #a= hash so a reload can retry the import.
+        toast("Couldn’t save the imported app — local storage is full. Keep this link to re-open it.", "err");
+      }
       return true;
     }catch(_){ /* fall through */ }
   }
@@ -3808,6 +4070,25 @@ async function loadFromHash(){
    ====================================================================== */
 const IN_EDITOR = window.parent && window.parent !== window;   // opened as a popup inside the editor
 $("share").onclick = doShare;
+$("shareback").onclick = closeShareMenu;
+$("sm-copy").onclick = async ()=>{ const ok = await copyText(shareUrl); toast(ok?"✓ Copied":"copy failed", ok?"":"err"); };
+$("sm-url").onclick = ()=> $("sm-url").select();
+document.querySelectorAll("#sharemenu .sm-svc button").forEach(btn => btn.onclick = async ()=>{
+  const svc = btn.dataset.svc, label = btn.textContent.trim();
+  const longUrl = location.origin + location.pathname + location.hash;   // always shorten the full current link
+  const others = [...document.querySelectorAll("#sharemenu .sm-svc button")];
+  others.forEach(b=> b.disabled = true);
+  const o = btn.textContent; btn.textContent = "…";
+  try{
+    const short = await shortenWith(svc, longUrl);
+    setShareUrl(short);
+    const ok = await copyText(short);
+    toast(ok ? `✓ Short link copied — via ${label}` : `Short link ready — copy it above`, ok?"":"err");
+  }catch(e){
+    toast(`${label} couldn't shorten it (${e.message}) — try da.gd for very long links, or share the full link`, "err");
+  }finally{ btn.textContent = o; others.forEach(b=> b.disabled = false); }
+});
+document.querySelectorAll('#sharemenu .sm-social a[data-soc="email"]').forEach(a=> a.onclick = ()=> closeShareMenu());
 $("export").onclick = doExport;
 $("openeditor").onclick = doOpenEditor;                        // works in both modes: edits the workflow, keeps this app
 if(IN_EDITOR){
@@ -3897,13 +4178,27 @@ $("appsback").onclick = closeAppsMenu;
 $("am-new").onclick = newAppFromGraph;
 // Escape closes the apps menu first (capture, so it beats the editor-popup close handler below)
 document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("appsmenu").hidden){ e.stopPropagation(); closeAppsMenu(); } }, true);
+document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("sharemenu").hidden){ e.stopPropagation(); closeShareMenu(); } }, true);
 
 $("signin").addEventListener("click",(e)=>{ e.preventDefault(); signIn().catch(err=>$("auth-status").textContent="sign-in error: "+err.message); });
 // The OAuth popup (or another tab) stores the key from another window — reflect it the moment it
 // lands. The poll in signIn() is the primary path for the popup; this covers cross-tab changes.
 window.addEventListener("storage",(e)=>{ if(e.key==="ngpt_key") finishSignIn(); });
 $("pastebtn").addEventListener("click",()=>{ $("key").style.display="flex"; $("keyinput").focus(); });
-$("keysave").addEventListener("click",()=>{ const k=$("keyinput").value.trim(); if(k){ setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp(); toast("key saved — the app can run now"); } });
+$("keysave").addEventListener("click", async ()=>{
+  const k=$("keyinput").value.trim();
+  if(!k) return;
+  const btn=$("keysave"); btn.disabled=true; btn.textContent="checking…";
+  const ok = await probeKey(k);                          // 401/403 → reject; 200/400/offline → keep
+  btn.disabled=false; btn.textContent="save key";
+  if(!ok){                                               // rejected → keep the row OPEN, never show "signed in ✓"
+    $("keyinput").focus();
+    toast("that key was rejected by nano-gpt — check you copied the whole key","err");
+    return;
+  }
+  setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp();
+  toast("key saved — the app can run now");
+});
 $("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
 $("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
 
