@@ -301,9 +301,18 @@
                display:flex; align-items:center; gap:.5rem; max-width:calc(100% - 1.5rem);
                background:var(--panel); border:1px solid var(--line); border-radius:2rem;
                padding:.4rem .45rem .4rem .85rem; font-size:.82rem; color:var(--dim); box-shadow:0 6px 22px #0007 }
-  #canvashint b{ color:var(--ink); font-weight:600 }
+  #canvashint .ht{ flex:1; min-width:0 }   /* the sentence fills the row as one wrapping block; the × stays pinned right */
+  #canvashint b{ color:var(--ink); font-weight:600; white-space:nowrap }   /* keep ▶ Run / ＋ Add node from breaking mid-token when the line wraps */
   #canvashint #hintx{ border:none; background:none; color:var(--dim); cursor:pointer; font-size:1rem; line-height:1; padding:.1rem .4rem; border-radius:.4rem }
   #canvashint #hintx:hover{ background:var(--panel2); color:var(--ink) }
+  /* Phone widths: the run-cost chip and the left-hand 🍜 Cookoff badge share the bottom band and
+     were colliding mid-screen. Lift the cost chip into the bottom-right corner, above the Fit/Undo
+     controls, so it clears the Cookoff badge, the Terms/Privacy link and the Fit button. */
+  @media (max-width:480px){
+    #runest{ right:.5rem; bottom:calc(var(--db-h,3rem) + 3.6rem); }
+    /* fill the width so the orientation line flows across the screen instead of into a narrow column */
+    #canvashint{ width:calc(100% - 1.2rem); max-width:none; }
+  }
   #editor{ position:fixed; inset:52px 0 var(--db-h,3rem) 0; overflow:hidden; cursor:grab;
            background-color:#0b0d12;
            background-image:radial-gradient(circle, #ffffff0d 1px, transparent 1px);
@@ -748,7 +757,7 @@
   <div id="world"></div>
   <button id="undo" title="Undo (Ctrl + Z)" aria-label="Undo the last edit">↺</button>
   <button id="fit" title="Fit the whole workflow in view (F)" aria-label="Fit the whole workflow in view">⊡</button>
-  <div id="canvashint" hidden>A live AI workflow — press <b>▶ Run</b>, or <b>＋ Add node</b> to build your own.<button id="hintx" title="Got it" aria-label="Dismiss">×</button></div>
+  <div id="canvashint" hidden><span class="ht">A live AI workflow — press <b>▶ Run</b>, or <b>＋ Add node</b> to build your own.</span><button id="hintx" title="Got it" aria-label="Dismiss">×</button></div>
 </main>
 <div id="quickadd"></div>
 
