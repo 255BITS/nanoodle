@@ -134,25 +134,6 @@
   #appmodalhintok{ flex:none; padding:.3rem .7rem; border:1px solid var(--line); border-radius:.4rem;
                    background:var(--panel2); color:var(--ink); font-size:.78rem; cursor:pointer; }
   #appmodalhintok:hover{ border-color:var(--accent) }
-  /* gallery — browse & remix curated example/contest noodles (static gallery.json) */
-  #gallerymodal[hidden]{ display:none }
-  #gallerymodal{ position:fixed; inset:0; z-index:200; display:flex; padding:min(4vh,2.4rem) min(4vw,2.4rem);
-                 background:rgba(4,6,11,.74); backdrop-filter:blur(3px); }
-  #gallerypanel{ margin:auto; width:100%; max-width:980px; max-height:92vh; overflow:auto; background:var(--bg);
-                 border:1px solid var(--line); border-radius:.8rem; box-shadow:0 30px 90px #000a; padding:1.2rem 1.3rem 1.5rem; }
-  #galleryhead{ display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap }
-  #galleryhead h2{ font-size:1.1rem; margin:0 }
-  #galleryhead .sub{ font-size:.78rem; color:var(--dim) }
-  #galleryclose{ margin-left:auto; width:2.1rem; height:2.1rem; border-radius:.55rem; display:flex; align-items:center; justify-content:center; }
-  #gallerygrid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:.8rem; margin-top:1rem }
-  .gcard{ display:flex; flex-direction:column; gap:.4rem; background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.85rem .9rem; }
-  .gcard h3{ font-size:.92rem; margin:0 }
-  .gcard .by{ font-size:.72rem; color:var(--dim) }
-  .gcard p{ font-size:.8rem; margin:.1rem 0 .2rem; line-height:1.35 }
-  .gcard .tags{ display:flex; flex-wrap:wrap; gap:.3rem; margin-top:auto }
-  .gcard .tag{ font-size:.66rem; color:var(--accent); border:1px solid var(--line); border-radius:1rem; padding:.08rem .5rem; }
-  .gcard .remix{ margin-top:.55rem; align-self:flex-start; border-color:var(--accent); color:var(--accent) }
-  #galleryempty{ font-size:.85rem; color:var(--dim); padding:1.4rem 0 }
   /* updates — a tiny changelog (static updates.json, newest first). The 📣 button
      opens it; an unseen-count badge nudges return visits. No server, no tracking. */
   #updatesmodal[hidden]{ display:none }
@@ -578,7 +559,6 @@
   <button id="save" title="download this graph as JSON">⭳ Save</button>
   <button id="load" title="open a graph JSON file">⭱ Load</button>
   <button id="updates" title="What’s new in nanoodle">📣 Updates<span id="updbadge" hidden></span></button>
-  <button id="gallerybtn" title="Browse & remix example workflows">🖼️ Gallery</button>
   <input id="loadfile" type="file" accept="application/json,.json" hidden />
   <div id="moremenu">
     <button id="morebtn" title="More actions">⋯</button>
@@ -615,18 +595,6 @@
 </div>
 
 <div id="toast"></div>
-
-<!-- Gallery: browse & remix curated example/contest noodles (static gallery.json) -->
-<div id="gallerymodal" hidden>
-  <div id="gallerypanel" role="dialog" aria-label="Noodle gallery">
-    <div id="galleryhead">
-      <h2>🖼️ Gallery</h2>
-      <span class="sub">Open one to remix it — no account needed.</span>
-      <button id="galleryclose" class="hbtn" title="Close (Esc)" aria-label="Close">✕</button>
-    </div>
-    <div id="gallerygrid"></div>
-  </div>
-</div>
 
 <!-- Updates: a tiny changelog (static updates.json, newest first; one line per change) -->
 <div id="updatesmodal" hidden>
@@ -674,7 +642,7 @@
       <li>❤️ <b>People's Choice</b> — most hearts on Discord + upvotes on Reddit (summed if you post both!)</li>
     </ul>
     <p><b>How to enter:</b> build something here → hit <b>🔗 Share workflow</b> → drop the link in nano-gpt's <a href="https://discord.gg/KaQt8gPG6V" target="_blank" rel="noopener">Discord</a> <b>#community-projects</b> or post it to <b>r/nanocurrency</b> (or both!).</p>
-    <p class="meta">Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get a permanent spot in the gallery.<br>
+    <p class="meta">Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.<br>
       Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.<br>
       nanoodle is a community project on <a href="https://nano-gpt.com" target="_blank" rel="noopener">nano-gpt</a>, which takes Nano — so the prize pool stays in the ecosystem.</p>
     <div class="cookoff-actions">
@@ -3783,7 +3751,7 @@ $("run").onclick = ()=>{
 
 /* ---------- responsive toolbar: collapse secondary actions into the ⋯ menu on phones ----------
    Buttons keep their handlers (they're moved, not cloned). On desktop everything sits inline. */
-const RELOC = ["appmenu","share","submitcontest","save","load","updates","gallerybtn","signin","pastebtn","signout","status"];  // order shown in the menu
+const RELOC = ["appmenu","share","submitcontest","save","load","updates","signin","pastebtn","signout","status"];  // order shown in the menu
 const mqMobile = matchMedia("(max-width:640px)");
 let topOrder = null;
 function layoutBar(){
@@ -4268,68 +4236,6 @@ function seed(){
   undoMuted = false;
 }
 
-/* ======================================================================
-   GALLERY  (curated, static gallery.json — browse & remix example/contest
-   noodles. No server, no tracking: a list of metadata + graph file paths
-   that ship with the page. A "#gallery=<slug>" link loads one directly.)
-   ====================================================================== */
-let galleryCache = null;
-async function fetchGallery(){
-  if(galleryCache) return galleryCache;
-  try{ const r = await fetch("gallery.json", {cache:"no-store"}); galleryCache = r.ok ? await r.json() : []; }
-  catch{ galleryCache = []; }
-  return galleryCache;
-}
-// Load one gallery entry's graph onto the canvas as the user's own working copy.
-async function loadGalleryEntry(slug){
-  const entry = (await fetchGallery()).find(e=> e.slug===slug);
-  if(!entry || !entry.graph) return false;
-  try{
-    const r = await fetch(entry.graph, {cache:"no-store"});
-    if(!r.ok) return false;
-    setPendingApp(null);
-    applyGraphData(await r.json());
-    history.replaceState({}, "", location.pathname + location.search);  // it's your copy now — edits win
-    save();
-    return true;
-  }catch{ return false; }
-}
-function galleryCard(e){
-  const card = document.createElement("div"); card.className = "gcard";
-  const h = document.createElement("h3"); h.textContent = e.title || e.slug; card.appendChild(h);
-  if(e.author){ const by = document.createElement("div"); by.className = "by"; by.textContent = "by "+e.author; card.appendChild(by); }
-  if(e.desc){ const p = document.createElement("p"); p.textContent = e.desc; card.appendChild(p); }
-  if(Array.isArray(e.tags) && e.tags.length){
-    const tg = document.createElement("div"); tg.className = "tags";
-    e.tags.forEach(t=>{ const s = document.createElement("span"); s.className = "tag"; s.textContent = t; tg.appendChild(s); });
-    card.appendChild(tg);
-  }
-  const b = document.createElement("button"); b.className = "remix"; b.textContent = "Open & remix →";
-  b.onclick = async ()=>{
-    b.disabled = true;
-    const ok = await loadGalleryEntry(e.slug);
-    if(ok){ closeGallery(); toast("✓ Loaded “"+(e.title||e.slug)+"” — tweak it and hit ▶ Run"); }
-    else { b.disabled = false; toast("Couldn’t load that one — try another", "err"); }
-  };
-  card.appendChild(b);
-  return card;
-}
-async function openGallery(){
-  try{ localStorage.setItem("noodle_seen_gallery","1"); }catch{}   // remember so the first-visit welcome only fires once
-  const grid = $("gallerygrid");
-  grid.innerHTML = "<div id='galleryempty'>Loading…</div>";
-  $("gallerymodal").hidden = false;
-  const list = await fetchGallery();
-  grid.innerHTML = "";
-  if(!list.length){ grid.innerHTML = "<div id='galleryempty'>No noodles here yet — check back soon.</div>"; return; }
-  list.forEach(e=> grid.appendChild(galleryCard(e)));
-}
-function closeGallery(){ $("gallerymodal").hidden = true; }
-$("gallerybtn").onclick = openGallery;
-$("galleryclose").onclick = closeGallery;
-$("gallerymodal").addEventListener("click", e=>{ if(e.target.id==="gallerymodal") closeGallery(); });   // click the dim backdrop
-addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("gallerymodal").hidden) closeGallery(); });
-
 /* First-run canvas hint — one quiet line, dismissed by the × or the user's first Run / Add-node.
    Local flag only, no tracking; returning users (flag set) never see it. */
 const HINT_KEY = "noodle_hint_dismissed";
@@ -4495,8 +4401,6 @@ $("signout").onclick = ()=> setKey(null);
         const ra = sessionStorage.getItem(RESUME_APPID_KEY); if(ra) setPendingApp(ra, sessionStorage.getItem(RESUME_APPTITLE_KEY) || null);   // keep the edit-workflow link across login
       } }catch(_){}
   try{ sessionStorage.removeItem(RESUME_APPID_KEY); sessionStorage.removeItem(RESUME_APPTITLE_KEY); }catch(_){}
-  // opened a "#gallery=<slug>" link → load that curated noodle as the working copy
-  if(!restored && location.hash.startsWith("#gallery=")) restored = await loadGalleryEntry(decodeURIComponent(location.hash.slice(9)));
   if(!restored && location.hash.length > 3) restored = await loadFromHash();   // opened a shared link
   if(!restored && (restored = load())){                          // else last local graph...
     // ...and re-link it to the app it was bound to, so a plain reload keeps "Update app"
@@ -4510,7 +4414,7 @@ $("signout").onclick = ()=> setKey(null);
   updateTitle();                                                  // reflect whether an app's workflow is loaded
   redraw();
   try{ if(!localStorage.getItem(HINT_KEY)) $("canvashint").hidden = false; }catch{}   // first-run orientation line
-  // Brand-new visitors land straight on a simple working flow (the default graph) — no gallery modal in the way.
+  // Brand-new visitors land straight on a simple working flow (the default graph).
   try{ await handleRedirect(); }catch(e){ $("status").textContent="sign-in error: "+e.message; }
   renderAuth();
   refreshBalance();                 // already-signed-in visitor: show the bal without waiting for a run
