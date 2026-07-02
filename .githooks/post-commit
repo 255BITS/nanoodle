@@ -42,3 +42,8 @@ node "$root/scripts/add-update.mjs" "$date" "$text" || exit 0
 
 NOODLE_SKIP_UPDATE_HOOK=1 git add "$root/updates.json"
 NOODLE_SKIP_UPDATE_HOOK=1 git commit --amend --no-edit --no-verify
+
+# The new entry ships English-only (the 📣 panel falls back to English for any
+# missing language); localize it into es/fr/de/pt/ja before you push:
+#   NANOGPT_API_KEY=sk-... node scripts/translate-updates.mjs   (then re-commit updates.json)
+echo "updates.json: added an English entry — run 'node scripts/translate-updates.mjs' to localize it before pushing." 1>&2

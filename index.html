@@ -1015,6 +1015,8 @@ const I18N = {
     "This link opens your exact workflow for anyone to run or remix.":"Este enlace abre tu flujo exacto para que cualquiera lo ejecute o remezcle.",
     "Trim audio":"Recortar audio",
     "Updates":"Novedades",
+    "Loading…":"Cargando…",
+    "No updates yet — check back soon.":"Aún no hay novedades — vuelve pronto.",
     "Video model":"Modelo de vídeo",
     "Video → frames":"Vídeo → fotogramas",
     "What’s new in nanoodle":"Novedades de nanoodle",
@@ -1389,6 +1391,8 @@ const I18N = {
     "This link opens your exact workflow for anyone to run or remix.":"Ce lien ouvre votre workflow exact pour que quiconque puisse l’exécuter ou le remixer.",
     "Trim audio":"Rogner l’audio",
     "Updates":"Mises à jour",
+    "Loading…":"Chargement…",
+    "No updates yet — check back soon.":"Pas encore de nouveautés — revenez bientôt.",
     "Video model":"Modèle vidéo",
     "Video → frames":"Vidéo → images",
     "What’s new in nanoodle":"Nouveautés de nanoodle",
@@ -1678,6 +1682,8 @@ const I18N = {
     "Workflow canvas":"Workflow-Canvas",
     "Your entry link":"Dein Teilnahme-Link",
     "Updates":"Neuigkeiten",
+    "Loading…":"Wird geladen…",
+    "No updates yet — check back soon.":"Noch keine Neuigkeiten — schau bald wieder vorbei.",
     "📷 Webcam":"📷 Webcam",
     "🛠 Workflow":"🛠 Workflow",
     "Inpaint":"Inpaint",
@@ -2117,6 +2123,8 @@ const I18N = {
     "This link opens your exact workflow for anyone to run or remix.":"Este link abre exatamente seu fluxo para qualquer pessoa executar ou remixar.",
     "Trim audio":"Cortar áudio",
     "Updates":"Atualizações",
+    "Loading…":"Carregando…",
+    "No updates yet — check back soon.":"Ainda não há novidades — volte em breve.",
     "Video model":"Modelo de vídeo",
     "Video → frames":"Vídeo → quadros",
     "What’s new in nanoodle":"Novidades no nanoodle",
@@ -2480,6 +2488,8 @@ const I18N = {
     "This link opens your exact workflow for anyone to run or remix.":"このリンクは、誰でも実行またはリミックスできるあなたのワークフローそのものを開きます。",
     "Trim audio":"音声をトリム",
     "Updates":"アップデート",
+    "Loading…":"読み込み中…",
+    "No updates yet — check back soon.":"まだ更新はありません — またあとで確認してください。",
     "Video model":"動画モデル",
     "Video → frames":"動画 → フレーム",
     "What’s new in nanoodle":"nanoodleの新着情報",
@@ -7296,9 +7306,12 @@ function markUpdatesSeen(list){
   try{ localStorage.setItem(UPD_SEEN_KEY, list.length ? updKey(list[0]) : ""); }catch{}
   $("updbadge").hidden = true;
 }
+// Pick an entry's text for the current UI language: its i18n[LANG] if present,
+// else the English source (so untranslated/new entries degrade gracefully).
+const updText = (e)=> (LANG!=="en" && e && e.i18n && typeof e.i18n[LANG]==="string" && e.i18n[LANG].trim()) ? e.i18n[LANG] : (e && e.text || "");
 async function openUpdates(){
   const body = $("updateslist");
-  body.innerHTML = "<div id='updatesempty'>Loading…</div>";
+  body.innerHTML = "<div id='updatesempty'>"+t("Loading…")+"</div>";
   $("updatesmodal").hidden = false;
   const list = await fetchUpdates();
   body.innerHTML = "";
@@ -7309,7 +7322,7 @@ async function openUpdates(){
     cta.onclick = ()=>{ closeUpdates(); $("cookoffmodal").hidden = false; };
     body.appendChild(cta);
   }
-  if(!list.length){ body.insertAdjacentHTML("beforeend", "<div id='updatesempty'>No updates yet — check back soon.</div>"); }
+  if(!list.length){ body.insertAdjacentHTML("beforeend", "<div id='updatesempty'>"+t("No updates yet — check back soon.")+"</div>"); }
   else {
     let curDate = null, ul = null;   // group consecutive entries under their date
     list.forEach(e=>{
@@ -7318,7 +7331,7 @@ async function openUpdates(){
         const h = document.createElement("div"); h.className = "update-date"; h.textContent = e.date; body.appendChild(h);
         ul = document.createElement("ul"); ul.className = "update-items"; body.appendChild(ul);
       }
-      const li = document.createElement("li"); li.textContent = e.text; ul.appendChild(li);
+      const li = document.createElement("li"); li.textContent = updText(e); ul.appendChild(li);
     });
   }
   markUpdatesSeen(list);
