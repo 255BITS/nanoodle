@@ -115,6 +115,21 @@
   #quickadd .d{ font-size:.74rem; color:var(--dim) }
   #quickadd .grp{ font-size:.66rem; letter-spacing:.08em; text-transform:uppercase; color:var(--dim); padding:.4rem .55rem .15rem; pointer-events:none }
   #quickadd .qhint{ font-size:.7rem; color:var(--accent); padding:.35rem .55rem .3rem; pointer-events:none; border-bottom:1px solid var(--line); margin-bottom:.2rem }
+  /* ---------- language selector ---------- */
+  #langmenu{ position:relative }
+  #langbtn{ display:flex; align-items:center; gap:.25rem; background:none; border:1px solid transparent;
+            color:var(--dim); padding:.3rem .45rem; font-size:.8rem; border-radius:.5rem }
+  #langbtn:hover{ background:var(--panel2); border-color:var(--line); color:var(--ink) }
+  #langbtn .gl{ font-size:.95rem; line-height:1 }
+  #langcur{ font-weight:600; letter-spacing:.01em }
+  #langpop{ position:absolute; top:110%; right:0; background:var(--panel); border:1px solid var(--line); border-radius:.6rem;
+            padding:.35rem; display:none; flex-direction:column; gap:.05rem; min-width:170px; box-shadow:0 12px 40px #0008; z-index:40 }
+  #langpop.open{ display:flex }
+  #langpop button{ display:flex; justify-content:space-between; align-items:center; gap:.8rem; width:100%; text-align:left;
+                   border:none; background:none; color:var(--ink); padding:.45rem .55rem; border-radius:.45rem; font-size:.86rem }
+  #langpop button:hover{ background:var(--panel2) }
+  #langpop button.sel{ color:var(--accent); font-weight:600 }
+  #langpop button .code{ font-size:.66rem; color:var(--dim); font-family:ui-monospace,monospace; text-transform:uppercase }
   #status{font-size:.78rem; color:var(--dim)}
   #share.ok{ border-color:var(--good); color:var(--good) }
   /* create-app popup (play.html in a modal iframe over the editor) */
@@ -543,6 +558,7 @@
     #appnudge{ position:fixed; top:58px; left:.5rem; right:.5rem; max-width:none; justify-content:center; white-space:normal }
     #top .sep{ display:none }
     #cost{ display:none }                 /* balance is non-essential chrome on a phone */
+    #langcur{ display:none }              /* globe + ▾ only — the menu still lists every language */
   }
 
   /* ---------- touch devices: finger-sized hit targets everywhere ---------- */
@@ -596,20 +612,20 @@
     <button id="addbtn" title="Add a node">＋<span class="lbl"> Add node</span> ▾</button>
     <div id="addpop"></div>
   </div>
-  <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ Run</button>
+  <button id="run" class="primary" title="run every flow (Ctrl/⌘+Enter)">▶ <span>Run</span></button>
   <div id="appmenu">
     <button id="makeapp" title="Turn this workflow into a shareable app">✨<span class="lbl"> Create app</span></button>
     <button id="appmore" class="caret" title="More app options" aria-label="More app options" aria-haspopup="true" hidden>▾</button>
     <div id="apppop">
-      <button id="newapp" title="Save this as a brand-new app — the one you’re editing stays untouched">✨ Save as a new app</button>
+      <button id="newapp" title="Save this as a brand-new app — the one you’re editing stays untouched">✨ <span>Save as a new app</span></button>
     </div>
     <div id="appnudge" hidden role="status"><span>Like it? <b>✨ Turn this into an app</b> you can share</span><button id="appnudgex" title="Got it" aria-label="Dismiss">×</button></div>
   </div>
-  <button id="share" title="Copy a link that opens this workflow in the node editor so others can remix it">🔗 Share workflow</button>
-  <button id="submitcontest" title="Enter this in the Noodle Cookoff">🏆 Cookoff</button>
-  <button id="save" title="download this graph as JSON">⭳ Save</button>
-  <button id="load" title="open a graph JSON file">⭱ Load</button>
-  <button id="updates" title="What’s new in nanoodle">📣 Updates<span id="updbadge" hidden></span></button>
+  <button id="share" title="Copy a link that opens this workflow in the node editor so others can remix it">🔗 <span>Share workflow</span></button>
+  <button id="submitcontest" title="Enter this in the Noodle Cookoff">🏆 <span>Cookoff</span></button>
+  <button id="save" title="download this graph as JSON">⭳ <span>Save</span></button>
+  <button id="load" title="open a graph JSON file">⭱ <span>Load</span></button>
+  <button id="updates" title="What’s new in nanoodle">📣 <span>Updates</span><span id="updbadge" hidden></span></button>
   <input id="loadfile" type="file" accept="application/json,.json" hidden />
   <div id="moremenu">
     <button id="morebtn" title="More actions">⋯</button>
@@ -619,6 +635,10 @@
   <span id="cost"></span>
   <div class="spacer"></div>
   <span id="status">checking…</span>
+  <div id="langmenu">
+    <button id="langbtn" title="Language" aria-label="Language"><span class="gl">🌐</span><span id="langcur" data-no-i18n></span> ▾</button>
+    <div id="langpop" role="menu"></div>
+  </div>
   <button id="signin" class="link" style="display:none">sign in</button>
   <button id="pastebtn" class="link" style="display:none">paste key</button>
   <button id="signout" class="link" style="display:none">sign out</button>
@@ -785,6 +805,1908 @@ const CHAT_ENDPOINT = `${NANOGPT}/api/v1/chat/completions`;
 const $ = (id) => document.getElementById(id);
 const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
 const esc = (s)=> String(s).replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+/* ======================================================================
+   i18n — the editor chrome is translatable; the app runner (play.html) and
+   exported apps are English-only for now (chrome AND model output — the
+   localeDirective below is editor-only). English is the identity language.
+
+   Catalog shape: I18N[lang][englishSource] = translation. A missing key
+   falls back to the English source, so a partial catalog degrades cleanly.
+   Detection walks navigator.languages, matching the base subtag (es-419→es)
+   against I18N_LANGS; a persisted choice ("noodle_lang") always wins.
+   Switching language persists + reloads — the graph auto-saves, so reload
+   is lossless and avoids any half-retranslated DOM.
+
+   Translators: fill one map per language with the SAME keys as the English
+   sources used across this file; keep trailing "…", leading spaces, emoji,
+   and {placeholders} verbatim. Maps live between the I18N markers below.
+   ====================================================================== */
+const I18N_LANGS = [
+  { code:"en", native:"English" },
+  { code:"es", native:"Español" },
+  { code:"fr", native:"Français" },
+  { code:"de", native:"Deutsch" },
+  { code:"pt", native:"Português" },
+  { code:"ja", native:"日本語" },
+];
+// English name per language → the model-output prompt directive.
+const I18N_ENAME = { es:"Spanish", fr:"French", de:"German", pt:"Portuguese", ja:"Japanese" };
+
+/* === I18N-MAPS-BEGIN (es/fr/de/pt/ja — generated; English is identity) === */
+const I18N = {
+  es:{
+    "strength":"intensidad",
+    "remove":"quitar",
+    "to run":"para ejecutar",
+    "Estimated cost to ▶ Run all — {n} paid node":"Coste estimado de ▶ Ejecutar todo — {n} nodo de pago",
+    "Estimated cost to ▶ Run all — {n} paid nodes":"Coste estimado de ▶ Ejecutar todo — {n} nodos de pago",
+    ", plus {n} with no listed price":", más {n} sin precio listado",
+    "Video, text & audio are estimates: the real bill depends on clip length, tokens and characters.":"Vídeo, texto y audio son estimaciones: la factura real depende de la duración del clip, los tokens y los caracteres.",
+    "Drag a":"Arrastra un",
+    "port onto a matching one to connect — or drop a wire on empty canvas to quick-add.":"puerto sobre otro compatible para conectar — o suelta un cable en el lienzo vacío para añadir rápido.",
+    "no nodes match “{q}”":"ningún nodo coincide con “{q}”",
+    "that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model":"ese {field} pesa ~{mb} MB — supera el límite de envío de 4 MB; usa un clip más corto o no llegará al modelo",
+    "Start here":"Empieza aquí",
+    "■ Stop":"■ Detener",
+    "Stop the running workflow":"Detener el flujo en ejecución",
+    "Undo (Ctrl + Z)":"Deshacer (Ctrl + Z)",
+    "Language":"Idioma",
+    "Recommended — handles very long links (workflow links can get big)":"Recomendado — admite enlaces muy largos (los enlaces de flujo pueden crecer mucho)",
+    "Shorter domain, but can fail on very long links":"Dominio más corto, pero puede fallar con enlaces muy largos",
+    "this model can’t hear audio — pick an audio-input model":"este modelo no puede oír audio — elige un modelo con entrada de audio",
+    "Close":"Cerrar",
+    "Close model picker":"Cerrar el selector de modelos",
+    "Fit the whole workflow in view":"Ajustar todo el flujo a la vista",
+    "Rename this node":"Renombrar este nodo",
+    "Sort models":"Ordenar modelos",
+    "Submit to the Noodle Cookoff":"Enviar al Noodle Cookoff",
+    "Undo the last edit":"Deshacer la última edición",
+    "What’s new":"Novedades",
+    "What your link opens":"Qué abre tu enlace",
+    "Workflow canvas":"Lienzo del flujo",
+    "Your entry link":"Tu enlace de participación",
+    "audio":"audio",
+    "avatar":"avatar",
+    "Inpaint":"Inpaint",
+    "🚀 App":"🚀 App",
+    "Update {app}":"Actualizar {app}",
+    "Update “{app}” with this workflow":"Actualizar “{app}” con este flujo",
+    "your app":"tu app",
+    "✓ Copied":"✓ Copiado",
+    "✓ Short":"✓ Acortado",
+    "Opens in the editor so others can remix or learn from your noodle.":"Se abre en el editor para que otros puedan remezclar o aprender de tu noodle.",
+    "9:16 (Portrait)":"9:16 (Vertical)",
+    "default":"predeterminado",
+    "(in the top bar) takes you back to the graph and keeps this app.":"(en la barra superior) te lleva de vuelta al grafo y conserva esta app.",
+    "(or both!).":"(¡o ambos!).",
+    "(style adapter)":"(adaptador de estilo)",
+    ", or":", o",
+    ", which takes Nano — so the prize pool stays in the ecosystem.":", que acepta Nano — así el fondo de premios se queda en el ecosistema.",
+    "16:9 (Landscape)":"16:9 (Horizontal)",
+    "1:1 (Square)":"1:1 (Cuadrado)",
+    "A live AI workflow — press":"Un flujo de IA en vivo — pulsa",
+    "A running changelog — one line per change.":"Un registro de cambios continuo — una línea por cambio.",
+    "Apply the described change (Enter)":"Aplicar el cambio descrito (Enter)",
+    "Audio model":"Modelo de audio",
+    "Brush a region of an image → repaint just that area":"Pinta una región de una imagen → repinta solo esa zona",
+    "Chat model":"Modelo de chat",
+    "Choose the model that plans your change":"Elige el modelo que planifica tu cambio",
+    "Clear mask":"Borrar máscara",
+    "Close — your app stays here (Esc)":"Cerrar — tu app se queda aquí (Esc)",
+    "Combine videos":"Combinar vídeos",
+    "Copy":"Copiar",
+    "Copy a link that opens this workflow in the node editor so others can remix it":"Copia un enlace que abre este flujo en el editor de nodos para que otros puedan remezclarlo",
+    "Copy link":"Copiar enlace",
+    "Cut audio to a start + length":"Recorta el audio a un inicio + longitud",
+    "Dismiss":"Descartar",
+    "Each change adds a version — click one to jump back to it":"Cada cambio añade una versión — haz clic en una para volver a ella",
+    "Edit workflow":"Editar flujo",
+    "Email":"Correo",
+    "Enter this in the Noodle Cookoff":"Participa con esto en el Noodle Cookoff",
+    "Fit the whole workflow in view (F)":"Ajustar todo el flujo a la vista (F)",
+    "Got it":"Entendido",
+    "How to enter:":"Cómo participar:",
+    "Image model":"Modelo de imagen",
+    "Image(s) + text → image":"Imagen(es) + texto → imagen",
+    "Join clips end-to-end into one video":"Une los clips uno tras otro en un solo vídeo",
+    "Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.":"Mantén las participaciones SFW — sin violaciones de derechos de autor, nada ilegal. Los premios solo pueden enviarse a monederos en países no sujetos a sanciones activas de EE. UU.",
+    "Make it shorter — optional":"Hazlo más corto — opcional",
+    "Model options":"Opciones de modelo",
+    "More app options":"Más opciones de app",
+    "Most Innovative":"Más innovador",
+    "Most Useful":"Más útil",
+    "Noodle Cookoff — win Nano":"Noodle Cookoff — gana Nano",
+    "Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.":"Abre el 26 de junio · cierra el 12 de julio (23:59 UTC) · máx. 2 participaciones cada uno · los ganadores serán destacados.",
+    "Opens your creation as a ready-to-run app — what people click to try it. Best for entries.":"Abre tu creación como una app lista para ejecutar — lo que la gente pulsa para probarla. Ideal para participaciones.",
+    "People's Choice":"Premio del público",
+    "Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.":"Controles por modelo del catálogo (preajustes, estilos, movimientos de cámara…). Se aplican los valores por defecto si no se tocan.",
+    "Pull still frames out of a video":"Extrae fotogramas fijos de un vídeo",
+    "Recent":"Recientes",
+    "Running calls models on your NanoGPT key.":"Ejecutar llama a modelos con tu clave de NanoGPT.",
+    "Sampling + reasoning knobs. Defaults apply when untouched.":"Controles de muestreo + razonamiento. Se aplican los valores por defecto si no se tocan.",
+    "Save as a new app":"Guardar como app nueva",
+    "Save this as a brand-new app — the one you’re editing stays untouched":"Guarda esto como una app totalmente nueva — la que estás editando queda intacta",
+    "Search nodes… (image, voice, video)":"Buscar nodos… (imagen, voz, vídeo)",
+    "Sends this link to a third-party shortener so":"Envía este enlace a un acortador de terceros para que",
+    "Share this workflow":"Compartir este flujo",
+    "Share to":"Compartir en",
+    "Share workflow":"Compartir flujo",
+    "Shorten this link (via da.gd) — nicer to post":"Acorta este enlace (vía da.gd) — mejor para publicar",
+    "Start cooking →":"Empezar a cocinar →",
+    "Text (+ images, audio) → text — any chat model":"Texto (+ imágenes, audio) → texto — cualquier modelo de chat",
+    "This link opens your exact workflow for anyone to run or remix.":"Este enlace abre tu flujo exacto para que cualquiera lo ejecute o remezcle.",
+    "Trim audio":"Recortar audio",
+    "Updates":"Novedades",
+    "Video model":"Modelo de vídeo",
+    "Video → frames":"Vídeo → fotogramas",
+    "What’s new in nanoodle":"Novedades de nanoodle",
+    "When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.":"Cuando los clips se encadenan, el primer fotograma de cada clip repite el último fotograma del clip anterior. Recortarlo elimina el congelado en la unión.",
+    "Where to post":"Dónde publicar",
+    "Win 3 × 133 XNO (Nano)":"Gana 3 × 133 XNO (Nano)",
+    "Workflow link is in the address bar — copy it below":"El enlace del flujo está en la barra de direcciones — cópialo abajo",
+    "You're already in the kitchen. Wire up a noodle, share it, and win Nano — feeless, pay-per-call, no signup.":"Ya estás en la cocina. Conecta un noodle, compártelo y gana Nano — sin comisiones, pago por llamada, sin registro.",
+    "a red coffee mug, a small bird…":"una taza de café roja, un pájaro pequeño…",
+    "advanced":"avanzado",
+    "beginning":"principio",
+    "brush size":"tamaño de pincel",
+    "build something here → hit":"construye algo aquí → pulsa",
+    "delete (Del)":"eliminar (Del)",
+    "drag to resize":"arrastra para redimensionar",
+    "e.g. “add a node that speaks the result aloud”":"p. ej. “añade un nodo que diga el resultado en voz alta”",
+    "edit":"editar",
+    "frames":"fotogramas",
+    "gap between frames (sec)":"intervalo entre fotogramas (seg)",
+    "high":"alto",
+    "host it. They can see the workflow.":"lo alojan. Pueden ver el flujo.",
+    "image":"imagen",
+    "last frame":"último fotograma",
+    "length (sec)":"longitud (seg)",
+    "low":"bajo",
+    "mask":"máscara",
+    "max 2 entries · keep it SFW · closes Jul 12, 23:59 UTC":"máx. 2 entradas · mantenlo SFW · cierra el 12 de julio, 23:59 UTC",
+    "max tokens":"máx. tokens",
+    "max tokens (≤ 128000)":"máx. tokens (≤ 128000)",
+    "max {cap} for this model":"máx. {cap} para este modelo",
+    "medium":"medio",
+    "models":"modelos",
+    "music":"música",
+    "nanoodle is a community project on":"nanoodle es un proyecto comunitario en",
+    "nanoodle — AI workflow editor":"nanoodle — editor de flujos de IA",
+    "no audio yet":"aún sin audio",
+    "no video yet":"aún sin vídeo",
+    "or":"o",
+    "or post it to":"o publícalo en",
+    "output format":"formato de salida",
+    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"genera WAV mono, ajustado para incrustar — útil antes de Avatar / sincronización labial cuando un clip es demasiado largo.",
+    "paste your link":"pega tu enlace",
+    "random":"aleatorio",
+    "reasoning effort":"esfuerzo de razonamiento",
+    "resolution":"resolución",
+    "save frame":"guardar fotograma",
+    "seed":"semilla",
+    "show thinking":"mostrar razonamiento",
+    "start (sec)":"inicio (seg)",
+    "start from":"empezar desde",
+    "temperature":"temperatura",
+    "they":"ellos",
+    "this clip has generated audio":"este clip tiene audio generado",
+    "to build your own.":"para crear el tuyo.",
+    "trim duplicate seam frame":"recortar fotograma de unión duplicado",
+    "upload or capture an image, then brush the area to repaint":"sube o captura una imagen, luego pincela la zona a repintar",
+    "variation":"variación",
+    "variations":"variaciones",
+    "vision":"visión",
+    "what to paint in":"qué pintar dentro",
+    "· blank = random, fix to repeat (re-run won't regenerate)":"· vacío = aleatorio, fija para repetir (re-ejecutar no regenerará)",
+    "— made nano-gpt do something nobody expected":"— hizo que nano-gpt hiciera algo que nadie esperaba",
+    "— most hearts on Discord + upvotes on Reddit (summed if you post both!)":"— más corazones en Discord + votos a favor en Reddit (¡sumados si publicas en ambos!)",
+    "— the one you'd actually open every week":"— la que de verdad abrirías cada semana",
+    "↑↓ move · ↵ add · esc close":"↑↓ mover · ↵ añadir · esc cerrar",
+    "→ drop the link in nano-gpt's":"→ suelta el enlace en el de nano-gpt",
+    "▶ Run":"▶ Ejecutar",
+    "● Capture":"● Capturar",
+    "⚙️ Model options":"⚙️ Opciones de modelo",
+    "⚙️ advanced":"⚙️ avanzado",
+    "✂ Shorten":"✂ Acortar",
+    "✓ Workflow link copied — shorten or share it below":"✓ Enlace del flujo copiado — acórtalo o compártelo abajo",
+    "✕ Cancel":"✕ Cancelar",
+    "✦ Apply":"✦ Aplicar",
+    "✨ model ▾":"✨ modelo ▾",
+    "⬆ Upload":"⬆ Subir",
+    "⬆ Upload audio":"⬆ Subir audio",
+    "⬆ Upload video":"⬆ Subir vídeo",
+    "🏆 Win 3 × 133 XNO (Nano)":"🏆 Gana 3 × 133 XNO (Nano)",
+    "💬 Describe changes":"💬 Describir cambios",
+    "💬 Post in Discord ↗":"💬 Publica en Discord ↗",
+    "📣 What’s new":"📣 Novedades",
+    "📨 Submit your entry →":"📨 Envía tu participación →",
+    "📷 Webcam":"📷 Cámara",
+    "🔗 Share workflow":"🔗 Compartir flujo",
+    "🛠 Most Useful · 💡 Most Innovative · ❤️ People's Choice":"🛠 Más útil · 💡 Más innovador · ❤️ Elección del público",
+    "🛠 Workflow":"🛠 Flujo",
+    "🤖 Post to r/nanocurrency ↗":"🤖 Publica en r/nanocurrency ↗",
+    "＋ Add node":"＋ Añadir nodo",
+    "Add node":"Añadir nodo",
+    "Add a node":"Añadir un nodo",
+    "Run":"Ejecutar",
+    "run every flow (Ctrl/⌘+Enter)":"ejecutar todos los flujos (Ctrl/⌘+Enter)",
+    "Create app":"Crear app",
+    "Turn this workflow into a shareable app":"Convierte este flujo en una app para compartir",
+    "Share":"Compartir",
+    "Save":"Guardar",
+    "download this graph as JSON":"descargar este grafo como JSON",
+    "Load":"Cargar",
+    "open a graph JSON file":"abrir un archivo JSON de grafo",
+    "More actions":"Más acciones",
+    "Close (Esc)":"Cerrar (Esc)",
+    "sign in":"iniciar sesión",
+    "paste key":"pegar clave",
+    "sign out":"cerrar sesión",
+    "checking…":"comprobando…",
+    "ready ✓":"listo ✓",
+    "not signed in":"sin iniciar sesión",
+    "paste NanoGPT API key (sk-nano-… or a UUID)":"pega la clave API de NanoGPT (sk-nano-… o un UUID)",
+    "save":"guardar",
+    "nano-gpt.com → Settings → API":"nano-gpt.com → Ajustes → API",
+    "model":"modelo",
+    "Model":"Modelo",
+    "Chat":"Chat",
+    "Image":"Imagen",
+    "Video":"Vídeo",
+    "Audio":"Audio",
+    "filter the full list, or type an exact id + Enter…":"filtra la lista completa, o escribe un id exacto + Enter…",
+    "loading the full list…":"cargando la lista completa…",
+    "pick a model…":"elige un modelo…",
+    "newest first":"más recientes primero",
+    "Sort the model list":"Ordenar la lista de modelos",
+    "Newest":"Más recientes",
+    "Cheapest":"Más baratos",
+    "Priciest":"Más caros",
+    "Name A→Z":"Nombre A→Z",
+    "newest":"más recientes",
+    "cheapest":"más baratos",
+    "priciest":"más caros",
+    "Text":"Texto",
+    "A string source":"Una fuente de texto",
+    "Image input":"Entrada de imagen",
+    "Upload or capture an image":"Sube o captura una imagen",
+    "Join":"Unir",
+    "Glue two texts together":"Une dos textos",
+    "LLM":"LLM",
+    "this model can’t read images — pick a vision model":"este modelo no puede leer imágenes — elige un modelo de visión",
+    "Text → image":"Texto → imagen",
+    "Edit":"Editar",
+    "Vision":"Visión",
+    "Image → text (describe / ask)":"Imagen → texto (describir / preguntar)",
+    "Text→Video":"Texto→Vídeo",
+    "Text → video (renders ~1 min)":"Texto → vídeo (renderiza ~1 min)",
+    "Image→Video":"Imagen→Vídeo",
+    "Image (+text) → video":"Imagen (+texto) → vídeo",
+    "Music":"Música",
+    "Text → music":"Texto → música",
+    "Speech":"Voz",
+    "Text → speech (TTS)":"Texto → voz (TTS)",
+    "system (optional)":"sistema (opcional)",
+    "prompt":"prompt",
+    "separator":"separador",
+    "size":"tamaño",
+    "edit instruction":"instrucción de edición",
+    "question":"pregunta",
+    "duration":"duración",
+    "aspect":"proporción",
+    "motion prompt (optional)":"prompt de movimiento (opcional)",
+    "style / prompt":"estilo / prompt",
+    "text to speak":"texto a leer",
+    "advanced params (JSON)":"parámetros avanzados (JSON)",
+    "type some text…":"escribe algo…",
+    "you are a helpful…":"eres un asistente útil…",
+    "ask something…":"pregunta algo…",
+    "a red panda astronaut…":"un panda rojo astronauta…",
+    "make it night-time, add neon…":"hazlo de noche, añade neón…",
+    "Describe this image.":"Describe esta imagen.",
+    "a drone shot over neon Tokyo at night…":"un plano con dron sobre el Tokio de neón de noche…",
+    "slow push-in, hair blowing in the wind…":"acercamiento lento, pelo al viento…",
+    "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM":"lo-fi hip hop animado, piano suave, crepitar de vinilo, 90 BPM",
+    "Hello! This is a test.":"¡Hola! Esto es una prueba.",
+    "square":"cuadrado",
+    "portrait":"vertical",
+    "landscape":"horizontal",
+    "auto":"auto",
+    "5 sec":"5 seg",
+    "10 sec":"10 seg",
+    "Lyrics":"Letra",
+    "Instrumental":"Instrumental",
+    "Duration (sec)":"Duración (seg)",
+    "Number of songs":"Número de canciones",
+    "Negative prompt":"Prompt negativo",
+    "Seed":"Semilla",
+    "Format":"Formato",
+    "Voice":"Voz",
+    "Speed":"Velocidad",
+    "Instructions":"Instrucciones",
+    "required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM":"requerido por modelos de canción vocal (p. ej. Mureka); déjalo vacío para instrumental/BGM",
+    "run this branch":"ejecutar esta rama",
+    "delete":"eliminar",
+    "open":"abrir",
+    "copy":"copiar",
+    "✓ copied":"✓ copiado",
+    "copy failed":"error al copiar",
+    "Upload":"Subir",
+    "Webcam":"Cámara",
+    "Capture":"Capturar",
+    "Cancel":"Cancelar",
+    "no image yet":"aún sin imagen",
+    "running…":"ejecutando…",
+    "error":"error",
+    "generating audio…":"generando audio…",
+    "rendering video…":"renderizando vídeo…",
+    "animating…":"animando…",
+    "nothing to run — add a node":"nada que ejecutar — añade un nodo",
+    "add a node first":"añade un nodo primero",
+    "cycle detected":"ciclo detectado",
+    "couldn’t read that image":"no se pudo leer esa imagen",
+    "webcam unavailable":"cámara no disponible",
+    "share failed":"error al compartir",
+    "shorten failed":"error al acortar",
+    "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"audio ignorado — este modelo es solo de texto. Elige un modelo con entrada de audio (por ejemplo, un Gemini).",
+    "can’t delete while running — Stop first":"no se puede eliminar mientras se ejecuta — detén primero",
+    "couldn’t read that file":"no se pudo leer ese archivo",
+    "stopping…":"deteniendo…",
+    "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"no se pudo autoguardar — un clip de audio/vídeo subido podría ser demasiado grande para el almacenamiento local",
+    "Couldn't copy — select the link and copy it manually":"No se pudo copiar — selecciona el enlace y cópialo manualmente",
+    "that key was rejected — paste a valid nano-gpt.com key":"esa clave fue rechazada — pega una clave válida de nano-gpt.com",
+    "sign-in error":"error de inicio de sesión",
+    "sign-in didn't complete":"el inicio de sesión no se completó",
+    "Like it?":"¿Te gusta?",
+    "✨ Turn this into an app":"✨ Convierte esto en una app",
+    "you can share":"que puedes compartir",
+    "new to nano-gpt?":"¿nuevo en nano-gpt?",
+    "create an account →":"crea una cuenta →",
+    "— pay-per-use, no subscription needed; your key stays in this browser.":"— pago por uso, sin suscripción; tu clave se queda en este navegador.",
+    "couldn't read your clipboard — click the key field and press Ctrl+V to paste":"no se pudo leer tu portapapeles — haz clic en el campo de clave y pulsa Ctrl+V para pegar",
+    "that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again":"esa clave tiene un carácter que no se puede enviar — cópiala de nuevo desde nano-gpt.com → Ajustes → API y pégala otra vez",
+    "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail":"clave guardada — pero nano-gpt.com no se puede alcanzar ahora mismo (¿bloqueador de anuncios, VPN o red?), así que las ejecuciones pueden fallar",
+    "key saved — you're ready to run":"clave guardada — listo para ejecutar",
+    "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"el saldo {bal} podría no cubrir esta ejecución de ~{usd} — recarga en nano-gpt.com",
+    "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"sin saldo — esta ejecución necesita más crédito. Recarga en nano-gpt.com y vuelve a ejecutar.",
+    "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"tu clave API guardada contiene un carácter que no se puede enviar (normalmente un guion tipográfico o un carácter invisible al escribir/copiar) — cópiala de nuevo desde nano-gpt.com → Ajustes → API y pégala otra vez",
+    "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"no se pudo conectar con nano-gpt.com — un bloqueador de anuncios, VPN o filtro de red podría estar bloqueándolo; comprueba la conexión y vuelve a ejecutar",
+    "— this model may have changed on nano-gpt; click the node's model name to pick another":"— este modelo pudo haber cambiado en nano-gpt; haz clic en el nombre del modelo del nodo para elegir otro",
+    "your key was rejected — sign in or paste a valid nano-gpt.com key":"tu clave fue rechazada — inicia sesión o pega una clave válida de nano-gpt.com",
+    "Link opens the app as last saved — hit ✨ Update first to include your newest canvas edits":"El enlace abre la app tal como se guardó — pulsa ✨ Actualizar primero para incluir tus últimos cambios del lienzo",
+    "pick a model first":"elige un modelo primero",
+    "no prompt":"sin prompt",
+    "no text":"sin texto",
+    "no edit instruction":"sin instrucción de edición",
+    "no image — upload or capture one first":"sin imagen — sube o captura una primero",
+    "Couldn’t load that file:":"No se pudo cargar ese archivo:",
+    "Audio input":"Entrada de audio",
+    "Upload an audio clip":"Sube un clip de audio",
+    "Video input":"Entrada de vídeo",
+    "Upload a video clip":"Sube un clip de vídeo",
+    "Video edit":"Editar vídeo",
+    "Video (+text) → video — edit / extend / upscale":"Vídeo (+texto) → vídeo — editar / extender / escalar",
+    "Avatar / lipsync":"Avatar / sincronización labial",
+    "Image + audio → talking video":"Imagen + audio → vídeo hablado",
+    "Transcribe":"Transcribir",
+    "Audio → text (speech-to-text)":"Audio → texto (voz a texto)",
+    "Inputs":"Entradas",
+    "Other":"Otros",
+    "instruction (optional)":"instrucción (opcional)",
+    "prompt (optional)":"prompt (opcional)",
+    "language":"idioma",
+    "restyle as claymation · extend the clip · upscale to 4K…":"reestiliza como plastilina · extiende el clip · escala a 4K…",
+    "subtle head movement, warm lighting…":"movimiento sutil de cabeza, luz cálida…"
+  },
+  fr:{
+    "strength":"intensité",
+    "remove":"retirer",
+    "to run":"pour exécuter",
+    "Estimated cost to ▶ Run all — {n} paid node":"Coût estimé de ▶ Tout exécuter — {n} nœud payant",
+    "Estimated cost to ▶ Run all — {n} paid nodes":"Coût estimé de ▶ Tout exécuter — {n} nœuds payants",
+    ", plus {n} with no listed price":", plus {n} sans prix affiché",
+    "Video, text & audio are estimates: the real bill depends on clip length, tokens and characters.":"Vidéo, texte et audio sont des estimations : la facture réelle dépend de la durée du clip, des tokens et des caractères.",
+    "Drag a":"Glissez un",
+    "port onto a matching one to connect — or drop a wire on empty canvas to quick-add.":"port sur un port compatible pour connecter — ou déposez un fil sur le canevas vide pour un ajout rapide.",
+    "no nodes match “{q}”":"aucun nœud ne correspond à “{q}”",
+    "that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model":"ce {field} fait ~{mb} MB — au-delà de la limite d’envoi de 4 MB ; utilisez un clip plus court ou il n’atteindra pas le modèle",
+    "Start here":"Commencez ici",
+    "■ Stop":"■ Arrêter",
+    "Stop the running workflow":"Arrêter le workflow en cours",
+    "Undo (Ctrl + Z)":"Annuler (Ctrl + Z)",
+    "Language":"Langue",
+    "Recommended — handles very long links (workflow links can get big)":"Recommandé — gère les liens très longs (les liens de workflow peuvent devenir volumineux)",
+    "Shorter domain, but can fail on very long links":"Domaine plus court, mais peut échouer sur les liens très longs",
+    "this model can’t hear audio — pick an audio-input model":"ce modèle ne peut pas entendre l’audio — choisissez un modèle à entrée audio",
+    "Close":"Fermer",
+    "Close model picker":"Fermer le sélecteur de modèles",
+    "Fit the whole workflow in view":"Ajuster tout le workflow à la vue",
+    "Rename this node":"Renommer ce nœud",
+    "Sort models":"Trier les modèles",
+    "Submit to the Noodle Cookoff":"Participer au Noodle Cookoff",
+    "Undo the last edit":"Annuler la dernière modification",
+    "What’s new":"Nouveautés",
+    "What your link opens":"Ce que votre lien ouvre",
+    "Workflow canvas":"Canevas du workflow",
+    "Your entry link":"Votre lien de participation",
+    "image":"image",
+    "seed":"graine",
+    "variation":"variation",
+    "variations":"variations",
+    "vision":"vision",
+    "📷 Webcam":"📷 Webcam",
+    "🛠 Workflow":"🛠 Flux",
+    "audio":"audio",
+    "avatar":"avatar",
+    "Inpaint":"Inpaint",
+    "🚀 App":"🚀 App",
+    "Update {app}":"Mettre à jour {app}",
+    "Update “{app}” with this workflow":"Mettre à jour « {app} » avec ce workflow",
+    "your app":"votre app",
+    "✓ Copied":"✓ Copié",
+    "✓ Short":"✓ Raccourci",
+    "Opens in the editor so others can remix or learn from your noodle.":"S’ouvre dans l’éditeur pour que d’autres puissent remixer ou apprendre de votre noodle.",
+    "9:16 (Portrait)":"9:16 (Portrait)",
+    "default":"par défaut",
+    "(in the top bar) takes you back to the graph and keeps this app.":"(dans la barre du haut) vous ramène au graphe et conserve cette app.",
+    "(or both!).":"(ou les deux !).",
+    "(style adapter)":"(adaptateur de style)",
+    ", or":", ou",
+    ", which takes Nano — so the prize pool stays in the ecosystem.":", qui accepte Nano — ainsi la cagnotte reste dans l’écosystème.",
+    "16:9 (Landscape)":"16:9 (Paysage)",
+    "1:1 (Square)":"1:1 (Carré)",
+    "A live AI workflow — press":"Un workflow IA en direct — appuyez sur",
+    "A running changelog — one line per change.":"Un journal des modifications continu — une ligne par changement.",
+    "Apply the described change (Enter)":"Appliquer la modification décrite (Entrée)",
+    "Audio model":"Modèle audio",
+    "Brush a region of an image → repaint just that area":"Peignez une zone d’une image → repeignez uniquement cette zone",
+    "Chat model":"Modèle de chat",
+    "Choose the model that plans your change":"Choisissez le modèle qui planifie votre modification",
+    "Clear mask":"Effacer le masque",
+    "Close — your app stays here (Esc)":"Fermer — votre app reste ici (Esc)",
+    "Combine videos":"Combiner les vidéos",
+    "Copy":"Copier",
+    "Copy a link that opens this workflow in the node editor so others can remix it":"Copier un lien qui ouvre ce workflow dans l’éditeur de nœuds pour que d’autres puissent le remixer",
+    "Copy link":"Copier le lien",
+    "Cut audio to a start + length":"Couper l’audio selon un début + une longueur",
+    "Dismiss":"Ignorer",
+    "Each change adds a version — click one to jump back to it":"Chaque modification ajoute une version — cliquez sur l’une d’elles pour y revenir",
+    "Edit workflow":"Modifier le workflow",
+    "Email":"E-mail",
+    "Enter this in the Noodle Cookoff":"Inscrivez ceci au Noodle Cookoff",
+    "Fit the whole workflow in view (F)":"Ajuster tout le workflow à la vue (F)",
+    "Got it":"Compris",
+    "How to enter:":"Comment participer :",
+    "Image model":"Modèle d’image",
+    "Image(s) + text → image":"Image(s) + texte → image",
+    "Join clips end-to-end into one video":"Assembler les clips bout à bout en une seule vidéo",
+    "Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.":"Gardez les participations SFW — aucune violation de droits d’auteur, rien d’illégal. Les prix ne peuvent être envoyés qu’à des portefeuilles situés dans des pays qui ne font pas l’objet de sanctions américaines actives.",
+    "Make it shorter — optional":"Raccourcir — facultatif",
+    "Model options":"Options du modèle",
+    "More app options":"Plus d’options d’app",
+    "Most Innovative":"Le plus innovant",
+    "Most Useful":"Le plus utile",
+    "Noodle Cookoff — win Nano":"Noodle Cookoff — gagnez du Nano",
+    "Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.":"Ouverture le 26 juin · clôture le 12 juillet (23:59 UTC) · 2 participations max chacun · les gagnants sont mis en avant.",
+    "Opens your creation as a ready-to-run app — what people click to try it. Best for entries.":"Ouvre votre création en tant qu’app prête à l’emploi — ce sur quoi les gens cliquent pour l’essayer. Idéal pour les participations.",
+    "People's Choice":"Prix du public",
+    "Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.":"Réglages spécifiques au modèle issus du catalogue (préréglages, styles, mouvements de caméra…). Les valeurs par défaut s’appliquent si vous n’y touchez pas.",
+    "Pull still frames out of a video":"Extraire des images fixes d’une vidéo",
+    "Recent":"Récent",
+    "Running calls models on your NanoGPT key.":"L’exécution appelle les modèles avec votre clé NanoGPT.",
+    "Sampling + reasoning knobs. Defaults apply when untouched.":"Réglages d’échantillonnage + de raisonnement. Les valeurs par défaut s’appliquent si vous n’y touchez pas.",
+    "Save as a new app":"Enregistrer comme nouvelle app",
+    "Save this as a brand-new app — the one you’re editing stays untouched":"Enregistrer ceci comme une toute nouvelle app — celle que vous modifiez reste inchangée",
+    "Search nodes… (image, voice, video)":"Rechercher des nœuds… (image, voix, vidéo)",
+    "Sends this link to a third-party shortener so":"Envoie ce lien à un raccourcisseur tiers pour que",
+    "Share this workflow":"Partager ce workflow",
+    "Share to":"Partager sur",
+    "Share workflow":"Partager le workflow",
+    "Shorten this link (via da.gd) — nicer to post":"Raccourcir ce lien (via da.gd) — plus agréable à publier",
+    "Start cooking →":"Commencer à cuisiner →",
+    "Text (+ images, audio) → text — any chat model":"Texte (+ images, audio) → texte — tout modèle chat",
+    "This link opens your exact workflow for anyone to run or remix.":"Ce lien ouvre votre workflow exact pour que quiconque puisse l’exécuter ou le remixer.",
+    "Trim audio":"Rogner l’audio",
+    "Updates":"Mises à jour",
+    "Video model":"Modèle vidéo",
+    "Video → frames":"Vidéo → images",
+    "What’s new in nanoodle":"Nouveautés de nanoodle",
+    "When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.":"Quand les clips sont enchaînés, la première image de chaque clip répète la dernière image du clip précédent. La rogner supprime le gel à la jonction.",
+    "Where to post":"Où publier",
+    "Win 3 × 133 XNO (Nano)":"Gagnez 3 × 133 XNO (Nano)",
+    "Workflow link is in the address bar — copy it below":"Le lien du workflow est dans la barre d’adresse — copiez-le ci-dessous",
+    "You're already in the kitchen. Wire up a noodle, share it, and win Nano — feeless, pay-per-call, no signup.":"Vous êtes déjà en cuisine. Branchez un noodle, partagez-le et gagnez du Nano — sans frais, paiement à l’appel, sans inscription.",
+    "a red coffee mug, a small bird…":"une tasse à café rouge, un petit oiseau…",
+    "advanced":"avancé",
+    "beginning":"début",
+    "brush size":"taille du pinceau",
+    "build something here → hit":"créez quelque chose ici → appuyez sur",
+    "delete (Del)":"supprimer (Del)",
+    "drag to resize":"glisser pour redimensionner",
+    "e.g. “add a node that speaks the result aloud”":"ex. « ajouter un nœud qui lit le résultat à voix haute »",
+    "edit":"modifier",
+    "frames":"images",
+    "gap between frames (sec)":"écart entre les images (s)",
+    "high":"élevé",
+    "host it. They can see the workflow.":"l’héberge. Ils peuvent voir le workflow.",
+    "last frame":"dernière image",
+    "length (sec)":"durée (s)",
+    "low":"faible",
+    "mask":"masque",
+    "max 2 entries · keep it SFW · closes Jul 12, 23:59 UTC":"max 2 participations · restez SFW · clôture le 12 juillet, 23:59 UTC",
+    "max tokens":"tokens max",
+    "max tokens (≤ 128000)":"tokens max (≤ 128000)",
+    "max {cap} for this model":"{cap} max pour ce modèle",
+    "medium":"moyen",
+    "models":"modèles",
+    "music":"musique",
+    "nanoodle is a community project on":"nanoodle est un projet communautaire sur",
+    "nanoodle — AI workflow editor":"nanoodle — éditeur de workflows IA",
+    "no audio yet":"aucun audio",
+    "no video yet":"aucune vidéo",
+    "or":"ou",
+    "or post it to":"ou publiez-le sur",
+    "output format":"format de sortie",
+    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"produit un WAV mono, dimensionné pour l’intégration — pratique avant Avatar / synchro labiale quand un clip est trop long.",
+    "paste your link":"collez votre lien",
+    "random":"aléatoire",
+    "reasoning effort":"effort de raisonnement",
+    "resolution":"résolution",
+    "save frame":"enregistrer l’image",
+    "show thinking":"afficher le raisonnement",
+    "start (sec)":"début (s)",
+    "start from":"démarrer depuis",
+    "temperature":"température",
+    "they":"ils",
+    "this clip has generated audio":"ce clip a un audio généré",
+    "to build your own.":"pour créer la vôtre.",
+    "trim duplicate seam frame":"couper l’image de raccord dupliquée",
+    "upload or capture an image, then brush the area to repaint":"importer ou capturer une image, puis peindre la zone à repeindre",
+    "what to paint in":"ce qu’il faut peindre",
+    "· blank = random, fix to repeat (re-run won't regenerate)":"· vide = aléatoire, fixer pour répéter (relancer ne régénère pas)",
+    "— made nano-gpt do something nobody expected":"— a fait faire à nano-gpt une chose que personne n’attendait",
+    "— most hearts on Discord + upvotes on Reddit (summed if you post both!)":"— le plus de cœurs sur Discord + votes positifs sur Reddit (additionnés si vous postez sur les deux !)",
+    "— the one you'd actually open every week":"— celui que vous ouvririez vraiment chaque semaine",
+    "↑↓ move · ↵ add · esc close":"↑↓ déplacer · ↵ ajouter · esc fermer",
+    "→ drop the link in nano-gpt's":"→ déposez le lien dans le nano-gpt",
+    "▶ Run":"▶ Exécuter",
+    "● Capture":"● Capturer",
+    "⚙️ Model options":"⚙️ Options du modèle",
+    "⚙️ advanced":"⚙️ avancé",
+    "✂ Shorten":"✂ Raccourcir",
+    "✓ Workflow link copied — shorten or share it below":"✓ Lien du workflow copié — raccourcissez-le ou partagez-le ci-dessous",
+    "✕ Cancel":"✕ Annuler",
+    "✦ Apply":"✦ Appliquer",
+    "✨ model ▾":"✨ modèle ▾",
+    "⬆ Upload":"⬆ Importer",
+    "⬆ Upload audio":"⬆ Importer l’audio",
+    "⬆ Upload video":"⬆ Importer la vidéo",
+    "🏆 Win 3 × 133 XNO (Nano)":"🏆 Gagnez 3 × 133 XNO (Nano)",
+    "💬 Describe changes":"💬 Décrire les changements",
+    "💬 Post in Discord ↗":"💬 Publier sur Discord ↗",
+    "📣 What’s new":"📣 Nouveautés",
+    "📨 Submit your entry →":"📨 Soumettre votre participation →",
+    "🔗 Share workflow":"🔗 Partager le workflow",
+    "🛠 Most Useful · 💡 Most Innovative · ❤️ People's Choice":"🛠 Le plus utile · 💡 Le plus innovant · ❤️ Choix du public",
+    "🤖 Post to r/nanocurrency ↗":"🤖 Publier sur r/nanocurrency ↗",
+    "＋ Add node":"＋ Ajouter un nœud",
+    "Add node":"Ajouter un nœud",
+    "Add a node":"Ajouter un nœud",
+    "Run":"Exécuter",
+    "run every flow (Ctrl/⌘+Enter)":"tout exécuter (Ctrl/⌘+Entrée)",
+    "Create app":"Créer une app",
+    "Turn this workflow into a shareable app":"Transformer ce workflow en app partageable",
+    "Share":"Partager",
+    "Save":"Enregistrer",
+    "download this graph as JSON":"télécharger ce graphe en JSON",
+    "Load":"Charger",
+    "open a graph JSON file":"ouvrir un fichier de graphe JSON",
+    "More actions":"Plus d’actions",
+    "Close (Esc)":"Fermer (Esc)",
+    "sign in":"se connecter",
+    "paste key":"coller la clé",
+    "sign out":"se déconnecter",
+    "checking…":"vérification…",
+    "ready ✓":"prêt ✓",
+    "not signed in":"non connecté",
+    "paste NanoGPT API key (sk-nano-… or a UUID)":"collez la clé API NanoGPT (sk-nano-… ou un UUID)",
+    "save":"enregistrer",
+    "nano-gpt.com → Settings → API":"nano-gpt.com → Paramètres → API",
+    "model":"modèle",
+    "Model":"Modèle",
+    "Chat":"Chat",
+    "Image":"Image",
+    "Video":"Vidéo",
+    "Audio":"Audio",
+    "filter the full list, or type an exact id + Enter…":"filtrer la liste, ou saisir un id exact + Entrée…",
+    "loading the full list…":"chargement de la liste…",
+    "pick a model…":"choisir un modèle…",
+    "newest first":"plus récents d’abord",
+    "Sort the model list":"Trier la liste des modèles",
+    "Newest":"Plus récents",
+    "Cheapest":"Moins chers",
+    "Priciest":"Plus chers",
+    "Name A→Z":"Nom A→Z",
+    "newest":"plus récents",
+    "cheapest":"moins chers",
+    "priciest":"plus chers",
+    "Text":"Texte",
+    "A string source":"Une source de texte",
+    "Image input":"Entrée image",
+    "Upload or capture an image":"Importer ou capturer une image",
+    "Join":"Joindre",
+    "Glue two texts together":"Assembler deux textes",
+    "LLM":"LLM",
+    "this model can’t read images — pick a vision model":"ce modèle ne peut pas lire les images — choisissez un modèle de vision",
+    "Text → image":"Texte → image",
+    "Edit":"Modifier",
+    "Vision":"Vision",
+    "Image → text (describe / ask)":"Image → texte (décrire / demander)",
+    "Text→Video":"Texte→Vidéo",
+    "Text → video (renders ~1 min)":"Texte → vidéo (rendu ~1 min)",
+    "Image→Video":"Image→Vidéo",
+    "Image (+text) → video":"Image (+texte) → vidéo",
+    "Music":"Musique",
+    "Text → music":"Texte → musique",
+    "Speech":"Voix",
+    "Text → speech (TTS)":"Texte → voix (TTS)",
+    "system (optional)":"système (facultatif)",
+    "prompt":"prompt",
+    "separator":"séparateur",
+    "size":"taille",
+    "edit instruction":"instruction de modification",
+    "question":"question",
+    "duration":"durée",
+    "aspect":"format",
+    "motion prompt (optional)":"prompt de mouvement (facultatif)",
+    "style / prompt":"style / prompt",
+    "text to speak":"texte à dire",
+    "advanced params (JSON)":"params avancés (JSON)",
+    "type some text…":"saisissez du texte…",
+    "you are a helpful…":"vous êtes un assistant…",
+    "ask something…":"posez une question…",
+    "a red panda astronaut…":"un panda roux astronaute…",
+    "make it night-time, add neon…":"passe en mode nuit, ajoute des néons…",
+    "Describe this image.":"Décrivez cette image.",
+    "a drone shot over neon Tokyo at night…":"un plan drone sur Tokyo en néons la nuit…",
+    "slow push-in, hair blowing in the wind…":"léger travelling avant, cheveux au vent…",
+    "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM":"lo-fi hip hop entraînant, piano doux, grésillement vinyle, 90 BPM",
+    "Hello! This is a test.":"Bonjour ! Ceci est un test.",
+    "square":"carré",
+    "portrait":"portrait",
+    "landscape":"paysage",
+    "auto":"auto",
+    "5 sec":"5 s",
+    "10 sec":"10 s",
+    "Lyrics":"Paroles",
+    "Instrumental":"Instrumental",
+    "Duration (sec)":"Durée (s)",
+    "Number of songs":"Nombre de morceaux",
+    "Negative prompt":"Prompt négatif",
+    "Seed":"Seed",
+    "Format":"Format",
+    "Voice":"Voix",
+    "Speed":"Vitesse",
+    "Instructions":"Instructions",
+    "required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM":"requis par les modèles vocaux (ex. Mureka) ; laisser vide pour instrumental/BGM",
+    "run this branch":"exécuter cette branche",
+    "delete":"supprimer",
+    "open":"ouvrir",
+    "copy":"copier",
+    "✓ copied":"✓ copié",
+    "copy failed":"échec de la copie",
+    "Upload":"Importer",
+    "Webcam":"Webcam",
+    "Capture":"Capturer",
+    "Cancel":"Annuler",
+    "no image yet":"aucune image",
+    "running…":"exécution…",
+    "error":"erreur",
+    "generating audio…":"génération de l’audio…",
+    "rendering video…":"rendu de la vidéo…",
+    "animating…":"animation…",
+    "nothing to run — add a node":"rien à exécuter — ajoutez un nœud",
+    "add a node first":"ajoutez d’abord un nœud",
+    "cycle detected":"cycle détecté",
+    "couldn’t read that image":"impossible de lire cette image",
+    "webcam unavailable":"webcam indisponible",
+    "share failed":"échec du partage",
+    "shorten failed":"échec du raccourcissement",
+    "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"audio ignoré — ce modèle est uniquement textuel. Choisissez un modèle avec entrée audio (par ex. un Gemini).",
+    "can’t delete while running — Stop first":"impossible de supprimer pendant l'exécution — arrêtez d'abord",
+    "couldn’t read that file":"impossible de lire ce fichier",
+    "stopping…":"arrêt…",
+    "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"échec de l'enregistrement automatique — un clip audio/vidéo importé est peut-être trop volumineux pour le stockage local",
+    "Couldn't copy — select the link and copy it manually":"Impossible de copier — sélectionnez le lien et copiez-le manuellement",
+    "that key was rejected — paste a valid nano-gpt.com key":"cette clé a été rejetée — collez une clé nano-gpt.com valide",
+    "sign-in error":"erreur de connexion",
+    "sign-in didn't complete":"la connexion ne s'est pas terminée",
+    "Like it?":"Ça vous plaît ?",
+    "✨ Turn this into an app":"✨ Transformez ceci en app",
+    "you can share":"que vous pouvez partager",
+    "new to nano-gpt?":"nouveau sur nano-gpt ?",
+    "create an account →":"créer un compte →",
+    "— pay-per-use, no subscription needed; your key stays in this browser.":"— paiement à l'usage, sans abonnement ; votre clé reste dans ce navigateur.",
+    "couldn't read your clipboard — click the key field and press Ctrl+V to paste":"impossible de lire votre presse-papiers — cliquez dans le champ de la clé et appuyez sur Ctrl+V pour coller",
+    "that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again":"cette clé contient un caractère qui ne peut pas être envoyé — recopiez-la depuis nano-gpt.com → Paramètres → API et collez-la à nouveau",
+    "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail":"clé enregistrée — mais nano-gpt.com est actuellement injoignable (bloqueur de pub, VPN ou réseau ?), les exécutions peuvent donc échouer",
+    "key saved — you're ready to run":"clé enregistrée — prêt à exécuter",
+    "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"le solde {bal} pourrait ne pas couvrir cette exécution de ~{usd} — rechargez sur nano-gpt.com",
+    "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"solde insuffisant — cette exécution nécessite plus de crédit. Rechargez sur nano-gpt.com, puis relancez.",
+    "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"votre clé API enregistrée contient un caractère qui ne peut pas être envoyé (souvent un tiret typographique ou un caractère invisible collé en tapant/copiant) — recopiez-la depuis nano-gpt.com → Paramètres → API et collez-la à nouveau",
+    "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"impossible de joindre nano-gpt.com — un bloqueur de pub, un VPN ou un filtre réseau le bloque peut-être ; vérifiez la connexion et relancez",
+    "— this model may have changed on nano-gpt; click the node's model name to pick another":"— ce modèle a peut-être changé sur nano-gpt ; cliquez sur le nom du modèle dans le nœud pour en choisir un autre",
+    "your key was rejected — sign in or paste a valid nano-gpt.com key":"votre clé a été rejetée — connectez-vous ou collez une clé nano-gpt.com valide",
+    "Link opens the app as last saved — hit ✨ Update first to include your newest canvas edits":"Le lien ouvre l'app telle qu'enregistrée — appuyez d'abord sur ✨ Mettre à jour pour inclure vos derniers changements du canevas",
+    "pick a model first":"choisissez d’abord un modèle",
+    "no prompt":"aucun prompt",
+    "no text":"aucun texte",
+    "no edit instruction":"aucune instruction de modification",
+    "no image — upload or capture one first":"aucune image — importez-en ou capturez-en une d’abord",
+    "Couldn’t load that file:":"Impossible de charger ce fichier :",
+    "Audio input":"Entrée audio",
+    "Upload an audio clip":"Importer un clip audio",
+    "Video input":"Entrée vidéo",
+    "Upload a video clip":"Importer un clip vidéo",
+    "Video edit":"Édition vidéo",
+    "Video (+text) → video — edit / extend / upscale":"Vidéo (+texte) → vidéo — éditer / prolonger / agrandir",
+    "Avatar / lipsync":"Avatar / synchro labiale",
+    "Image + audio → talking video":"Image + audio → vidéo parlante",
+    "Transcribe":"Transcrire",
+    "Audio → text (speech-to-text)":"Audio → texte (reconnaissance vocale)",
+    "Inputs":"Entrées",
+    "Other":"Autre",
+    "instruction (optional)":"instruction (facultatif)",
+    "prompt (optional)":"prompt (facultatif)",
+    "language":"langue",
+    "restyle as claymation · extend the clip · upscale to 4K…":"style pâte à modeler · prolonger le clip · passer en 4K…",
+    "subtle head movement, warm lighting…":"léger mouvement de tête, lumière chaude…"
+  },
+  de:{
+    "strength":"Stärke",
+    "remove":"entfernen",
+    "to run":"zum Ausführen",
+    "Estimated cost to ▶ Run all — {n} paid node":"Geschätzte Kosten für ▶ Alles ausführen — {n} kostenpflichtiger Node",
+    "Estimated cost to ▶ Run all — {n} paid nodes":"Geschätzte Kosten für ▶ Alles ausführen — {n} kostenpflichtige Nodes",
+    ", plus {n} with no listed price":", plus {n} ohne gelisteten Preis",
+    "Video, text & audio are estimates: the real bill depends on clip length, tokens and characters.":"Video, Text & Audio sind Schätzungen: die tatsächliche Rechnung hängt von Cliplänge, Tokens und Zeichen ab.",
+    "Drag a":"Ziehe einen",
+    "port onto a matching one to connect — or drop a wire on empty canvas to quick-add.":"Port auf einen passenden, um zu verbinden — oder lass eine Verbindung auf dem leeren Canvas los zum Schnell-Hinzufügen.",
+    "no nodes match “{q}”":"kein Node passt zu “{q}”",
+    "that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model":"diese {field}-Datei ist ~{mb} MB groß — über dem 4-MB-Sendelimit; nutze einen kürzeren Clip, sonst erreicht sie das Modell nicht",
+    "Start here":"Starte hier",
+    "■ Stop":"■ Stopp",
+    "Stop the running workflow":"Den laufenden Workflow stoppen",
+    "Undo (Ctrl + Z)":"Rückgängig (Strg + Z)",
+    "Language":"Sprache",
+    "Recommended — handles very long links (workflow links can get big)":"Empfohlen — verarbeitet sehr lange Links (Workflow-Links können groß werden)",
+    "Shorter domain, but can fail on very long links":"Kürzere Domain, kann aber bei sehr langen Links fehlschlagen",
+    "this model can’t hear audio — pick an audio-input model":"dieses Modell kann kein Audio hören — wähle ein Modell mit Audio-Eingang",
+    "Close":"Schließen",
+    "Close model picker":"Modellauswahl schließen",
+    "Fit the whole workflow in view":"Den ganzen Workflow ins Bild einpassen",
+    "Rename this node":"Diesen Node umbenennen",
+    "Sort models":"Modelle sortieren",
+    "Submit to the Noodle Cookoff":"Beim Noodle Cookoff einreichen",
+    "Undo the last edit":"Letzte Änderung rückgängig machen",
+    "What’s new":"Neuigkeiten",
+    "What your link opens":"Was dein Link öffnet",
+    "Workflow canvas":"Workflow-Canvas",
+    "Your entry link":"Dein Teilnahme-Link",
+    "Updates":"Neuigkeiten",
+    "📷 Webcam":"📷 Webcam",
+    "🛠 Workflow":"🛠 Workflow",
+    "Inpaint":"Inpaint",
+    "🚀 App":"🚀 App",
+    "Update {app}":"{app} aktualisieren",
+    "Update “{app}” with this workflow":"„{app}“ mit diesem Workflow aktualisieren",
+    "your app":"deine App",
+    "✓ Copied":"✓ Kopiert",
+    "✓ Short":"✓ Gekürzt",
+    "Opens in the editor so others can remix or learn from your noodle.":"Öffnet sich im Editor, damit andere deinen Noodle remixen oder daraus lernen können.",
+    "9:16 (Portrait)":"9:16 (Hochformat)",
+    "default":"Standard",
+    "(in the top bar) takes you back to the graph and keeps this app.":"(in der oberen Leiste) bringt dich zurück zum Graphen und behält diese App.",
+    "(or both!).":"(oder beides!).",
+    "(style adapter)":"(Stil-Adapter)",
+    ", or":", oder",
+    ", which takes Nano — so the prize pool stays in the ecosystem.":", das Nano nimmt — so bleibt der Preispool im Ökosystem.",
+    "16:9 (Landscape)":"16:9 (Querformat)",
+    "1:1 (Square)":"1:1 (Quadratisch)",
+    "A live AI workflow — press":"Ein Live-KI-Workflow — drücke",
+    "A running changelog — one line per change.":"Ein laufendes Änderungsprotokoll — eine Zeile pro Änderung.",
+    "Apply the described change (Enter)":"Beschriebene Änderung anwenden (Enter)",
+    "Audio model":"Audio-Modell",
+    "Brush a region of an image → repaint just that area":"Einen Bildbereich bemalen → nur diesen Bereich neu malen",
+    "Chat model":"Chat-Modell",
+    "Choose the model that plans your change":"Wähle das Modell, das deine Änderung plant",
+    "Clear mask":"Maske löschen",
+    "Close — your app stays here (Esc)":"Schließen — deine App bleibt hier (Esc)",
+    "Combine videos":"Videos kombinieren",
+    "Copy":"Kopieren",
+    "Copy a link that opens this workflow in the node editor so others can remix it":"Einen Link kopieren, der diesen Workflow im Node-Editor öffnet, damit andere ihn remixen können",
+    "Copy link":"Link kopieren",
+    "Cut audio to a start + length":"Audio auf Start + Länge zuschneiden",
+    "Dismiss":"Ausblenden",
+    "Each change adds a version — click one to jump back to it":"Jede Änderung fügt eine Version hinzu — klicke eine an, um dorthin zurückzuspringen",
+    "Edit workflow":"Workflow bearbeiten",
+    "Email":"E-Mail",
+    "Enter this in the Noodle Cookoff":"Reiche dies beim Noodle Cookoff ein",
+    "Fit the whole workflow in view (F)":"Ganzen Workflow ins Bild einpassen (F)",
+    "Got it":"Verstanden",
+    "How to enter:":"So nimmst du teil:",
+    "Image model":"Bild-Modell",
+    "Image(s) + text → image":"Bild(er) + Text → Bild",
+    "Join clips end-to-end into one video":"Clips hintereinander zu einem Video zusammenfügen",
+    "Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.":"Beiträge SFW halten — keine Urheberrechtsverletzungen, nichts Illegales. Preise können nur an Wallets in Ländern gesendet werden, die nicht unter aktiven US-Sanktionen stehen.",
+    "Make it shorter — optional":"Kürzer machen — optional",
+    "Model options":"Modelloptionen",
+    "More app options":"Weitere App-Optionen",
+    "Most Innovative":"Innovativster",
+    "Most Useful":"Nützlichster",
+    "Noodle Cookoff — win Nano":"Noodle Cookoff — Nano gewinnen",
+    "Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.":"Beginnt am 26. Juni · endet am 12. Juli (23:59 UTC) · max. 2 Beiträge pro Person · Gewinner werden vorgestellt.",
+    "Opens your creation as a ready-to-run app — what people click to try it. Best for entries.":"Öffnet deine Kreation als sofort lauffähige App — das, was Leute anklicken, um sie auszuprobieren. Ideal für Beiträge.",
+    "People's Choice":"Publikumsliebling",
+    "Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.":"Modellspezifische Regler aus dem Katalog (Presets, Stile, Kamerafahrten…). Standardwerte gelten, solange unverändert.",
+    "Pull still frames out of a video":"Standbilder aus einem Video ziehen",
+    "Recent":"Zuletzt verwendet",
+    "Running calls models on your NanoGPT key.":"Beim Ausführen werden Modelle über deinen NanoGPT-Schlüssel aufgerufen.",
+    "Sampling + reasoning knobs. Defaults apply when untouched.":"Sampling- und Reasoning-Regler. Standardwerte gelten, solange unverändert.",
+    "Save as a new app":"Als neue App speichern",
+    "Save this as a brand-new app — the one you’re editing stays untouched":"Dies als brandneue App speichern — die, die du gerade bearbeitest, bleibt unverändert",
+    "Search nodes… (image, voice, video)":"Nodes suchen… (Bild, Stimme, Video)",
+    "Sends this link to a third-party shortener so":"Sendet diesen Link an einen Drittanbieter-Kürzungsdienst, damit",
+    "Share this workflow":"Diesen Workflow teilen",
+    "Share to":"Teilen auf",
+    "Share workflow":"Workflow teilen",
+    "Shorten this link (via da.gd) — nicer to post":"Diesen Link kürzen (via da.gd) — schöner zum Posten",
+    "Start cooking →":"Loskochen →",
+    "Text (+ images, audio) → text — any chat model":"Text (+ Bilder, Audio) → Text — beliebiges Chat-Modell",
+    "This link opens your exact workflow for anyone to run or remix.":"Dieser Link öffnet deinen genauen Workflow, damit ihn jeder ausführen oder remixen kann.",
+    "Trim audio":"Audio zuschneiden",
+    "Video model":"Video-Modell",
+    "Video → frames":"Video → Frames",
+    "What’s new in nanoodle":"Was ist neu in nanoodle",
+    "When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.":"Wenn Clips verkettet sind, wiederholt das erste Frame jedes Clips das letzte Frame des vorherigen Clips. Durch Trimmen wird das Einfrieren an der Naht entfernt.",
+    "Where to post":"Wo posten",
+    "Win 3 × 133 XNO (Nano)":"Gewinne 3 × 133 XNO (Nano)",
+    "Workflow link is in the address bar — copy it below":"Workflow-Link ist in der Adressleiste — kopiere ihn unten",
+    "You're already in the kitchen. Wire up a noodle, share it, and win Nano — feeless, pay-per-call, no signup.":"Du bist schon in der Küche. Verdrahte eine Noodle, teile sie und gewinne Nano — gebührenfrei, Bezahlung pro Aufruf, keine Anmeldung.",
+    "a red coffee mug, a small bird…":"eine rote Kaffeetasse, ein kleiner Vogel…",
+    "advanced":"erweitert",
+    "audio":"Audio",
+    "avatar":"Avatar",
+    "beginning":"Anfang",
+    "brush size":"Pinselgröße",
+    "build something here → hit":"baue hier etwas → drücke",
+    "delete (Del)":"löschen (Del)",
+    "drag to resize":"ziehen, um die Größe zu ändern",
+    "e.g. “add a node that speaks the result aloud”":"z. B. „einen Node hinzufügen, der das Ergebnis laut vorliest“",
+    "edit":"bearbeiten",
+    "frames":"Frames",
+    "gap between frames (sec)":"Abstand zwischen Frames (Sek.)",
+    "high":"hoch",
+    "host it. They can see the workflow.":"es hosten. Der Dienst kann den Workflow sehen.",
+    "image":"Bild",
+    "last frame":"letztes Frame",
+    "length (sec)":"Länge (Sek.)",
+    "low":"niedrig",
+    "mask":"Maske",
+    "max 2 entries · keep it SFW · closes Jul 12, 23:59 UTC":"max. 2 Beiträge · SFW halten · endet am 12. Juli, 23:59 UTC",
+    "max tokens":"max. Tokens",
+    "max tokens (≤ 128000)":"max. Tokens (≤ 128000)",
+    "max {cap} for this model":"max. {cap} für dieses Modell",
+    "medium":"mittel",
+    "models":"Modelle",
+    "music":"Musik",
+    "nanoodle is a community project on":"nanoodle ist ein Community-Projekt auf",
+    "nanoodle — AI workflow editor":"nanoodle — KI-Workflow-Editor",
+    "no audio yet":"noch kein Audio",
+    "no video yet":"noch kein Video",
+    "or":"oder",
+    "or post it to":"oder poste es auf",
+    "output format":"Ausgabeformat",
+    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"gibt Mono-WAV aus, auf Inline-Größe reduziert — praktisch vor Avatar / Lippensynchro, wenn ein Clip zu lang ist.",
+    "paste your link":"füge deinen Link ein",
+    "random":"zufällig",
+    "reasoning effort":"Reasoning-Aufwand",
+    "resolution":"Auflösung",
+    "save frame":"Frame speichern",
+    "seed":"Seed",
+    "show thinking":"Denken anzeigen",
+    "start (sec)":"Start (Sek.)",
+    "start from":"beginnen ab",
+    "temperature":"Temperatur",
+    "they":"sie",
+    "this clip has generated audio":"dieser Clip hat generiertes Audio",
+    "to build your own.":"um dein eigenes zu erstellen.",
+    "trim duplicate seam frame":"doppelten Nahtframe entfernen",
+    "upload or capture an image, then brush the area to repaint":"Bild hochladen oder aufnehmen, dann den neu zu zeichnenden Bereich übermalen",
+    "variation":"Variation",
+    "variations":"Variationen",
+    "vision":"Vision",
+    "what to paint in":"was hineingemalt werden soll",
+    "· blank = random, fix to repeat (re-run won't regenerate)":"· leer = zufällig, festlegen zum Wiederholen (erneutes Ausführen regeneriert nicht)",
+    "— made nano-gpt do something nobody expected":"— nano-gpt zu etwas gebracht, das niemand erwartet hat",
+    "— most hearts on Discord + upvotes on Reddit (summed if you post both!)":"— die meisten Herzen auf Discord + Upvotes auf Reddit (summiert, wenn du beides postest!)",
+    "— the one you'd actually open every week":"— die App, die du wirklich jede Woche öffnen würdest",
+    "↑↓ move · ↵ add · esc close":"↑↓ bewegen · ↵ hinzufügen · esc schließen",
+    "→ drop the link in nano-gpt's":"→ den Link in nano-gpts einfügen",
+    "▶ Run":"▶ Ausführen",
+    "● Capture":"● Aufnehmen",
+    "⚙️ Model options":"⚙️ Modelloptionen",
+    "⚙️ advanced":"⚙️ erweitert",
+    "✂ Shorten":"✂ Kürzen",
+    "✓ Workflow link copied — shorten or share it below":"✓ Workflow-Link kopiert — unten kürzen oder teilen",
+    "✕ Cancel":"✕ Abbrechen",
+    "✦ Apply":"✦ Anwenden",
+    "✨ model ▾":"✨ Modell ▾",
+    "⬆ Upload":"⬆ Hochladen",
+    "⬆ Upload audio":"⬆ Audio hochladen",
+    "⬆ Upload video":"⬆ Video hochladen",
+    "🏆 Win 3 × 133 XNO (Nano)":"🏆 Gewinne 3 × 133 XNO (Nano)",
+    "💬 Describe changes":"💬 Änderungen beschreiben",
+    "💬 Post in Discord ↗":"💬 In Discord posten ↗",
+    "📣 What’s new":"📣 Was ist neu",
+    "📨 Submit your entry →":"📨 Beitrag einreichen →",
+    "🔗 Share workflow":"🔗 Workflow teilen",
+    "🛠 Most Useful · 💡 Most Innovative · ❤️ People's Choice":"🛠 Nützlichste · 💡 Innovativste · ❤️ Publikumsliebling",
+    "🤖 Post to r/nanocurrency ↗":"🤖 In r/nanocurrency posten ↗",
+    "＋ Add node":"＋ Node hinzufügen",
+    "Add node":"Node hinzufügen",
+    "Add a node":"Node hinzufügen",
+    "Run":"Ausführen",
+    "run every flow (Ctrl/⌘+Enter)":"alle Abläufe ausführen (Ctrl/⌘+Enter)",
+    "Create app":"App erstellen",
+    "Turn this workflow into a shareable app":"Diesen Workflow in eine teilbare App umwandeln",
+    "Share":"Teilen",
+    "Save":"Speichern",
+    "download this graph as JSON":"diesen Graphen als JSON herunterladen",
+    "Load":"Laden",
+    "open a graph JSON file":"eine Graph-JSON-Datei öffnen",
+    "More actions":"Weitere Aktionen",
+    "Close (Esc)":"Schließen (Esc)",
+    "sign in":"anmelden",
+    "paste key":"Schlüssel einfügen",
+    "sign out":"abmelden",
+    "checking…":"wird geprüft…",
+    "ready ✓":"bereit ✓",
+    "not signed in":"nicht angemeldet",
+    "paste NanoGPT API key (sk-nano-… or a UUID)":"NanoGPT API-Schlüssel einfügen (sk-nano-… oder UUID)",
+    "save":"speichern",
+    "nano-gpt.com → Settings → API":"nano-gpt.com → Einstellungen → API",
+    "model":"Modell",
+    "Model":"Modell",
+    "Chat":"Chat",
+    "Image":"Bild",
+    "Video":"Video",
+    "Audio":"Audio",
+    "filter the full list, or type an exact id + Enter…":"Liste filtern oder exakte ID + Enter eingeben…",
+    "loading the full list…":"lade vollständige Liste…",
+    "pick a model…":"Modell wählen…",
+    "newest first":"neueste zuerst",
+    "Sort the model list":"Modellliste sortieren",
+    "Newest":"Neueste",
+    "Cheapest":"Günstigste",
+    "Priciest":"Teuerste",
+    "Name A→Z":"Name A→Z",
+    "newest":"neueste",
+    "cheapest":"günstigste",
+    "priciest":"teuerste",
+    "Text":"Text",
+    "A string source":"Eine Textquelle",
+    "Image input":"Bildeingabe",
+    "Upload or capture an image":"Bild hochladen oder aufnehmen",
+    "Join":"Verbinden",
+    "Glue two texts together":"Zwei Texte zusammenfügen",
+    "LLM":"LLM",
+    "this model can’t read images — pick a vision model":"dieses Modell kann keine Bilder lesen — wähle ein Vision-Modell",
+    "Text → image":"Text → Bild",
+    "Edit":"Bearbeiten",
+    "Vision":"Vision",
+    "Image → text (describe / ask)":"Bild → Text (beschreiben / fragen)",
+    "Text→Video":"Text→Video",
+    "Text → video (renders ~1 min)":"Text → Video (rendert ~1 Min.)",
+    "Image→Video":"Bild→Video",
+    "Image (+text) → video":"Bild (+Text) → Video",
+    "Music":"Musik",
+    "Text → music":"Text → Musik",
+    "Speech":"Sprache",
+    "Text → speech (TTS)":"Text → Sprache (TTS)",
+    "system (optional)":"System (optional)",
+    "prompt":"Prompt",
+    "separator":"Trennzeichen",
+    "size":"Größe",
+    "edit instruction":"Bearbeitungsanweisung",
+    "question":"Frage",
+    "duration":"Dauer",
+    "aspect":"Seitenverhältnis",
+    "motion prompt (optional)":"Bewegungs-Prompt (optional)",
+    "style / prompt":"Stil / Prompt",
+    "text to speak":"Text zum Sprechen",
+    "advanced params (JSON)":"erweiterte Parameter (JSON)",
+    "type some text…":"Text eingeben…",
+    "you are a helpful…":"du bist ein hilfreicher…",
+    "ask something…":"etwas fragen…",
+    "a red panda astronaut…":"ein Roter Panda als Astronaut…",
+    "make it night-time, add neon…":"mach es Nacht, füge Neon hinzu…",
+    "Describe this image.":"Beschreibe dieses Bild.",
+    "a drone shot over neon Tokyo at night…":"eine Drohnenaufnahme über dem nächtlichen Neon-Tokio…",
+    "slow push-in, hair blowing in the wind…":"langsame Kamerafahrt nach vorne, Haar weht im Wind…",
+    "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM":"fröhlicher Lo-Fi-Hip-Hop, sanftes Piano, Vinyl-Knistern, 90 BPM",
+    "Hello! This is a test.":"Hallo! Das ist ein Test.",
+    "square":"quadratisch",
+    "portrait":"Hochformat",
+    "landscape":"Querformat",
+    "auto":"auto",
+    "5 sec":"5 Sek.",
+    "10 sec":"10 Sek.",
+    "Lyrics":"Songtext",
+    "Instrumental":"Instrumental",
+    "Duration (sec)":"Dauer (Sek.)",
+    "Number of songs":"Anzahl Songs",
+    "Negative prompt":"Negativer Prompt",
+    "Seed":"Seed",
+    "Format":"Format",
+    "Voice":"Stimme",
+    "Speed":"Geschwindigkeit",
+    "Instructions":"Anweisungen",
+    "required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM":"erforderlich für Gesangsmodelle (z.B. Mureka); leer lassen für Instrumental/BGM",
+    "run this branch":"diesen Zweig ausführen",
+    "delete":"löschen",
+    "open":"öffnen",
+    "copy":"kopieren",
+    "✓ copied":"✓ kopiert",
+    "copy failed":"Kopieren fehlgeschlagen",
+    "Upload":"Hochladen",
+    "Webcam":"Webcam",
+    "Capture":"Aufnehmen",
+    "Cancel":"Abbrechen",
+    "no image yet":"noch kein Bild",
+    "running…":"läuft…",
+    "error":"Fehler",
+    "generating audio…":"Audio wird erzeugt…",
+    "rendering video…":"Video wird gerendert…",
+    "animating…":"wird animiert…",
+    "nothing to run — add a node":"nichts auszuführen — Node hinzufügen",
+    "add a node first":"zuerst Node hinzufügen",
+    "cycle detected":"Zyklus erkannt",
+    "couldn’t read that image":"Bild konnte nicht gelesen werden",
+    "webcam unavailable":"Webcam nicht verfügbar",
+    "share failed":"Teilen fehlgeschlagen",
+    "shorten failed":"Kürzen fehlgeschlagen",
+    "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"Audio ignoriert — dieses Modell ist reiner Text. Wähle ein Modell mit Audio-Eingabe (z. B. ein Gemini).",
+    "can’t delete while running — Stop first":"kann nicht löschen, während es läuft — zuerst stoppen",
+    "couldn’t read that file":"diese Datei konnte nicht gelesen werden",
+    "stopping…":"wird gestoppt…",
+    "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"automatisches Speichern fehlgeschlagen — ein hochgeladener Audio-/Videoclip ist möglicherweise zu groß für den lokalen Speicher",
+    "Couldn't copy — select the link and copy it manually":"Kopieren fehlgeschlagen — wähle den Link aus und kopiere ihn manuell",
+    "that key was rejected — paste a valid nano-gpt.com key":"dieser Schlüssel wurde abgelehnt — füge einen gültigen nano-gpt.com-Schlüssel ein",
+    "sign-in error":"Anmeldefehler",
+    "sign-in didn't complete":"Anmeldung nicht abgeschlossen",
+    "Like it?":"Gefällt's dir?",
+    "✨ Turn this into an app":"✨ Mach daraus eine App",
+    "you can share":"die du teilen kannst",
+    "new to nano-gpt?":"neu bei nano-gpt?",
+    "create an account →":"Konto erstellen →",
+    "— pay-per-use, no subscription needed; your key stays in this browser.":"— nutzungsbasiert, kein Abo nötig; dein Schlüssel bleibt in diesem Browser.",
+    "couldn't read your clipboard — click the key field and press Ctrl+V to paste":"dein Zwischenspeicher konnte nicht gelesen werden — klicke ins Schlüsselfeld und drücke Strg+V zum Einfügen",
+    "that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again":"dieser Schlüssel enthält ein Zeichen, das nicht gesendet werden kann — kopiere ihn erneut von nano-gpt.com → Einstellungen → API und füge ihn erneut ein",
+    "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail":"Schlüssel gespeichert — aber nano-gpt.com ist gerade nicht erreichbar (Werbeblocker, VPN oder Netzwerk?), Ausführungen könnten fehlschlagen",
+    "key saved — you're ready to run":"Schlüssel gespeichert — bereit zum Ausführen",
+    "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"Guthaben {bal} deckt diese ~{usd}-Ausführung möglicherweise nicht — bei nano-gpt.com aufladen",
+    "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"Guthaben aufgebraucht — diese Ausführung braucht mehr Guthaben. Bei nano-gpt.com aufladen und erneut ausführen.",
+    "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"dein gespeicherter API-Schlüssel enthält ein Zeichen, das nicht gesendet werden kann (meist ein Sonderstrich oder ein unsichtbares Zeichen beim Tippen/Kopieren) — kopiere ihn erneut von nano-gpt.com → Einstellungen → API und füge ihn erneut ein",
+    "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.com konnte nicht erreicht werden — ein Werbeblocker, VPN oder Netzwerkfilter blockiert es möglicherweise; Verbindung prüfen und erneut ausführen",
+    "— this model may have changed on nano-gpt; click the node's model name to pick another":"— dieses Modell hat sich auf nano-gpt möglicherweise geändert; klicke auf den Modellnamen im Node, um ein anderes zu wählen",
+    "your key was rejected — sign in or paste a valid nano-gpt.com key":"dein Schlüssel wurde abgelehnt — melde dich an oder füge einen gültigen nano-gpt.com-Schlüssel ein",
+    "Link opens the app as last saved — hit ✨ Update first to include your newest canvas edits":"Der Link öffnet die App im zuletzt gespeicherten Stand — tippe zuerst auf ✨ Aktualisieren, um deine neuesten Canvas-Änderungen einzuschließen",
+    "pick a model first":"zuerst Modell wählen",
+    "no prompt":"kein Prompt",
+    "no text":"kein Text",
+    "no edit instruction":"keine Bearbeitungsanweisung",
+    "no image — upload or capture one first":"kein Bild — erst hochladen oder aufnehmen",
+    "Couldn’t load that file:":"Datei konnte nicht geladen werden:",
+    "Audio input":"Audio-Eingabe",
+    "Upload an audio clip":"Audioclip hochladen",
+    "Video input":"Video-Eingabe",
+    "Upload a video clip":"Videoclip hochladen",
+    "Video edit":"Video bearbeiten",
+    "Video (+text) → video — edit / extend / upscale":"Video (+Text) → Video — bearbeiten / erweitern / hochskalieren",
+    "Avatar / lipsync":"Avatar / Lippensynchro",
+    "Image + audio → talking video":"Bild + Audio → sprechendes Video",
+    "Transcribe":"Transkribieren",
+    "Audio → text (speech-to-text)":"Audio → Text (Sprache-zu-Text)",
+    "Inputs":"Eingaben",
+    "Other":"Sonstiges",
+    "instruction (optional)":"Anweisung (optional)",
+    "prompt (optional)":"Prompt (optional)",
+    "language":"Sprache",
+    "restyle as claymation · extend the clip · upscale to 4K…":"im Knetfilm-Stil · Clip verlängern · auf 4K hochskalieren…",
+    "subtle head movement, warm lighting…":"leichte Kopfbewegung, warmes Licht…"
+  },
+  pt:{
+    "strength":"intensidade",
+    "remove":"remover",
+    "to run":"para executar",
+    "Estimated cost to ▶ Run all — {n} paid node":"Custo estimado de ▶ Executar tudo — {n} nó pago",
+    "Estimated cost to ▶ Run all — {n} paid nodes":"Custo estimado de ▶ Executar tudo — {n} nós pagos",
+    ", plus {n} with no listed price":", mais {n} sem preço listado",
+    "Video, text & audio are estimates: the real bill depends on clip length, tokens and characters.":"Vídeo, texto e áudio são estimativas: a cobrança real depende da duração do clipe, dos tokens e dos caracteres.",
+    "Drag a":"Arraste uma",
+    "port onto a matching one to connect — or drop a wire on empty canvas to quick-add.":"porta sobre outra compatível para conectar — ou solte um fio na tela vazia para adicionar rápido.",
+    "no nodes match “{q}”":"nenhum nó corresponde a “{q}”",
+    "that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model":"esse {field} tem ~{mb} MB — acima do limite de envio de 4 MB; use um clipe mais curto ou ele não chegará ao modelo",
+    "Start here":"Comece aqui",
+    "■ Stop":"■ Parar",
+    "Stop the running workflow":"Parar o fluxo em execução",
+    "Undo (Ctrl + Z)":"Desfazer (Ctrl + Z)",
+    "Language":"Idioma",
+    "Recommended — handles very long links (workflow links can get big)":"Recomendado — aceita links muito longos (links de fluxo podem ficar grandes)",
+    "Shorter domain, but can fail on very long links":"Domínio mais curto, mas pode falhar com links muito longos",
+    "this model can’t hear audio — pick an audio-input model":"este modelo não consegue ouvir áudio — escolha um modelo com entrada de áudio",
+    "Close":"Fechar",
+    "Close model picker":"Fechar o seletor de modelos",
+    "Fit the whole workflow in view":"Ajustar todo o fluxo à tela",
+    "Rename this node":"Renomear este nó",
+    "Sort models":"Ordenar modelos",
+    "Submit to the Noodle Cookoff":"Enviar para o Noodle Cookoff",
+    "Undo the last edit":"Desfazer a última edição",
+    "What’s new":"Novidades",
+    "What your link opens":"O que seu link abre",
+    "Workflow canvas":"Tela do fluxo",
+    "Your entry link":"Seu link de participação",
+    "seed":"semente",
+    "📷 Webcam":"📷 Webcam",
+    "avatar":"avatar",
+    "Inpaint":"Inpaint",
+    "🚀 App":"🚀 App",
+    "Update {app}":"Atualizar {app}",
+    "Update “{app}” with this workflow":"Atualizar “{app}” com este fluxo",
+    "your app":"seu app",
+    "✓ Copied":"✓ Copiado",
+    "✓ Short":"✓ Encurtado",
+    "Opens in the editor so others can remix or learn from your noodle.":"Abre no editor para que outros possam remixar ou aprender com o seu noodle.",
+    "9:16 (Portrait)":"9:16 (Retrato)",
+    "default":"padrão",
+    "(in the top bar) takes you back to the graph and keeps this app.":"(na barra superior) leva você de volta ao grafo e mantém este app.",
+    "(or both!).":"(ou ambos!).",
+    "(style adapter)":"(adaptador de estilo)",
+    ", or":", ou",
+    ", which takes Nano — so the prize pool stays in the ecosystem.":", que aceita Nano — assim o fundo de prêmios permanece no ecossistema.",
+    "16:9 (Landscape)":"16:9 (Paisagem)",
+    "1:1 (Square)":"1:1 (Quadrado)",
+    "A live AI workflow — press":"Um fluxo de IA ao vivo — pressione",
+    "A running changelog — one line per change.":"Um changelog contínuo — uma linha por alteração.",
+    "Apply the described change (Enter)":"Aplicar a alteração descrita (Enter)",
+    "Audio model":"Modelo de áudio",
+    "Brush a region of an image → repaint just that area":"Pincele uma região de uma imagem → repinte apenas essa área",
+    "Chat model":"Modelo de chat",
+    "Choose the model that plans your change":"Escolha o modelo que planeja sua alteração",
+    "Clear mask":"Limpar máscara",
+    "Close — your app stays here (Esc)":"Fechar — seu app permanece aqui (Esc)",
+    "Combine videos":"Combinar vídeos",
+    "Copy":"Copiar",
+    "Copy a link that opens this workflow in the node editor so others can remix it":"Copie um link que abre este fluxo no editor de nós para que outros possam remixá-lo",
+    "Copy link":"Copiar link",
+    "Cut audio to a start + length":"Cortar o áudio para um início + duração",
+    "Dismiss":"Dispensar",
+    "Each change adds a version — click one to jump back to it":"Cada alteração adiciona uma versão — clique em uma para voltar a ela",
+    "Edit workflow":"Editar fluxo",
+    "Email":"E-mail",
+    "Enter this in the Noodle Cookoff":"Inscreva isto no Noodle Cookoff",
+    "Fit the whole workflow in view (F)":"Ajustar todo o fluxo à vista (F)",
+    "Got it":"Entendi",
+    "How to enter:":"Como participar:",
+    "Image model":"Modelo de imagem",
+    "Image(s) + text → image":"Imagem(ns) + texto → imagem",
+    "Join clips end-to-end into one video":"Junte clipes de ponta a ponta em um único vídeo",
+    "Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.":"Mantenha as inscrições SFW — sem violações de direitos autorais, nada ilegal. Os prêmios só podem ser enviados para carteiras em países não sujeitos a sanções ativas dos EUA.",
+    "Make it shorter — optional":"Torne mais curto — opcional",
+    "Model options":"Opções de modelo",
+    "More app options":"Mais opções de app",
+    "Most Innovative":"Mais Inovador",
+    "Most Useful":"Mais Útil",
+    "Noodle Cookoff — win Nano":"Noodle Cookoff — ganhe Nano",
+    "Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.":"Abre em 26 de junho · encerra em 12 de julho (23:59 UTC) · máx. 2 inscrições cada · vencedores em destaque.",
+    "Opens your creation as a ready-to-run app — what people click to try it. Best for entries.":"Abre sua criação como um app pronto para executar — o que as pessoas clicam para experimentar. Ideal para inscrições.",
+    "People's Choice":"Escolha do Público",
+    "Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.":"Controles por modelo do catálogo (predefinições, estilos, movimentos de câmera…). Os padrões se aplicam quando não alterados.",
+    "Pull still frames out of a video":"Extraia quadros estáticos de um vídeo",
+    "Recent":"Recentes",
+    "Running calls models on your NanoGPT key.":"A execução chama modelos usando sua chave NanoGPT.",
+    "Sampling + reasoning knobs. Defaults apply when untouched.":"Controles de amostragem + raciocínio. Os padrões se aplicam quando não alterados.",
+    "Save as a new app":"Salvar como novo app",
+    "Save this as a brand-new app — the one you’re editing stays untouched":"Salve isto como um app totalmente novo — o que você está editando permanece inalterado",
+    "Search nodes… (image, voice, video)":"Buscar nós… (imagem, voz, vídeo)",
+    "Sends this link to a third-party shortener so":"Envia este link para um encurtador de terceiros para",
+    "Share this workflow":"Compartilhar este fluxo",
+    "Share to":"Compartilhar em",
+    "Share workflow":"Compartilhar fluxo",
+    "Shorten this link (via da.gd) — nicer to post":"Encurtar este link (via da.gd) — melhor para postar",
+    "Start cooking →":"Comece a cozinhar →",
+    "Text (+ images, audio) → text — any chat model":"Texto (+ imagens, áudio) → texto — qualquer modelo de chat",
+    "This link opens your exact workflow for anyone to run or remix.":"Este link abre exatamente seu fluxo para qualquer pessoa executar ou remixar.",
+    "Trim audio":"Cortar áudio",
+    "Updates":"Atualizações",
+    "Video model":"Modelo de vídeo",
+    "Video → frames":"Vídeo → quadros",
+    "What’s new in nanoodle":"Novidades no nanoodle",
+    "When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.":"Quando clipes são encadeados, o primeiro quadro de cada clipe repete o último quadro do clipe anterior. Cortá-lo remove o congelamento na emenda.",
+    "Where to post":"Onde postar",
+    "Win 3 × 133 XNO (Nano)":"Ganhe 3 × 133 XNO (Nano)",
+    "Workflow link is in the address bar — copy it below":"O link do fluxo está na barra de endereço — copie-o abaixo",
+    "You're already in the kitchen. Wire up a noodle, share it, and win Nano — feeless, pay-per-call, no signup.":"Você já está na cozinha. Monte um noodle, compartilhe e ganhe Nano — sem taxas, pague por chamada, sem cadastro.",
+    "a red coffee mug, a small bird…":"uma caneca de café vermelha, um passarinho…",
+    "advanced":"avançado",
+    "audio":"áudio",
+    "beginning":"início",
+    "brush size":"tamanho do pincel",
+    "build something here → hit":"construa algo aqui → clique em",
+    "delete (Del)":"excluir (Del)",
+    "drag to resize":"arraste para redimensionar",
+    "e.g. “add a node that speaks the result aloud”":"ex.: “adicione um nó que fala o resultado em voz alta”",
+    "edit":"editar",
+    "frames":"quadros",
+    "gap between frames (sec)":"intervalo entre quadros (seg)",
+    "high":"alto",
+    "host it. They can see the workflow.":"hospede-o. Eles podem ver o fluxo.",
+    "image":"imagem",
+    "last frame":"último quadro",
+    "length (sec)":"duração (seg)",
+    "low":"baixo",
+    "mask":"máscara",
+    "max 2 entries · keep it SFW · closes Jul 12, 23:59 UTC":"máx. 2 inscrições · mantenha SFW · encerra em 12 de julho, 23:59 UTC",
+    "max tokens":"máx. tokens",
+    "max tokens (≤ 128000)":"máx. tokens (≤ 128000)",
+    "max {cap} for this model":"máx. {cap} para este modelo",
+    "medium":"médio",
+    "models":"modelos",
+    "music":"música",
+    "nanoodle is a community project on":"o nanoodle é um projeto comunitário no",
+    "nanoodle — AI workflow editor":"nanoodle — editor de fluxos de IA",
+    "no audio yet":"nenhum áudio ainda",
+    "no video yet":"nenhum vídeo ainda",
+    "or":"ou",
+    "or post it to":"ou poste em",
+    "output format":"formato de saída",
+    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"gera WAV mono, dimensionado para inline — útil antes de Avatar / sincronia labial quando um clipe é muito longo.",
+    "paste your link":"cole seu link",
+    "random":"aleatório",
+    "reasoning effort":"esforço de raciocínio",
+    "resolution":"resolução",
+    "save frame":"salvar quadro",
+    "show thinking":"mostrar raciocínio",
+    "start (sec)":"início (seg)",
+    "start from":"começar de",
+    "temperature":"temperatura",
+    "they":"eles",
+    "this clip has generated audio":"este clipe tem áudio gerado",
+    "to build your own.":"para criar o seu próprio.",
+    "trim duplicate seam frame":"cortar quadro de emenda duplicado",
+    "upload or capture an image, then brush the area to repaint":"envie ou capture uma imagem, depois pincele a área a repintar",
+    "variation":"variação",
+    "variations":"variações",
+    "vision":"visão",
+    "what to paint in":"o que pintar na área",
+    "· blank = random, fix to repeat (re-run won't regenerate)":"· vazio = aleatório, fixe para repetir (reexecutar não regenera)",
+    "— made nano-gpt do something nobody expected":"— fez o nano-gpt fazer algo que ninguém esperava",
+    "— most hearts on Discord + upvotes on Reddit (summed if you post both!)":"— mais corações no Discord + upvotes no Reddit (somados se você postar nos dois!)",
+    "— the one you'd actually open every week":"— aquele que você abriria toda semana",
+    "↑↓ move · ↵ add · esc close":"↑↓ mover · ↵ adicionar · esc fechar",
+    "→ drop the link in nano-gpt's":"→ cole o link no nano-gpt",
+    "▶ Run":"▶ Executar",
+    "● Capture":"● Capturar",
+    "⚙️ Model options":"⚙️ Opções do modelo",
+    "⚙️ advanced":"⚙️ avançado",
+    "✂ Shorten":"✂ Encurtar",
+    "✓ Workflow link copied — shorten or share it below":"✓ Link do fluxo copiado — encurte ou compartilhe abaixo",
+    "✕ Cancel":"✕ Cancelar",
+    "✦ Apply":"✦ Aplicar",
+    "✨ model ▾":"✨ modelo ▾",
+    "⬆ Upload":"⬆ Enviar",
+    "⬆ Upload audio":"⬆ Enviar áudio",
+    "⬆ Upload video":"⬆ Enviar vídeo",
+    "🏆 Win 3 × 133 XNO (Nano)":"🏆 Ganhe 3 × 133 XNO (Nano)",
+    "💬 Describe changes":"💬 Descrever alterações",
+    "💬 Post in Discord ↗":"💬 Publicar no Discord ↗",
+    "📣 What’s new":"📣 Novidades",
+    "📨 Submit your entry →":"📨 Envie sua inscrição →",
+    "🔗 Share workflow":"🔗 Compartilhar fluxo",
+    "🛠 Most Useful · 💡 Most Innovative · ❤️ People's Choice":"🛠 Mais Útil · 💡 Mais Inovador · ❤️ Escolha do Público",
+    "🛠 Workflow":"🛠 Fluxo",
+    "🤖 Post to r/nanocurrency ↗":"🤖 Publicar em r/nanocurrency ↗",
+    "＋ Add node":"＋ Adicionar nó",
+    "Add node":"Adicionar nó",
+    "Add a node":"Adicionar um nó",
+    "Run":"Executar",
+    "run every flow (Ctrl/⌘+Enter)":"executar todos os fluxos (Ctrl/⌘+Enter)",
+    "Create app":"Criar app",
+    "Turn this workflow into a shareable app":"Transforme este fluxo num app compartilhável",
+    "Share":"Compartilhar",
+    "Save":"Salvar",
+    "download this graph as JSON":"baixar este grafo como JSON",
+    "Load":"Carregar",
+    "open a graph JSON file":"abrir um arquivo de grafo JSON",
+    "More actions":"Mais ações",
+    "Close (Esc)":"Fechar (Esc)",
+    "sign in":"entrar",
+    "paste key":"colar chave",
+    "sign out":"sair",
+    "checking…":"verificando…",
+    "ready ✓":"pronto ✓",
+    "not signed in":"sessão não iniciada",
+    "paste NanoGPT API key (sk-nano-… or a UUID)":"cole a chave de API NanoGPT (sk-nano-… ou um UUID)",
+    "save":"salvar",
+    "nano-gpt.com → Settings → API":"nano-gpt.com → Configurações → API",
+    "model":"modelo",
+    "Model":"Modelo",
+    "Chat":"Chat",
+    "Image":"Imagem",
+    "Video":"Vídeo",
+    "Audio":"Áudio",
+    "filter the full list, or type an exact id + Enter…":"filtre a lista completa, ou digite um id exato + Enter…",
+    "loading the full list…":"carregando a lista completa…",
+    "pick a model…":"escolha um modelo…",
+    "newest first":"mais recentes primeiro",
+    "Sort the model list":"Ordenar a lista de modelos",
+    "Newest":"Mais recentes",
+    "Cheapest":"Mais baratos",
+    "Priciest":"Mais caros",
+    "Name A→Z":"Nome A→Z",
+    "newest":"mais recentes",
+    "cheapest":"mais baratos",
+    "priciest":"mais caros",
+    "Text":"Texto",
+    "A string source":"Uma fonte de texto",
+    "Image input":"Entrada de imagem",
+    "Upload or capture an image":"Envie ou capture uma imagem",
+    "Join":"Juntar",
+    "Glue two texts together":"Cole dois textos num só",
+    "LLM":"LLM",
+    "this model can’t read images — pick a vision model":"este modelo não consegue ler imagens — escolha um modelo de visão",
+    "Text → image":"Texto → imagem",
+    "Edit":"Editar",
+    "Vision":"Visão",
+    "Image → text (describe / ask)":"Imagem → texto (descrever / perguntar)",
+    "Text→Video":"Texto→Vídeo",
+    "Text → video (renders ~1 min)":"Texto → vídeo (renderiza ~1 min)",
+    "Image→Video":"Imagem→Vídeo",
+    "Image (+text) → video":"Imagem (+texto) → vídeo",
+    "Music":"Música",
+    "Text → music":"Texto → música",
+    "Speech":"Fala",
+    "Text → speech (TTS)":"Texto → fala (TTS)",
+    "system (optional)":"sistema (opcional)",
+    "prompt":"prompt",
+    "separator":"separador",
+    "size":"tamanho",
+    "edit instruction":"instrução de edição",
+    "question":"pergunta",
+    "duration":"duração",
+    "aspect":"proporção",
+    "motion prompt (optional)":"prompt de movimento (opcional)",
+    "style / prompt":"estilo / prompt",
+    "text to speak":"texto a falar",
+    "advanced params (JSON)":"parâmetros avançados (JSON)",
+    "type some text…":"digite um texto…",
+    "you are a helpful…":"você é um assistente prestativo…",
+    "ask something…":"pergunte algo…",
+    "a red panda astronaut…":"um panda-vermelho astronauta…",
+    "make it night-time, add neon…":"transforme em noite, adicione néon…",
+    "Describe this image.":"Descreva esta imagem.",
+    "a drone shot over neon Tokyo at night…":"um drone sobre a Tóquio de néon à noite…",
+    "slow push-in, hair blowing in the wind…":"aproximação lenta, cabelo ao vento…",
+    "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM":"lo-fi hip hop animado, piano suave, chiado de vinil, 90 BPM",
+    "Hello! This is a test.":"Olá! Isto é um teste.",
+    "square":"quadrado",
+    "portrait":"retrato",
+    "landscape":"paisagem",
+    "auto":"auto",
+    "5 sec":"5 seg",
+    "10 sec":"10 seg",
+    "Lyrics":"Letra",
+    "Instrumental":"Instrumental",
+    "Duration (sec)":"Duração (seg)",
+    "Number of songs":"Número de músicas",
+    "Negative prompt":"Prompt negativo",
+    "Seed":"Seed",
+    "Format":"Formato",
+    "Voice":"Voz",
+    "Speed":"Velocidade",
+    "Instructions":"Instruções",
+    "required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM":"exigido por modelos com vocal (ex.: Mureka); deixe vazio para instrumental/BGM",
+    "run this branch":"executar este ramo",
+    "delete":"excluir",
+    "open":"abrir",
+    "copy":"copiar",
+    "✓ copied":"✓ copiado",
+    "copy failed":"falha ao copiar",
+    "Upload":"Enviar",
+    "Webcam":"Webcam",
+    "Capture":"Capturar",
+    "Cancel":"Cancelar",
+    "no image yet":"nenhuma imagem ainda",
+    "running…":"executando…",
+    "error":"erro",
+    "generating audio…":"gerando áudio…",
+    "rendering video…":"renderizando vídeo…",
+    "animating…":"animando…",
+    "nothing to run — add a node":"nada para executar — adicione um nó",
+    "add a node first":"adicione um nó primeiro",
+    "cycle detected":"ciclo detectado",
+    "couldn’t read that image":"não foi possível ler essa imagem",
+    "webcam unavailable":"webcam indisponível",
+    "share failed":"falha ao compartilhar",
+    "shorten failed":"falha ao encurtar",
+    "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"áudio ignorado — este modelo é somente texto. Escolha um modelo com entrada de áudio (por exemplo, um Gemini).",
+    "can’t delete while running — Stop first":"não é possível excluir durante a execução — pare primeiro",
+    "couldn’t read that file":"não foi possível ler esse arquivo",
+    "stopping…":"parando…",
+    "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"não foi possível salvar automaticamente — um clipe de áudio/vídeo enviado pode ser grande demais para o armazenamento local",
+    "Couldn't copy — select the link and copy it manually":"Não foi possível copiar — selecione o link e copie manualmente",
+    "that key was rejected — paste a valid nano-gpt.com key":"essa chave foi rejeitada — cole uma chave válida do nano-gpt.com",
+    "sign-in error":"erro ao entrar",
+    "sign-in didn't complete":"o login não foi concluído",
+    "Like it?":"Gostou?",
+    "✨ Turn this into an app":"✨ Transforme isso em um app",
+    "you can share":"que você pode compartilhar",
+    "new to nano-gpt?":"novo no nano-gpt?",
+    "create an account →":"criar uma conta →",
+    "— pay-per-use, no subscription needed; your key stays in this browser.":"— pague pelo uso, sem assinatura; sua chave fica neste navegador.",
+    "couldn't read your clipboard — click the key field and press Ctrl+V to paste":"não foi possível ler sua área de transferência — clique no campo da chave e pressione Ctrl+V para colar",
+    "that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again":"essa chave tem um caractere que não pode ser enviado — copie-a novamente em nano-gpt.com → Configurações → API e cole de novo",
+    "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail":"chave salva — mas o nano-gpt.com não pôde ser alcançado agora (bloqueador de anúncios, VPN ou rede?), então as execuções podem falhar",
+    "key saved — you're ready to run":"chave salva — pronto para executar",
+    "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"o saldo {bal} pode não cobrir esta execução de ~{usd} — recarregue em nano-gpt.com",
+    "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"sem saldo — esta execução precisa de mais crédito. Recarregue em nano-gpt.com e execute novamente.",
+    "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"sua chave de API salva contém um caractere que não pode ser enviado (geralmente um traço tipográfico ou um caractere invisível pego ao digitar/copiar) — copie-a novamente em nano-gpt.com → Configurações → API e cole de novo",
+    "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"não foi possível alcançar o nano-gpt.com — um bloqueador de anúncios, VPN ou filtro de rede pode estar bloqueando; verifique a conexão e execute novamente",
+    "— this model may have changed on nano-gpt; click the node's model name to pick another":"— este modelo pode ter mudado no nano-gpt; clique no nome do modelo no nó para escolher outro",
+    "your key was rejected — sign in or paste a valid nano-gpt.com key":"sua chave foi rejeitada — entre ou cole uma chave válida do nano-gpt.com",
+    "Link opens the app as last saved — hit ✨ Update first to include your newest canvas edits":"O link abre o app como foi salvo por último — toque em ✨ Atualizar primeiro para incluir suas edições mais recentes da tela",
+    "pick a model first":"escolha um modelo primeiro",
+    "no prompt":"sem prompt",
+    "no text":"sem texto",
+    "no edit instruction":"sem instrução de edição",
+    "no image — upload or capture one first":"sem imagem — envie ou capture uma primeiro",
+    "Couldn’t load that file:":"Não foi possível carregar o arquivo:",
+    "Audio input":"Entrada de áudio",
+    "Upload an audio clip":"Envie um clipe de áudio",
+    "Video input":"Entrada de vídeo",
+    "Upload a video clip":"Envie um clipe de vídeo",
+    "Video edit":"Editar vídeo",
+    "Video (+text) → video — edit / extend / upscale":"Vídeo (+texto) → vídeo — editar / estender / ampliar",
+    "Avatar / lipsync":"Avatar / sincronia labial",
+    "Image + audio → talking video":"Imagem + áudio → vídeo falado",
+    "Transcribe":"Transcrever",
+    "Audio → text (speech-to-text)":"Áudio → texto (voz para texto)",
+    "Inputs":"Entradas",
+    "Other":"Outros",
+    "instruction (optional)":"instrução (opcional)",
+    "prompt (optional)":"prompt (opcional)",
+    "language":"idioma",
+    "restyle as claymation · extend the clip · upscale to 4K…":"reestilizar como massinha · estender o clipe · ampliar para 4K…",
+    "subtle head movement, warm lighting…":"leve movimento da cabeça, iluminação quente…"
+  },
+  ja:{
+    "strength":"強度",
+    "remove":"削除",
+    "to run":"で実行",
+    "Estimated cost to ▶ Run all — {n} paid node":"▶ すべて実行の推定コスト — 有料ノード {n} 個",
+    "Estimated cost to ▶ Run all — {n} paid nodes":"▶ すべて実行の推定コスト — 有料ノード {n} 個",
+    ", plus {n} with no listed price":"、ほかに価格未掲載 {n} 個",
+    "Video, text & audio are estimates: the real bill depends on clip length, tokens and characters.":"動画・テキスト・音声は概算です。実際の請求はクリップの長さ、トークン数、文字数で変わります。",
+    "Drag a":"接続するには",
+    "port onto a matching one to connect — or drop a wire on empty canvas to quick-add.":"ポートを対応するポートへドラッグしてください — 空のキャンバスに線をドロップするとクイック追加できます。",
+    "no nodes match “{q}”":"“{q}” に一致するノードはありません",
+    "that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model":"この{field}は約 {mb} MB あり、送信上限の 4 MB を超えています。短いクリップを使わないとモデルに届きません",
+    "Start here":"まずはここから",
+    "■ Stop":"■ 停止",
+    "Stop the running workflow":"実行中のワークフローを停止",
+    "Undo (Ctrl + Z)":"元に戻す (Ctrl + Z)",
+    "Language":"言語",
+    "Recommended — handles very long links (workflow links can get big)":"推奨 — とても長いリンクにも対応（ワークフローのリンクは大きくなりがちです）",
+    "Shorter domain, but can fail on very long links":"ドメインは短いですが、とても長いリンクでは失敗することがあります",
+    "this model can’t hear audio — pick an audio-input model":"このモデルは音声を聞けません — 音声入力対応のモデルを選んでください",
+    "Close":"閉じる",
+    "Close model picker":"モデル選択を閉じる",
+    "Fit the whole workflow in view":"ワークフロー全体を表示に収める",
+    "Rename this node":"このノードの名前を変更",
+    "Sort models":"モデルを並べ替え",
+    "Submit to the Noodle Cookoff":"Noodle Cookoff に応募",
+    "Undo the last edit":"直前の編集を元に戻す",
+    "What’s new":"新着情報",
+    "What your link opens":"リンクが開く内容",
+    "Workflow canvas":"ワークフローキャンバス",
+    "Your entry link":"あなたの応募リンク",
+    "Update {app}":"{app} を更新",
+    "Update “{app}” with this workflow":"このワークフローで「{app}」を更新",
+    "your app":"あなたのアプリ",
+    "✓ Copied":"✓ コピー済み",
+    "✓ Short":"✓ 短縮済み",
+    "Opens in the editor so others can remix or learn from your noodle.":"エディタで開き、他の人があなたのnoodleをリミックスしたり学んだりできます。",
+    "9:16 (Portrait)":"9:16 (縦長)",
+    "default":"デフォルト",
+    "(in the top bar) takes you back to the graph and keeps this app.":"(上部バーの) を押すとグラフに戻り、このアプリはそのまま残ります。",
+    "(or both!).":"(または両方！)。",
+    "(style adapter)":"(スタイルアダプター)",
+    ", or":"、または",
+    ", which takes Nano — so the prize pool stays in the ecosystem.":"、Nano を受け取るので、賞金プールはエコシステム内にとどまります。",
+    "16:9 (Landscape)":"16:9 (横長)",
+    "1:1 (Square)":"1:1 (スクエア)",
+    "A live AI workflow — press":"ライブなAIワークフロー — 押してください",
+    "A running changelog — one line per change.":"進行中の変更履歴 — 変更ごとに1行。",
+    "Apply the described change (Enter)":"説明した変更を適用 (Enter)",
+    "Audio model":"音声モデル",
+    "Brush a region of an image → repaint just that area":"画像の領域をブラシで塗る → その部分だけを描き直します",
+    "Chat model":"チャットモデル",
+    "Choose the model that plans your change":"変更を計画するモデルを選択",
+    "Clear mask":"マスクをクリア",
+    "Close — your app stays here (Esc)":"閉じる — アプリはここに残ります (Esc)",
+    "Combine videos":"動画を結合",
+    "Copy":"コピー",
+    "Copy a link that opens this workflow in the node editor so others can remix it":"このワークフローをノードエディタで開くリンクをコピー — 他の人がリミックスできます",
+    "Copy link":"リンクをコピー",
+    "Cut audio to a start + length":"音声を開始位置 + 長さで切り出し",
+    "Dismiss":"閉じる",
+    "Each change adds a version — click one to jump back to it":"変更ごとにバージョンが追加されます — クリックでそのバージョンに戻れます",
+    "Edit workflow":"ワークフローを編集",
+    "Email":"メール",
+    "Enter this in the Noodle Cookoff":"これを Noodle Cookoff に応募",
+    "Fit the whole workflow in view (F)":"ワークフロー全体を表示に収める (F)",
+    "Got it":"了解",
+    "How to enter:":"応募方法:",
+    "Image model":"画像モデル",
+    "Image(s) + text → image":"画像 + テキスト → 画像",
+    "Inpaint":"インペイント",
+    "Join clips end-to-end into one video":"クリップをつなげて1つの動画に結合",
+    "Keep entries SFW — no copyright violations, nothing illegal. Prizes can only be sent to wallets in countries not under active US sanctions.":"応募作品はSFWに保ってください — 著作権侵害や違法なものは禁止。賞金は米国の制裁対象国以外のウォレットにのみ送金できます。",
+    "Make it shorter — optional":"短くする — 任意",
+    "Model options":"モデルオプション",
+    "More app options":"その他のアプリオプション",
+    "Most Innovative":"最も革新的",
+    "Most Useful":"最も便利",
+    "Noodle Cookoff — win Nano":"Noodle Cookoff — Nano を獲得",
+    "Opens June 26 · closes July 12 (23:59 UTC) · max 2 entries each · winners get featured.":"6月26日開始 · 7月12日締切 (23:59 UTC) · 各自最大2作品 · 受賞者は掲載されます。",
+    "Opens your creation as a ready-to-run app — what people click to try it. Best for entries.":"作品をすぐ実行できるアプリとして開きます — 人々がクリックして試すものです。応募に最適。",
+    "People's Choice":"人気賞",
+    "Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.":"カタログのモデル別の調整項目 (プリセット、スタイル、カメラの動き…)。変更しない場合はデフォルトが適用されます。",
+    "Pull still frames out of a video":"動画から静止フレームを抽出",
+    "Recent":"最近",
+    "Running calls models on your NanoGPT key.":"実行するとあなたの NanoGPT キーでモデルが呼び出されます。",
+    "Sampling + reasoning knobs. Defaults apply when untouched.":"サンプリング + 推論の調整項目。変更しない場合はデフォルトが適用されます。",
+    "Save as a new app":"新しいアプリとして保存",
+    "Save this as a brand-new app — the one you’re editing stays untouched":"これを新しいアプリとして保存 — 編集中のアプリはそのまま残ります",
+    "Search nodes… (image, voice, video)":"ノードを検索… (画像、音声、動画)",
+    "Sends this link to a third-party shortener so":"このリンクをサードパーティの短縮サービスに送信するので",
+    "Share this workflow":"このワークフローを共有",
+    "Share to":"共有先",
+    "Share workflow":"ワークフローを共有",
+    "Shorten this link (via da.gd) — nicer to post":"このリンクを短縮 (da.gd 経由) — 投稿に便利",
+    "Start cooking →":"料理を始める →",
+    "Text (+ images, audio) → text — any chat model":"テキスト (+ 画像、音声) → テキスト — 任意のチャットモデル",
+    "This link opens your exact workflow for anyone to run or remix.":"このリンクは、誰でも実行またはリミックスできるあなたのワークフローそのものを開きます。",
+    "Trim audio":"音声をトリム",
+    "Updates":"アップデート",
+    "Video model":"動画モデル",
+    "Video → frames":"動画 → フレーム",
+    "What’s new in nanoodle":"nanoodleの新着情報",
+    "When clips are chained, each clip's first frame repeats the previous clip's last frame. Trimming it removes the freeze at the seam.":"クリップを連結すると、各クリップの最初のフレームが前のクリップの最後のフレームを繰り返します。トリミングすると継ぎ目のフリーズが除去されます。",
+    "Where to post":"投稿先",
+    "Win 3 × 133 XNO (Nano)":"3 × 133 XNO (Nano) を獲得",
+    "Workflow link is in the address bar — copy it below":"ワークフローのリンクはアドレスバーにあります — 下からコピー",
+    "You're already in the kitchen. Wire up a noodle, share it, and win Nano — feeless, pay-per-call, no signup.":"あなたはすでにキッチンにいます。ヌードルをつないで共有し、Nano を獲得しましょう — 手数料無料、都度課金、登録不要。",
+    "a red coffee mug, a small bird…":"赤いコーヒーマグ、小さな鳥…",
+    "advanced":"詳細",
+    "audio":"音声",
+    "avatar":"アバター",
+    "beginning":"先頭",
+    "brush size":"ブラシサイズ",
+    "build something here → hit":"ここで何か作って → 押す",
+    "delete (Del)":"削除 (Del)",
+    "drag to resize":"ドラッグしてサイズ変更",
+    "e.g. “add a node that speaks the result aloud”":"例: 「結果を読み上げるノードを追加」",
+    "edit":"編集",
+    "frames":"フレーム",
+    "gap between frames (sec)":"フレーム間の間隔 (秒)",
+    "high":"高",
+    "host it. They can see the workflow.":"ホストします。相手はワークフローを見ることができます。",
+    "image":"画像",
+    "last frame":"最後のフレーム",
+    "length (sec)":"長さ (秒)",
+    "low":"低",
+    "mask":"マスク",
+    "max 2 entries · keep it SFW · closes Jul 12, 23:59 UTC":"最大2エントリー · SFW厳守 · 7月12日 23:59 UTC 締切",
+    "max tokens":"最大トークン数",
+    "max tokens (≤ 128000)":"最大トークン数 (≤ 128000)",
+    "max {cap} for this model":"このモデルの最大 {cap}",
+    "medium":"中",
+    "models":"モデル",
+    "music":"音楽",
+    "nanoodle is a community project on":"nanoodle は次の場所のコミュニティプロジェクトです:",
+    "nanoodle — AI workflow editor":"nanoodle — AI ワークフローエディター",
+    "no audio yet":"音声なし",
+    "no video yet":"動画なし",
+    "or":"または",
+    "or post it to":"または次に投稿:",
+    "output format":"出力形式",
+    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"モノラルWAVを出力し、インライン用にサイズ調整 — クリップが長すぎる場合、アバター / リップシンクの前に便利。",
+    "paste your link":"リンクを貼り付け",
+    "random":"ランダム",
+    "reasoning effort":"推論の強度",
+    "resolution":"解像度",
+    "save frame":"フレームを保存",
+    "seed":"シード",
+    "show thinking":"思考を表示",
+    "start (sec)":"開始 (秒)",
+    "start from":"開始位置",
+    "temperature":"温度",
+    "they":"相手",
+    "this clip has generated audio":"このクリップには生成された音声があります",
+    "to build your own.":"自分だけのものを作るために。",
+    "trim duplicate seam frame":"重複するつなぎ目フレームをトリミング",
+    "upload or capture an image, then brush the area to repaint":"画像をアップロードまたは撮影し、塗り直す領域をブラシで塗る",
+    "variation":"バリエーション",
+    "variations":"バリエーション",
+    "vision":"ビジョン",
+    "what to paint in":"何を描き込むか",
+    "· blank = random, fix to repeat (re-run won't regenerate)":"· 空欄=ランダム、固定すると繰り返す（再実行で再生成されない）",
+    "— made nano-gpt do something nobody expected":"— nano-gptで誰も予想しなかったことを実現",
+    "— most hearts on Discord + upvotes on Reddit (summed if you post both!)":"— Discordのハート＋Redditのupvoteが最多（両方投稿すれば合算！）",
+    "— the one you'd actually open every week":"— 毎週実際に開きたくなるもの",
+    "↑↓ move · ↵ add · esc close":"↑↓ 移動 · ↵ 追加 · esc 閉じる",
+    "→ drop the link in nano-gpt's":"→ nano-gptにリンクをドロップ",
+    "▶ Run":"▶ 実行",
+    "● Capture":"● 撮影",
+    "⚙️ Model options":"⚙️ モデルオプション",
+    "⚙️ advanced":"⚙️ 詳細設定",
+    "✂ Shorten":"✂ 短縮",
+    "✓ Workflow link copied — shorten or share it below":"✓ ワークフローのリンクをコピーしました — 下で短縮または共有",
+    "✕ Cancel":"✕ キャンセル",
+    "✦ Apply":"✦ 適用",
+    "✨ model ▾":"✨ モデル ▾",
+    "⬆ Upload":"⬆ アップロード",
+    "⬆ Upload audio":"⬆ 音声をアップロード",
+    "⬆ Upload video":"⬆ 動画をアップロード",
+    "🏆 Win 3 × 133 XNO (Nano)":"🏆 3 × 133 XNO (Nano) を獲得",
+    "💬 Describe changes":"💬 変更を説明",
+    "💬 Post in Discord ↗":"💬 Discordに投稿 ↗",
+    "📣 What’s new":"📣 新着情報",
+    "📨 Submit your entry →":"📨 エントリーを送信 →",
+    "📷 Webcam":"📷 ウェブカメラ",
+    "🔗 Share workflow":"🔗 ワークフローを共有",
+    "🚀 App":"🚀 アプリ",
+    "🛠 Most Useful · 💡 Most Innovative · ❤️ People's Choice":"🛠 最も便利 · 💡 最も革新的 · ❤️ 人気賞",
+    "🛠 Workflow":"🛠 ワークフロー",
+    "🤖 Post to r/nanocurrency ↗":"🤖 r/nanocurrencyに投稿 ↗",
+    "＋ Add node":"＋ ノード追加",
+    "Add node":"ノード追加",
+    "Add a node":"ノードを追加",
+    "Run":"実行",
+    "run every flow (Ctrl/⌘+Enter)":"すべてのフローを実行 (Ctrl/⌘+Enter)",
+    "Create app":"アプリ作成",
+    "Turn this workflow into a shareable app":"このワークフローを共有可能なアプリに変換",
+    "Share":"共有",
+    "Save":"保存",
+    "download this graph as JSON":"このグラフをJSONでダウンロード",
+    "Load":"読み込み",
+    "open a graph JSON file":"グラフのJSONファイルを開く",
+    "More actions":"その他の操作",
+    "Close (Esc)":"閉じる (Esc)",
+    "sign in":"サインイン",
+    "paste key":"キーを貼り付け",
+    "sign out":"サインアウト",
+    "checking…":"確認中…",
+    "ready ✓":"準備完了 ✓",
+    "not signed in":"未サインイン",
+    "paste NanoGPT API key (sk-nano-… or a UUID)":"NanoGPT APIキーを貼り付け (sk-nano-… または UUID)",
+    "save":"保存",
+    "nano-gpt.com → Settings → API":"nano-gpt.com → 設定 → API",
+    "model":"モデル",
+    "Model":"モデル",
+    "Chat":"チャット",
+    "Image":"画像",
+    "Video":"動画",
+    "Audio":"音声",
+    "filter the full list, or type an exact id + Enter…":"一覧を絞り込み、または正確なIDを入力 + Enter…",
+    "loading the full list…":"一覧を読み込み中…",
+    "pick a model…":"モデルを選択…",
+    "newest first":"新しい順",
+    "Sort the model list":"モデル一覧を並べ替え",
+    "Newest":"新しい順",
+    "Cheapest":"安い順",
+    "Priciest":"高い順",
+    "Name A→Z":"名前 A→Z",
+    "newest":"新しい順",
+    "cheapest":"安い順",
+    "priciest":"高い順",
+    "Text":"テキスト",
+    "A string source":"文字列ソース",
+    "Image input":"画像入力",
+    "Upload or capture an image":"画像をアップロードまたは撮影",
+    "Join":"結合",
+    "Glue two texts together":"2つのテキストを結合",
+    "LLM":"LLM",
+    "this model can’t read images — pick a vision model":"このモデルは画像を読み取れません — ビジョンモデルを選んでください",
+    "Text → image":"テキスト → 画像",
+    "Edit":"編集",
+    "Vision":"ビジョン",
+    "Image → text (describe / ask)":"画像 → テキスト (説明 / 質問)",
+    "Text→Video":"テキスト→動画",
+    "Text → video (renders ~1 min)":"テキスト → 動画 (生成 約1分)",
+    "Image→Video":"画像→動画",
+    "Image (+text) → video":"画像 (+テキスト) → 動画",
+    "Music":"音楽",
+    "Text → music":"テキスト → 音楽",
+    "Speech":"音声",
+    "Text → speech (TTS)":"テキスト → 音声 (TTS)",
+    "system (optional)":"システム (任意)",
+    "prompt":"プロンプト",
+    "separator":"区切り文字",
+    "size":"サイズ",
+    "edit instruction":"編集指示",
+    "question":"質問",
+    "duration":"長さ",
+    "aspect":"アスペクト比",
+    "motion prompt (optional)":"動きのプロンプト (任意)",
+    "style / prompt":"スタイル / プロンプト",
+    "text to speak":"読み上げるテキスト",
+    "advanced params (JSON)":"詳細パラメータ (JSON)",
+    "type some text…":"テキストを入力…",
+    "you are a helpful…":"あなたは親切なアシスタントです…",
+    "ask something…":"質問を入力…",
+    "a red panda astronaut…":"宇宙飛行士のレッサーパンダ…",
+    "make it night-time, add neon…":"夜にして、ネオンを追加…",
+    "Describe this image.":"この画像を説明してください。",
+    "a drone shot over neon Tokyo at night…":"夜のネオン輝く東京上空のドローン映像…",
+    "slow push-in, hair blowing in the wind…":"ゆっくりズームイン、風になびく髪…",
+    "upbeat lo-fi hip hop, mellow piano, vinyl crackle, 90 BPM":"アップビートなlo-fiヒップホップ、まろやかなピアノ、レコードノイズ、90 BPM",
+    "Hello! This is a test.":"こんにちは！これはテストです。",
+    "square":"スクエア",
+    "portrait":"縦長",
+    "landscape":"横長",
+    "auto":"自動",
+    "5 sec":"5秒",
+    "10 sec":"10秒",
+    "Lyrics":"歌詞",
+    "Instrumental":"インストゥルメンタル",
+    "Duration (sec)":"長さ (秒)",
+    "Number of songs":"曲数",
+    "Negative prompt":"ネガティブプロンプト",
+    "Seed":"シード",
+    "Format":"形式",
+    "Voice":"声",
+    "Speed":"速度",
+    "Instructions":"指示",
+    "required by vocal song models (e.g. Mureka); leave empty for instrumental/BGM":"ボーカル曲モデル (例: Mureka) に必須。インスト/BGMの場合は空欄に",
+    "run this branch":"このブランチを実行",
+    "delete":"削除",
+    "open":"開く",
+    "copy":"コピー",
+    "✓ copied":"✓ コピー済み",
+    "copy failed":"コピー失敗",
+    "Upload":"アップロード",
+    "Webcam":"ウェブカメラ",
+    "Capture":"撮影",
+    "Cancel":"キャンセル",
+    "no image yet":"画像なし",
+    "running…":"実行中…",
+    "error":"エラー",
+    "generating audio…":"音声を生成中…",
+    "rendering video…":"動画を生成中…",
+    "animating…":"生成中…",
+    "nothing to run — add a node":"実行対象なし — ノードを追加",
+    "add a node first":"先にノードを追加",
+    "cycle detected":"循環を検出",
+    "couldn’t read that image":"画像を読み込めませんでした",
+    "webcam unavailable":"ウェブカメラを利用できません",
+    "share failed":"共有に失敗",
+    "shorten failed":"短縮に失敗しました",
+    "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"音声は無視されました — このモデルはテキスト専用です。音声入力に対応したモデル（Geminiなど）を選んでください。",
+    "can’t delete while running — Stop first":"実行中は削除できません — 先に停止してください",
+    "couldn’t read that file":"そのファイルを読み込めませんでした",
+    "stopping…":"停止中…",
+    "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"自動保存に失敗しました — アップロードした音声/動画クリップがローカルストレージには大きすぎる可能性があります",
+    "Couldn't copy — select the link and copy it manually":"コピーできませんでした — リンクを選択して手動でコピーしてください",
+    "that key was rejected — paste a valid nano-gpt.com key":"そのキーは拒否されました — 有効なnano-gpt.comのキーを貼り付けてください",
+    "sign-in error":"サインインエラー",
+    "sign-in didn't complete":"サインインが完了しませんでした",
+    "Like it?":"気に入りましたか？",
+    "✨ Turn this into an app":"✨ これをアプリにする",
+    "you can share":"共有できます",
+    "new to nano-gpt?":"nano-gptは初めてですか？",
+    "create an account →":"アカウントを作成 →",
+    "— pay-per-use, no subscription needed; your key stays in this browser.":"— 従量課金制、サブスクリプション不要。キーはこのブラウザに保存されます。",
+    "couldn't read your clipboard — click the key field and press Ctrl+V to paste":"クリップボードを読み取れませんでした — キー欄をクリックしてCtrl+Vで貼り付けてください",
+    "that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again":"そのキーには送信できない文字が含まれています — nano-gpt.com → 設定 → API から再度コピーして貼り付け直してください",
+    "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail":"キーを保存しました — ただし現在nano-gpt.comに接続できません（広告ブロッカー、VPN、ネットワークの可能性）。実行が失敗するかもしれません",
+    "key saved — you're ready to run":"キーを保存しました — 実行の準備ができました",
+    "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"残高{bal}ではこの~{usd}の実行を賄えない可能性があります — nano-gpt.comでチャージしてください",
+    "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"残高不足 — この実行にはさらにクレジットが必要です。nano-gpt.comでチャージしてから再実行してください。",
+    "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"保存されたAPIキーに送信できない文字が含まれています（多くは特殊なダッシュや、入力・コピー時に紛れ込んだ不可視文字です） — nano-gpt.com → 設定 → API から再度コピーして貼り付け直してください",
+    "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.comに接続できませんでした — 広告ブロッカー、VPN、ネットワークフィルターが原因の可能性があります。接続を確認して再実行してください",
+    "— this model may have changed on nano-gpt; click the node's model name to pick another":"— このモデルはnano-gpt側で変更された可能性があります。ノードのモデル名をクリックして別のモデルを選んでください",
+    "your key was rejected — sign in or paste a valid nano-gpt.com key":"キーが拒否されました — サインインするか、有効なnano-gpt.comのキーを貼り付けてください",
+    "Link opens the app as last saved — hit ✨ Update first to include your newest canvas edits":"リンクは最後に保存された状態のアプリを開きます — 最新のキャンバスの変更を含めるには、先に✨アップデートをタップしてください",
+    "pick a model first":"先にモデルを選択",
+    "no prompt":"プロンプトなし",
+    "no text":"テキストなし",
+    "no edit instruction":"編集指示なし",
+    "no image — upload or capture one first":"画像なし — 先にアップロードまたは撮影",
+    "Couldn’t load that file:":"ファイルを読み込めませんでした:",
+    "Audio input":"音声入力",
+    "Upload an audio clip":"音声クリップをアップロード",
+    "Video input":"動画入力",
+    "Upload a video clip":"動画クリップをアップロード",
+    "Video edit":"動画編集",
+    "Video (+text) → video — edit / extend / upscale":"動画(+テキスト)→ 動画 — 編集 / 延長 / 高画質化",
+    "Avatar / lipsync":"アバター / リップシンク",
+    "Image + audio → talking video":"画像 + 音声 → 話す動画",
+    "Transcribe":"文字起こし",
+    "Audio → text (speech-to-text)":"音声 → テキスト(文字起こし)",
+    "Inputs":"入力",
+    "Other":"その他",
+    "instruction (optional)":"指示(任意)",
+    "prompt (optional)":"プロンプト(任意)",
+    "language":"言語",
+    "restyle as claymation · extend the clip · upscale to 4K…":"クレイアニメ風に変換 · クリップを延長 · 4Kに高画質化…",
+    "subtle head movement, warm lighting…":"わずかな頭の動き、温かみのある照明…"
+  }
+};
+/* === I18N-MAPS-END === */
+
+function i18nDetect(){
+  let stored=null; try{ stored=localStorage.getItem("noodle_lang"); }catch(e){}
+  const codes=I18N_LANGS.map(l=>l.code);
+  if(stored && codes.includes(stored)) return stored;
+  const prefs=(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||"en"];
+  for(const p of prefs){ const base=String(p||"").toLowerCase().split("-")[0]; if(codes.includes(base)) return base; }
+  return "en";
+}
+let LANG = i18nDetect();
+function i18nLookup(s){ if(LANG==="en") return null; const m=I18N[LANG]; const hit=m&&m[String(s).trim()]; return hit!=null?hit:null; }
+// translate a whole JS string (toasts/status/errors/labels); returns input if untranslated.
+function t(s){ if(s==null) return s; const hit=i18nLookup(s); return hit!=null ? String(s).replace(String(s).trim(),()=>hit) : s; }
+// translate the static text/placeholder/title inside a freshly-built chrome subtree.
+// Skips user content, model ids, and generated output.
+const I18N_SKIP = ".modelpick, .result, .mname, .price, [data-no-i18n]";
+function translateTree(root){
+  if(LANG==="en" || !root) return;
+  root.querySelectorAll("[placeholder],[title],[aria-label]").forEach(el=>{
+    if(el.closest(I18N_SKIP)) return;
+    ["placeholder","title","aria-label"].forEach(a=>{ if(!el.hasAttribute(a)) return; const hit=i18nLookup(el.getAttribute(a)); if(hit!=null) el.setAttribute(a,hit); });
+  });
+  const tw=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode(n){
+    const p=n.parentElement; if(!p) return NodeFilter.FILTER_REJECT;
+    const tag=p.tagName; if(tag==="TEXTAREA"||tag==="INPUT"||tag==="SCRIPT"||tag==="STYLE") return NodeFilter.FILTER_REJECT;
+    if(p.closest(I18N_SKIP)) return NodeFilter.FILTER_REJECT;
+    return NodeFilter.FILTER_ACCEPT;
+  }});
+  const out=[]; while(tw.nextNode()) out.push(tw.currentNode);
+  for(const tn of out){ const raw=tn.nodeValue, k=raw.trim(); if(!k) continue; const hit=i18nLookup(k); if(hit!=null) tn.nodeValue=raw.replace(k,()=>hit); }
+}
+// model-output localization: a system directive to answer in the user's language
+// (""→English, so English prompts stay byte-identical). Used by genChat in the editor
+// only — NOT yet mirrored into the exported-app runtime (play.html).
+function localeDirective(code){
+  const name=I18N_ENAME[code||LANG];
+  return name ? ("Respond in "+name+" unless the user explicitly asks for another language.") : "";
+}
+// Return a copy of a chat `messages` array with the language directive folded in
+// (appended to an existing system message, else prepended as one). English →
+// returns the array unchanged, so English prompts are sent byte-identical.
+function withLocale(messages){
+  const dir = localeDirective();
+  if(!dir || !Array.isArray(messages)) return messages;
+  const out = messages.slice();
+  const i = out.findIndex(m=> m && m.role==="system" && typeof m.content==="string");
+  if(i>=0) out[i] = Object.assign({}, out[i], { content: out[i].content + "\n\n" + dir });
+  else out.unshift({ role:"system", content:dir });
+  return out;
+}
 
 /* ======================================================================
    MODEL CATALOGS  (the FULL live lists, fetched from NanoGPT + cached)
@@ -1053,7 +2975,7 @@ function audioInputPart(url){
 /* one model-row in a node body — a button that opens the shared picker */
 function modelFieldHTML(node){
   return `<div><label>model</label>
-    <button class="modelpick" type="button">${esc(node.fields.model||"pick a model…")} ▾</button>
+    <button class="modelpick" type="button">${esc(node.fields.model||t("pick a model…"))} ▾</button>
     <div class="mprice" data-mp></div></div>`;
 }
 function updateNodePrice(n){
@@ -1117,13 +3039,13 @@ function audioFieldHTML(n, f){
     const opts = f.options || [];
     const val = opts.includes(cur) ? cur : (f.default ?? opts[0] ?? "");
     return `<div><label>${esc(f.label)}</label><select data-pf="${f.id}">${
-      opts.map(o=>`<option${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
+      opts.map(o=>`<option value="${esc(o)}"${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
   }
   if(f.type==="boolean")
     return `<label class="chk"><input type="checkbox" data-pf="${f.id}"${(cur===true||cur==="true")?" checked":""}/> ${esc(f.label)}</label>${hint}`;
   if(f.type==="number"){
     const rng = (f.min!=null&&f.max!=null) ? ` (${f.min}–${f.max})` : "";
-    return `<div><label>${esc(f.label)}${rng}</label><input type="number" data-pf="${f.id}" step="any"${
+    return `<div><label><span>${esc(f.label)}</span>${rng}</label><input type="number" data-pf="${f.id}" step="any"${
       f.min!=null?` min="${f.min}"`:""}${f.max!=null?` max="${f.max}"`:""} value="${esc(cur??"")}" placeholder="${esc(f.default??"")}"/>${hint}</div>`;
   }
   const v = cur!=null ? cur : "";
@@ -1141,6 +3063,7 @@ function refreshAudioParams(n){
   for(const f of fields)   // normalize selects so a switched model lands on a valid value
     if(f.type==="select" && !(f.options||[]).includes(n.fields[f.id])) n.fields[f.id] = f.default ?? (f.options||[])[0];
   box.innerHTML = fields.map(f=>audioFieldHTML(n,f)).join("");
+  translateTree(box);   // localize audio param labels (Voice, Speed, Format…)
   box.querySelectorAll("[data-pf]").forEach(inp=>{
     const id = inp.dataset.pf;
     const ev = (inp.tagName==="SELECT" || inp.type==="checkbox") ? "change" : "input";
@@ -1173,11 +3096,12 @@ function refreshLoraParams(n){
     </div>`;
   const footer = (rows.length < cap)
     ? `<a href="#" data-ladd>+ add LoRA</a>`
-    : `<span class="dim">max ${cap} for this model</span>`;
-  box.innerHTML = `<details class="adv"${open}><summary>🎨 LoRA${rows.length>1?` · ${rows.length}`:" (style adapter)"}</summary>
+    : `<span class="dim">${esc(t("max {cap} for this model").replace("{cap}", cap))}</span>`;
+  box.innerHTML = `<details class="adv"${open}><summary>🎨 LoRA${rows.length>1?` · ${rows.length}`:` ${esc(t("(style adapter)"))}`}</summary>
     ${rows.map(rowHTML).join("")}
     <div class="fhint" style="display:flex;justify-content:space-between;gap:8px">${footer}${eg?`<a href="#" data-loraeg>try an example ↗</a>`:""}</div>
     <div class="fhint">HuggingFace .safetensors link or any direct URL — stack a few to blend styles. CivitAI must be re-hosted.</div></details>`;
+  translateTree(box);   // localize +add LoRA / try an example / fhint / strength+remove titles ({cap} + (style adapter) already localized above)
   box.querySelectorAll(".lorarow").forEach(row=>{
     const i = +row.dataset.i;
     const lu = row.querySelector("[data-lu]"), ls = row.querySelector("[data-ls]"), lx = row.querySelector("[data-lx]");
@@ -1229,7 +3153,7 @@ async function audioRun(n, inp, ctx){
   const text = (inp.text ?? n.fields.prompt ?? "").trim();
   if(!text) throw new Error("no text — type something in the prompt field first");
   return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n),
-    (q,ms)=> setNodeProgress(n, `generating audio… ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`)) };
+    (q,ms)=> setNodeProgress(n, `${t("generating audio…")} ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`)) };
 }
 /* ---------- general per-model options (from the catalog's own param descriptors) ----------
    Video models advertise rich params (preset, style, effect, cameraMovement, mode, switches…)
@@ -1316,9 +3240,10 @@ function refreshModelOpts(n){
       d.options.map(o=>`<option value="${esc(o.value)}"${String(o.value)===String(sel)?" selected":""}>${esc(o.label!=null?o.label:o.value)}</option>`).join("")}</select>${hint}</div>`;
   };
   const open = Object.keys(cur).length ? " open" : "";
-  box.innerHTML = `<details class="adv"${open}><summary>⚙️ Model options${defs.length>1?` · ${defs.length}`:""}</summary>
+  box.innerHTML = `<details class="adv"${open}><summary>⚙️ ${esc(t("Model options"))}${defs.length>1?` · ${defs.length}`:""}</summary>
     ${defs.map(ctl).join("")}
     <div class="fhint">Per-model knobs from the catalog (presets, styles, camera moves…). Defaults apply when untouched.</div></details>`;
+  translateTree(box);   // localize the summary + fhint (catalog-driven option labels stay as the model provides them)
   box.querySelectorAll("[data-of]").forEach(el=>{
     const key = el.dataset.of;
     el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
@@ -1351,20 +3276,21 @@ function refreshLlmOpts(n){
         optsHTML([["Text","Text"],["JSON","JSON"]], f.format||"Text")}</select></div>` : "";
   const reasonRows = it.reasoning
     ? `<div style="margin:3px 0"><label>reasoning effort</label><select data-lf="reasoningEffort">${
-        REASONING_EFFORTS.map(o=>`<option${(f.reasoningEffort||"default")===o?" selected":""}>${o}</option>`).join("")}</select></div>
+        REASONING_EFFORTS.map(o=>`<option value="${esc(o)}"${(f.reasoningEffort||"default")===o?" selected":""}>${esc(o)}</option>`).join("")}</select></div>
        <label class="setbool" style="margin:3px 0"><input type="checkbox" data-lf="showThinking"${(f.showThinking===true||f.showThinking==="true")?" checked":""}/> show thinking</label>` : "";
   const open = (f.temperature!=null && +f.temperature!==0.8) || (f.maxTokens||"") || f.format==="JSON"
             || (f.reasoningEffort && f.reasoningEffort!=="default") || f.showThinking===true || f.showThinking==="true" ? " open" : "";
-  box.innerHTML = `<details class="adv"${open}><summary>⚙️ advanced</summary>
-    <div style="margin:3px 0"><label data-ltlab>temperature · ${temp.toFixed(1)}</label><input type="range" data-lf="temperature" min="0" max="2" step="0.1" value="${esc(temp)}" style="width:100%"/></div>
-    <div style="margin:3px 0"><label>max tokens${it.maxOut?` (≤ ${it.maxOut})`:""}</label><input type="number" data-lf="maxTokens" min="1"${it.maxOut?` max="${it.maxOut}"`:""} value="${esc(f.maxTokens??"")}" placeholder="default"/></div>
+  box.innerHTML = `<details class="adv"${open}><summary>⚙️ ${esc(t("advanced"))}</summary>
+    <div style="margin:3px 0"><label data-ltlab>${esc(t("temperature"))} · ${temp.toFixed(1)}</label><input type="range" data-lf="temperature" min="0" max="2" step="0.1" value="${esc(temp)}" style="width:100%"/></div>
+    <div style="margin:3px 0"><label>${esc(t("max tokens"))}${it.maxOut?` (≤ ${it.maxOut})`:""}</label><input type="number" data-lf="maxTokens" min="1"${it.maxOut?` max="${it.maxOut}"`:""} value="${esc(f.maxTokens??"")}" placeholder="default"/></div>
     ${fmtRow}${reasonRows}
     <div class="fhint">Sampling + reasoning knobs. Defaults apply when untouched.</div></details>`;
+  translateTree(box);   // localize plain labels (output format / reasoning effort / show thinking / fhint / max-tokens placeholder)
   box.querySelectorAll("[data-lf]").forEach(el=>{
     const key = el.dataset.lf;
     el.addEventListener(el.type==="checkbox" ? "change" : "input", ()=>{
       n.fields[key] = el.type==="checkbox" ? el.checked : el.value;
-      if(key==="temperature"){ const lab = box.querySelector("[data-ltlab]"); if(lab) lab.textContent = "temperature · "+(+el.value).toFixed(1); }
+      if(key==="temperature"){ const lab = box.querySelector("[data-ltlab]"); if(lab) lab.textContent = t("temperature")+" · "+(+el.value).toFixed(1); }
       save();
     });
     el.addEventListener("pointerdown", e=>e.stopPropagation());   // don't drag the node while editing
@@ -1440,6 +3366,7 @@ function refreshDims(n){
   box.innerHTML = defs.length>1
     ? `<div class="two">${defs.slice(0,2).map(ctl).join("")}</div>${defs.slice(2).map(ctl).join("")}`
     : ctl(defs[0]);
+  translateTree(box);   // localize size/resolution/aspect/duration labels + option text (mirror refreshAudioParams)
   box.querySelectorAll("[data-df]").forEach(el=>{
     const f = el.dataset.df;
     el.addEventListener("change", ()=>{ n.fields[f] = el.value; updateNodePrice(n); save(); });
@@ -1615,10 +3542,10 @@ function refreshRunEstimate(){
   const { usd, priced, unpriced, exact } = workflowCost();
   if(!priced){ el.hidden = true; return; }        // nothing priced to run → hide the chip entirely
   el.hidden = false;
-  el.innerHTML = `${exact?"":"~"}<b>${fmtUsd(usd)}</b>&nbsp;to run`;
-  el.title = `Estimated cost to ▶ Run all — ${priced} paid node${priced>1?"s":""}`
-    + (unpriced ? `, plus ${unpriced} with no listed price` : "")
-    + (exact ? "." : `.\nVideo, text & audio are estimates: the real bill depends on clip length, tokens and characters.`);
+  el.innerHTML = `${exact?"":"~"}<b>${fmtUsd(usd)}</b>&nbsp;${esc(t("to run"))}`;
+  el.title = t(priced>1 ? "Estimated cost to ▶ Run all — {n} paid nodes" : "Estimated cost to ▶ Run all — {n} paid node").replace("{n}",()=>priced)
+    + (unpriced ? t(", plus {n} with no listed price").replace("{n}",()=>unpriced) : "")
+    + (exact ? "." : "." + "\n" + t("Video, text & audio are estimates: the real bill depends on clip length, tokens and characters."));
 }
 function refreshAllPrices(){ graph.nodes.forEach(n=>{ updateNodePrice(n); refreshDims(n); refreshAudioParams(n); refreshLoraParams(n); refreshModelOpts(n); backfillModel(n); }); refreshRunEstimate(); }
 function backfillModel(n){   // once a catalog arrives, give model nodes a sensible default if none chosen yet
@@ -1662,12 +3589,13 @@ function sortMatches(list){
 let picker = null; // { kind, filter, current, onPick }
 function openPicker(kind, opts){
   picker = { kind, filter:opts.filter, current:opts.current, onPick:opts.onPick };
-  $("mpicktitle").textContent = `${KIND_LABEL[kind]||"Model"} model` + (opts.filter ? ` · ${opts.filter}` : "");
+  // whole-phrase key so non-English can reorder ("Modelo de imagen", not the word-salad "Imagen modelo")
+  $("mpicktitle").textContent = t(KIND_LABEL[kind] ? `${KIND_LABEL[kind]} model` : "Model") + (opts.filter ? ` · ${t(opts.filter)}` : "");
   $("mpicksort").value = pickerSort;
   $("mpick").classList.add("open");
   $("mpickback").classList.add("show");
   $("mpicksearch").value = "";
-  $("mpicklist").innerHTML = "<div class='dim' style='padding:.6rem'>loading the full list…</div>";
+  $("mpicklist").innerHTML = `<div class='dim' style='padding:.6rem'>${esc(t("loading the full list…"))}</div>`;
   $("mpicksearch").focus();
   loadCatalog(kind).then(()=> renderPicker());
 }
@@ -1683,7 +3611,7 @@ function pickerMatches(){
 function renderPicker(){
   if(!picker) return;
   const matches = sortMatches(pickerMatches());
-  $("mpickcount").textContent = `${matches.length} model${matches.length===1?"":"s"} · ${PICK_SORTS[pickerSort]}`;
+  $("mpickcount").textContent = `${matches.length} ${matches.length===1?t("model"):t("models")} · ${t(PICK_SORTS[pickerSort])}`;
   const frag = document.createDocumentFragment();
   for(const m of matches.slice(0,400)){
     const b = document.createElement("button");
@@ -1720,13 +3648,13 @@ const NODE_TYPES = {
     body:(n)=>`
       <div class="uprev" data-uprev>${n.fields.image ? `<img src="${esc(n.fields.image)}" alt="image"/>` : `<span class="dim">no image yet</span>`}</div>
       <div class="two">
-        <button class="ubtn" data-up="file">⬆ Upload</button>
-        <button class="ubtn" data-up="cam">📷 Webcam</button>
+        <button class="ubtn" data-up="file">⬆ <span>Upload</span></button>
+        <button class="ubtn" data-up="cam">📷 <span>Webcam</span></button>
       </div>
       <input type="file" accept="image/*" hidden data-upfile/>
       <div class="cambox" data-cambox hidden>
         <video data-upvid autoplay playsinline muted></video>
-        <div class="two"><button class="ubtn" data-up="snap">● Capture</button><button class="ubtn" data-up="stop">✕ Cancel</button></div>
+        <div class="two"><button class="ubtn" data-up="snap">● <span>Capture</span></button><button class="ubtn" data-up="stop">✕ <span>Cancel</span></button></div>
       </div>`,
     mount: mountUpload,
     async run(n){ if(!n.fields.image) throw new Error("no image — upload or capture one first"); return { image: n.fields.image }; }
@@ -1940,7 +3868,7 @@ const NODE_TYPES = {
       if(!prompt) throw new Error("no prompt — describe the video to generate");
       const url = await ctx.genVideo(mdl(n), prompt,
         { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}), runKey:n.id }, null,
-        (st,ms)=> setNodeProgress(n, `rendering video… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
+        (st,ms)=> setNodeProgress(n, `${t("rendering video…")} ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
   },
@@ -1961,7 +3889,7 @@ const NODE_TYPES = {
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
       const url = await ctx.genVideo(mdl(n), prompt,
         { duration:n.fields.duration||"5", aspect_ratio:n.fields.aspect||"16:9", resolution:n.fields.resolution||"", lora:loraParams(n), extra:(n.fields.modelOpts||{}), runKey:n.id }, inp.image,
-        (st,ms)=> setNodeProgress(n, `animating… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
+        (st,ms)=> setNodeProgress(n, `${t("animating…")} ${Math.round(ms/1000)}s · ${st.toLowerCase()}`));
       return { video: url };
     }
   },
@@ -2259,6 +4187,7 @@ function buildNodeEl(n){
     <i class="rgrip" title="drag to resize"></i>`;
   world.appendChild(el);
   n.el = el;
+  translateTree(el);   // localize header title, labels, placeholders (skips model id, user fields, results)
 
   // field bindings
   el.querySelectorAll("[data-f]").forEach(inp=>{
@@ -2340,6 +4269,7 @@ function refreshImageInputs(n){
       + (d.disabled?` title="this model can’t read images — pick a vision model"`:``) + `></i>`
       + `<span>${multi?("image "+(i+1)):"image"}</span>`;
     col.appendChild(row);
+    translateTree(row);   // localize the disabled-port tooltip (port label stays English, like the static ports)
     if(!d.disabled) row.querySelector(".port").addEventListener("pointerdown", e=> startWire(e.currentTarget, e));
   });
   refreshPortFills();
@@ -2458,7 +4388,7 @@ function mountUpload(n){
       if(act==="file") fileInput.click();
       else if(act==="cam"){
         try{ stream = await navigator.mediaDevices.getUserMedia({video:true}); video.srcObject=stream; cambox.hidden=false; }
-        catch(err){ flash("webcam unavailable: "+err.message); }
+        catch(err){ flash(t("webcam unavailable")+": "+err.message); }
       }
       else if(act==="snap"){ if(video.videoWidth){ setImage(scaledDataURL(video, video.videoWidth, video.videoHeight)); } stopCam(); }
       else if(act==="stop") stopCam();
@@ -2544,7 +4474,7 @@ function mountInpaint(n){
       if(act==="file") fileInput?.click();
       else if(act==="cam"){
         try{ stream = await navigator.mediaDevices.getUserMedia({video:true}); video.srcObject=stream; cambox.hidden=false; }
-        catch(err){ flash("webcam unavailable: "+err.message); }
+        catch(err){ flash(t("webcam unavailable")+": "+err.message); }
       }
       else if(act==="snap"){ if(video?.videoWidth){ setImage(scaledDataURL(video, video.videoWidth, video.videoHeight)); } stopCam(); }
       else if(act==="stop") stopCam();
@@ -2602,7 +4532,7 @@ function mountFileUpload(n, field){
   fileInput.addEventListener("change", ()=>{
     const f = fileInput.files?.[0];
     if(f){
-      if(f.size > MEDIA_INLINE_MAX) flash(`that ${field} is ~${(f.size/1048576).toFixed(1)} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model`);
+      if(f.size > MEDIA_INLINE_MAX) flash(t("that {field} is ~{mb} MB — over the 4 MB send limit; use a shorter clip or it won’t reach the model").replace("{field}", ()=>t(field)).replace("{mb}", ()=>(f.size/1048576).toFixed(1)));
       const fr = new FileReader();
       fr.onload = ()=> setMedia(fr.result);
       fr.onerror = ()=> flash("couldn’t read that file");
@@ -2639,11 +4569,11 @@ function setStatus(n, status, msg){
   n.el.dataset.status = status;
   if(status==="run"){
     const r = n.el.querySelector(".result");
-    r.classList.add("show"); r.innerHTML = `<span class="spin"></span> running…`;
+    r.classList.add("show"); r.innerHTML = `<span class="spin"></span> ${esc(t("running…"))}`;
   }
   if(status==="error"){
     const r = n.el.querySelector(".result");
-    r.classList.add("show"); r.innerHTML = `<div class="err">⚠ ${esc(msg||"error")}</div>`;
+    r.classList.add("show"); r.innerHTML = `<div class="err">⚠ ${esc(t(msg||"error"))}</div>`;   // translate user-facing run errors at the display site
   }
 }
 
@@ -2680,45 +4610,45 @@ async function downloadUrl(url, filename){
   }catch{ openUrl(url); }                                // fallback: open in a new tab
 }
 function showResult(n){
-  const t = NODE_TYPES[n.type], r = n.el.querySelector(".result");
-  if(t.preview==="none"){ r.classList.remove("show"); r.innerHTML=""; return; }
+  const ty = NODE_TYPES[n.type], r = n.el.querySelector(".result");
+  if(ty.preview==="none"){ r.classList.remove("show"); r.innerHTML=""; return; }
   r.classList.add("show");
-  if(t.preview==="frames"){
+  if(ty.preview==="frames"){
     const imgs = outputsOf(n).map(p=> n.out[p.name]).filter(Boolean);
     if(!imgs.length){ r.classList.remove("show"); r.innerHTML=""; return; }
     r.innerHTML = `<div class="frames">${imgs.map((src,i)=>
-      `<div class="fr"><img src="${esc(src)}" alt="frame ${i+1}"/><button data-dl="${i}" title="save frame ${i+1}">⬇</button></div>`).join("")}</div>`;
+      `<div class="fr"><img src="${esc(src)}" alt="frame ${i+1}"/><button data-dl="${i}" title="${esc(t("save frame")+" "+(i+1))}">⬇</button></div>`).join("")}</div>`;
     imgs.forEach((src,i)=> r.querySelector(`[data-dl="${i}"]`).onclick = ()=> downloadUrl(src, `noodle-${n.id}-frame${i+1}.png`));
     return;
   }
-  if(t.preview==="image" && n.out.image){
+  if(ty.preview==="image" && n.out.image){
     const imgs = (n.out.images && n.out.images.length>1) ? n.out.images : null;   // pick-one gallery only when there's more than one
     const sel = imgs ? Math.max(0, imgs.indexOf(n.out.image)) : 0;
     const strip = imgs ? `<div class="varstrip">${imgs.map((u,i)=>
-      `<img class="varthumb${i===sel?" sel":""}" data-vi="${i}" src="${esc(u)}" alt="variation ${i+1}" title="variation ${i+1}"/>`).join("")}</div>` : "";
-    r.innerHTML = `<img src="${esc(n.out.image)}" alt="output"/>${strip}<div class="acts"><button data-dl>⬇ save</button></div>`;
+      `<img class="varthumb${i===sel?" sel":""}" data-vi="${i}" src="${esc(u)}" alt="variation ${i+1}" title="${esc(t("variation")+" "+(i+1))}"/>`).join("")}</div>` : "";
+    r.innerHTML = `<img src="${esc(n.out.image)}" alt="output"/>${strip}<div class="acts"><button data-dl>⬇ ${esc(t("save"))}</button></div>`;
     r.querySelector("[data-dl]").onclick = ()=> downloadUrl(n.out.image, `noodle-${n.id}.png`);
     if(imgs) r.querySelectorAll("[data-vi]").forEach(el=> el.onclick = ()=>{
       const i = +el.dataset.vi;
       n.out.image = n.out.images[i]; n.fields.sel = i;   // node-local pick; the single image port forwards it on the next run
       save(); showResult(n);
     });
-  } else if(t.preview==="video" && n.out.video){
-    const vit = catItem(t.modelKind, n.fields.model);          // selected video model (undefined if offline/unknown)
+  } else if(ty.preview==="video" && n.out.video){
+    const vit = catItem(ty.modelKind, n.fields.model);          // selected video model (undefined if offline/unknown)
     const m = vit && vit.audioGen ? "" : " muted";             // keep audio-generating clips audible; mute everything else (safe default)
-    r.innerHTML = `<video src="${esc(n.out.video)}" controls loop${m} playsinline></video><div class="acts">${m?"":`<span class="sndbadge" title="this clip has generated audio">🔊</span>`}<button data-dl>⬇ save</button><button data-open>↗ open</button></div>`;
+    r.innerHTML = `<video src="${esc(n.out.video)}" controls loop${m} playsinline></video><div class="acts">${m?"":`<span class="sndbadge" title="${esc(t("this clip has generated audio"))}">🔊</span>`}<button data-dl>⬇ ${esc(t("save"))}</button><button data-open>↗ ${esc(t("open"))}</button></div>`;
     r.querySelector("[data-dl]").onclick   = ()=> downloadUrl(n.out.video, `noodle-${n.id}.mp4`);
     r.querySelector("[data-open]").onclick = ()=> openUrl(n.out.video);
-  } else if(t.preview==="audio" && n.out.audio){
+  } else if(ty.preview==="audio" && n.out.audio){
     const ext = (n.fields.response_format || "mp3").toLowerCase();
-    r.innerHTML = `<audio src="${esc(n.out.audio)}" controls></audio><div class="acts"><button data-dl>⬇ save</button><button data-open>↗ open</button></div>`;
+    r.innerHTML = `<audio src="${esc(n.out.audio)}" controls></audio><div class="acts"><button data-dl>⬇ ${esc(t("save"))}</button><button data-open>↗ ${esc(t("open"))}</button></div>`;
     r.querySelector("[data-dl]").onclick   = ()=> downloadUrl(n.out.audio, `noodle-${n.id}.${ext}`);
     r.querySelector("[data-open]").onclick = ()=> openUrl(n.out.audio);
   } else {
-    r.innerHTML = `<div class="rtext">${esc(n.out.text ?? "")}</div><div class="acts"><button data-copy>⧉ copy</button></div>`;
+    r.innerHTML = `<div class="rtext">${esc(n.out.text ?? "")}</div><div class="acts"><button data-copy>⧉ ${esc(t("copy"))}</button></div>`;
     r.querySelector("[data-copy]").onclick = async (e)=>{
       const b=e.currentTarget, o=b.textContent;
-      b.textContent = await copyText(n.out.text ?? "") ? "✓ copied" : "copy failed";
+      b.textContent = await copyText(n.out.text ?? "") ? t("✓ copied") : t("copy failed");
       setTimeout(()=> b.textContent=o, 1200);
     };
   }
@@ -3267,8 +5197,8 @@ function updateRunButtons(){
   const draining = !!runAbort?.signal.aborted;     // stopped, but in-flight nodes are still unwinding
   const run = $("run");
   run.classList.toggle("running", running);        // the Run button itself becomes the Stop button while live
-  run.textContent = running ? "■ Stop" : "▶ Run";
-  run.title = running ? "Stop the running workflow" : "run every flow (Ctrl/⌘+Enter)";
+  run.textContent = running ? t("■ Stop") : t("▶ Run");
+  run.title = running ? t("Stop the running workflow") : t("run every flow (Ctrl/⌘+Enter)");
   run.disabled = draining;                         // mid-stop: ignore clicks until the run unwinds
 }
 
@@ -3394,7 +5324,7 @@ function warnLowBalance(){
   if(bal==null) return;                                  // balance unknown → say nothing
   const { usd, priced } = workflowCost();
   if(!priced || !(usd>0) || bal>=usd) return;            // nothing priced, $0, or covered → no warning
-  toast(`balance ${fmtUsd(bal)} may not cover this ~${fmtUsd(usd)} run — top up at nano-gpt.com`, "warn");
+  toast(t("balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com").replace("{bal}", fmtUsd(bal)).replace("{usd}", fmtUsd(usd)), "warn");
 }
 // Run every idle group at once (busy ones keep going untouched).
 function runAll(){
@@ -3555,7 +5485,10 @@ const CTX = {
   },
   async genChat(messages, model, opts){
     opts = opts || {};
-    const body = { model, messages };                                   // temperature always sent (0.8 default, as before); other knobs omitted-when-unset
+    // withLocale injects "respond in <UI language>" so prose output matches the editor language.
+    // Skip it for JSON/structured mode: a "respond in Spanish" directive corrupts json_object output
+    // and localizes tokens a downstream node may switch on (e.g. positive/negative → positivo/negativo).
+    const body = { model, messages: opts.response_format ? messages : withLocale(messages) };
     body.temperature = (opts.temperature!=null && opts.temperature!=="") ? +opts.temperature : 0.8;
     if(opts.max_tokens) body.max_tokens = +opts.max_tokens;
     if(opts.response_format) body.response_format = opts.response_format;   // {type:"json_object"} for JSON mode
@@ -4263,7 +6196,7 @@ function isLowFundsError(status, body){
 }
 function httpRunError(status, body){
   return isLowFundsError(status, body)
-    ? new Error("out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.")
+    ? new Error(t("out of balance — this run needs more credit. Top up at nano-gpt.com, then run again."))
     : new Error(`${status}: ${String(body).slice(0,160)}`);
 }
 // Read a failed generation Response and throw the clearest Error (auth flagged first, then low-funds → raw).
@@ -4279,12 +6212,12 @@ function friendlyRunError(err){
   // browser-internal header/network failures are always TypeErrors, ours never are.
   if((err instanceof TypeError) && /ISO-8859-1|invalid header|Invalid value/i.test(m)){
     setKey(null);   // that key physically can't be sent in a header — keeping it fails every run the same way
-    return "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again";
+    return t("your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again");
   }
   if(/^(TypeError: )?(Failed to fetch|Load failed|NetworkError)/i.test(m.trim()))
-    return "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again";
+    return t("couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again");
   if(/^4\d\d\b/.test(m) && /model/i.test(m))
-    return m + " — this model may have changed on nano-gpt; click the node's model name to pick another";
+    return m + " " + t("— this model may have changed on nano-gpt; click the node's model name to pick another");
   return m;
 }
 // estUsd: a catalog-derived fallback price for endpoints whose response carries no cost field
@@ -4308,12 +6241,12 @@ function accrue(j, estUsd){
   else if(p && typeof p.remainingBalance==="number") stats.balance = p.remainingBalance;
   paintCost();
 }
-function flash(msg){ $("status").textContent = msg; setTimeout(renderAuth, 2200); }
+function flash(msg){ $("status").textContent = t(msg); setTimeout(renderAuth, 2200); }
 let toastT=null;
 function toast(msg, kind){
-  const t=$("toast"); if(!t) return;
-  t.textContent=msg; t.className = (kind==="err"?"err ":kind==="warn"?"warn ":"")+"show";
-  clearTimeout(toastT); toastT=setTimeout(()=> t.classList.remove("show"), kind==="warn"?4600:3200);
+  const el=$("toast"); if(!el) return;
+  el.textContent=t(msg); el.className = (kind==="err"?"err ":kind==="warn"?"warn ":"")+"show";
+  clearTimeout(toastT); toastT=setTimeout(()=> el.classList.remove("show"), kind==="warn"?4600:3200);
 }
 
 /* ======================================================================
@@ -4364,7 +6297,7 @@ function renderAddList(q){
       .filter(([,,r])=>r>=0)
       .sort((a,b)=>a[2]-b[2]);   // stable sort → ties keep NODE_TYPES order (which mirrors ADD_GROUPS)
     html = hits.length ? hits.map(([k,t])=>nodeRow(k,t)).join("")
-                       : `<div class="nomatch">no nodes match “${esc(q)}”</div>`;
+                       : `<div class="nomatch">${esc(t("no nodes match “{q}”")).replace("{q}", ()=>esc(q))}</div>`;
   }
   list.innerHTML = html;
   list.querySelector("button[data-type]")?.classList.add("sel");
@@ -4383,8 +6316,9 @@ function buildAddMenu(){
   const pop = $("addpop");
   pop.innerHTML = `<input id="addsearch" type="search" autocomplete="off" placeholder="Search nodes… (image, voice, video)"><div id="addlist"></div><div class="addhint" hidden>↑↓ move · ↵ add · esc close</div>`;
   renderAddList("");
+  translateTree(pop);   // localize placeholder, hint, and node titles + descriptions
   const search = $("addsearch");
-  search.addEventListener("input", ()=> renderAddList(search.value.trim().toLowerCase()));
+  search.addEventListener("input", ()=>{ renderAddList(search.value.trim().toLowerCase()); translateTree($("addlist")); });
   search.addEventListener("keydown", e=>{
     if(e.key==="ArrowDown"||e.key==="ArrowUp"){ e.preventDefault(); moveAddSel(e.key==="ArrowDown"?1:-1); }
     else if(e.key==="Enter" && !(e.ctrlKey||e.metaKey)){ e.preventDefault(); $("addlist").querySelector("button.sel")?.click(); }
@@ -4417,6 +6351,23 @@ $("run").onclick = ()=>{
   if(runningNodes.size && runAbort && !runAbort.signal.aborted){ runAbort.abort(); flash("stopping…"); updateRunButtons(); }  // ■ Stop
   else runAll();                                                                                                              // ▶ Run
 };
+
+/* ---------- language selector ---------- */
+function buildLangMenu(){
+  const cur = I18N_LANGS.find(l=>l.code===LANG) || I18N_LANGS[0];
+  $("langcur").textContent = cur.native;
+  const pop = $("langpop");
+  pop.innerHTML = I18N_LANGS.map(l=>
+    `<button role="menuitem" data-lang="${l.code}"${l.code===LANG?' class="sel"':''}><span>${esc(l.native)}</span><span class="code">${esc(l.code)}</span></button>`).join("");
+  pop.querySelectorAll("button").forEach(b=> b.onclick=()=>{
+    const code=b.dataset.lang; $("langpop").classList.remove("open");
+    if(code===LANG) return;
+    try{ localStorage.setItem("noodle_lang", code); }catch(e){}
+    location.reload();   // graph auto-saves; reload yields a fully (re)translated DOM
+  });
+}
+$("langbtn").onclick = (e)=>{ e.stopPropagation(); $("langpop").classList.toggle("open"); };
+document.addEventListener("click", e=>{ if(!$("langmenu").contains(e.target)) $("langpop").classList.remove("open"); });
 
 /* ---------- responsive toolbar: collapse secondary actions into the ⋯ menu on phones ----------
    Buttons keep their handlers (they're moved, not cloned). On desktop everything sits inline. */
@@ -4581,7 +6532,7 @@ function saveFile(){
 function loadFile(file){
   if(!file) return;
   const r = new FileReader();
-  r.onload = ()=>{ try{ setPendingApp(null); applyGraphData(JSON.parse(r.result)); save(); }catch(e){ alert("Couldn’t load that file: "+e.message); } };
+  r.onload = ()=>{ try{ setPendingApp(null); applyGraphData(JSON.parse(r.result)); save(); }catch(e){ alert(t("Couldn’t load that file:")+" "+e.message); } };
   r.readAsText(file);
 }
 $("save").onclick = saveFile;
@@ -4673,9 +6624,9 @@ async function shareUrl(){
   // gets re-consumed on the next reload — loadFromHash runs setPendingApp(null), unbinding the
   // app so "✨ Update app" reverts to "✨ Create app" and the next save spawns a duplicate.
   if(!ok) history.replaceState({}, "", url);
-  toast(ok
-    ? `✓ Workflow link copied${big} — shorten or share it below`
-    : `Workflow link is in the address bar${big} — copy it below`, ok?"":"err");
+  toast((ok
+    ? t("✓ Workflow link copied — shorten or share it below")
+    : t("Workflow link is in the address bar — copy it below")) + big, ok?"":"err");
   openShareMenu(url);                                // same popover the app share uses: copy / shorten / share-to-social
 }
 // ---- share popover (ported from play.html's app share; reused here for the workflow link) ----
@@ -4719,17 +6670,17 @@ function setPendingApp(id, title){
 // Also keeps the action button honest: it says "Update app" (and reveals a "New" escape hatch)
 // whenever a binding is live, so "Create app" can never quietly overwrite an app you forgot about.
 function updateTitle(){
-  const t = (pendingAppTitle || "").trim();
-  document.title = pendingAppId ? `nanoodle - ${t || "app"} app` : "nanoodle - workflow";
+  const appTitle = (pendingAppTitle || "").trim();   // NB: not named `t` — that's the global translation fn
+  document.title = pendingAppId ? `nanoodle - ${appTitle || "app"} app` : "nanoodle - workflow";
   const mk = $("makeapp"), nw = $("newapp"), more = $("appmore");
   if(mk){
     // Name the destination so the primary can never quietly overwrite the wrong app.
     // The label rides in a .lbl span so phones can collapse the button to ✨ (title keeps the words).
-    const short = t ? (t.length > 20 ? t.slice(0,19)+"…" : t) : "app";
-    mk.innerHTML = `✨<span class="lbl"> ${pendingAppId ? `Update ${esc(short)}` : "Create app"}</span>`;
+    const short = appTitle ? (appTitle.length > 20 ? appTitle.slice(0,19)+"…" : appTitle) : "app";
+    mk.innerHTML = `✨<span class="lbl"> ${pendingAppId ? t("Update {app}").replace("{app}", esc(short)) : t("Create app")}</span>`;
     mk.title = pendingAppId
-      ? `Update “${t || "your app"}” with this workflow`
-      : "Turn this workflow into a shareable app";
+      ? t("Update “{app}” with this workflow").replace("{app}", appTitle || t("your app"))
+      : t("Turn this workflow into a shareable app");
   }
   // The "Save as a new app" escape hatch (and its caret) only make sense while a binding is live.
   if(nw) nw.hidden = !pendingAppId;
@@ -4759,7 +6710,7 @@ async function loadFromHash(){
     return true;
   }catch{ return false; }
 }
-$("share").onclick = ()=> shareUrl().catch(e=> flash("share failed: "+e.message));
+$("share").onclick = ()=> shareUrl().catch(e=> flash(t("share failed")+": "+e.message));
 $("shareback").onclick = closeShareMenu;
 $("sm-copy").onclick = async ()=>{ const ok = await copyText(curShareUrl); toast(ok?"✓ Copied":"copy failed", ok?"":"err"); };
 $("sm-url").onclick = ()=> $("sm-url").select();
@@ -4917,21 +6868,21 @@ async function fillSubmitLink(){               // (re)generate the link for the 
   try{ inp.value = await buildShareUrl(submitTarget); }catch(e){ inp.value = ""; }
   inp.focus(); inp.select();                   // keyboard users can copy immediately
 }
-function setSubmitTarget(t){
-  submitTarget = t;
-  $("sublinkapp").classList.toggle("on", t==="app");
-  $("sublinkwf").classList.toggle("on", t==="workflow");
-  $("sublinkapp").setAttribute("aria-selected", t==="app");
-  $("sublinkwf").setAttribute("aria-selected", t==="workflow");
-  $("sublinkhint").textContent = SUBMIT_HINT[t];
-  const cb = $("submitcopy"); cb.textContent = "Copy link"; cb.classList.remove("ok");
+function setSubmitTarget(tgt){                        // NB: not `t` — that's the global translation fn
+  submitTarget = tgt;
+  $("sublinkapp").classList.toggle("on", tgt==="app");
+  $("sublinkwf").classList.toggle("on", tgt==="workflow");
+  $("sublinkapp").setAttribute("aria-selected", tgt==="app");
+  $("sublinkwf").setAttribute("aria-selected", tgt==="workflow");
+  $("sublinkhint").textContent = t(SUBMIT_HINT[tgt]);
+  const cb = $("submitcopy"); cb.textContent = t("Copy link"); cb.classList.remove("ok");
   fillSubmitLink();
 }
 async function openSubmit(fromShare){
   submitFromShare = !!fromShare;
   $("submitmodal").hidden = false;
   const copyBtn = $("submitcopy");
-  copyBtn.textContent = "Copy link"; copyBtn.classList.remove("ok");   // reset from any prior copy
+  copyBtn.textContent = t("Copy link"); copyBtn.classList.remove("ok");   // reset from any prior copy
   await fillSubmitLink();                                              // uses the sticky submitTarget (default: app)
 }
 $("sublinkapp").onclick = ()=> setSubmitTarget("app");
@@ -4947,7 +6898,7 @@ $("submitcopy").onclick = async ()=>{
   const inp = $("submitlink"); inp.select();
   const ok = await copyText(inp.value);
   const b = $("submitcopy");
-  if(ok){ b.textContent = "✓ Copied"; b.classList.add("ok"); setTimeout(()=>{ b.textContent="Copy link"; b.classList.remove("ok"); }, 1800); }
+  if(ok){ b.textContent = t("✓ Copied"); b.classList.add("ok"); setTimeout(()=>{ b.textContent=t("Copy link"); b.classList.remove("ok"); }, 1800); }
   else { toast("Couldn't copy — select the link and copy it manually", "err"); }
 };
 $("submitshort").onclick = async ()=>{
@@ -4957,9 +6908,9 @@ $("submitshort").onclick = async ()=>{
   try{
     inp.value = await shortenWith("dagd", inp.value);    // replace in place so Copy/post uses the short one
     inp.select();
-    b.textContent = "✓ Short"; b.classList.add("ok");
+    b.textContent = t("✓ Short"); b.classList.add("ok");
     setTimeout(()=>{ b.textContent = o; b.classList.remove("ok"); }, 1800);
-  }catch(e){ b.textContent = o; toast("shorten failed: "+e.message, "err"); }
+  }catch(e){ b.textContent = o; toast(t("shorten failed")+": "+e.message, "err"); }
   finally{ b.disabled = false; }
 };
 addEventListener("message", e=>{
@@ -5096,7 +7047,7 @@ const setKey = (k)=>{ k ? localStorage.setItem("ngpt_key",k) : localStorage.remo
   if(k) refreshBalance(); else { stats.balance=null; paintCost(); } };   // seed the bal on sign-in, clear on sign-out
 function renderAuth(){
   const ok = !!getKey();
-  $("status").textContent = ok ? "ready ✓" : "not signed in";
+  $("status").textContent = ok ? t("ready ✓") : t("not signed in");
   $("signin").style.display = ok?"none":""; $("pastebtn").style.display = ok?"none":""; $("signout").style.display = ok?"":"none";
 }
 const REDIRECT_URI = location.origin + location.pathname;
@@ -5146,13 +7097,13 @@ function ensureAuth(){
   $("keyrow").classList.add("open"); $("keyinput").focus();
   return false;
 }
-const signInErr = (e)=>{ $("status").textContent="sign-in error: "+e.message; toast("sign-in didn't complete: "+e.message, "err"); };
+const signInErr = (e)=>{ $("status").textContent=t("sign-in error")+": "+e.message; toast(t("sign-in didn't complete")+": "+e.message, "err"); };
 $("signin").onclick = ()=> signIn().catch(signInErr);
 $("pastebtn").onclick = async ()=>{
   $("keyrow").classList.add("open"); $("keyinput").focus();
   // the button says "paste" — so paste: fill from the clipboard where the browser allows it
   // (denied/unsupported/DLP-blocked → say so; the focused field still takes a manual Ctrl+V / long-press)
-  try{ const t = cleanKey(await navigator.clipboard.readText()); if(t) $("keyinput").value = t; }
+  try{ const pk = cleanKey(await navigator.clipboard.readText()); if(pk) $("keyinput").value = pk; }
   catch(_){ toast("couldn't read your clipboard — click the key field and press Ctrl+V to paste", "err"); }
 };
 $("keysignin").onclick = ()=> signIn().catch(signInErr);
@@ -5181,7 +7132,7 @@ $("keysave").onclick = async ()=>{
   const k=cleanKey($("keyinput").value); if(!k) return;
   if(!keySendable(k)){ $("keyinput").focus();
     toast("that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again", "err"); return; }
-  const btn=$("keysave"), label=btn.textContent; btn.disabled=true; btn.textContent="checking…";
+  const btn=$("keysave"), label=btn.textContent; btn.disabled=true; btn.textContent=t("checking…");
   const probe = await probeKey(k);
   btn.disabled=false; btn.textContent=label;
   if(probe==="bad"){ $("keyrow").classList.add("open"); $("keyinput").focus(); flash("that key was rejected — paste a valid nano-gpt.com key");
@@ -5199,6 +7150,9 @@ $("signout").onclick = ()=> setKey(null);
    ====================================================================== */
 (async ()=>{
   buildAddMenu();
+  document.documentElement.lang = LANG;  // detected (or persisted) UI language
+  buildLangMenu();
+  translateTree(document.body);           // translate the static chrome once (toolbar, key row, picker header…)
   topOrder = [...$("top").childNodes];   // snapshot before any responsive relocation
   layoutBar();
   applyWorld();
