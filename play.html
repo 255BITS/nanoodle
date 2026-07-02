@@ -321,7 +321,7 @@
 
 <!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
 <div id="key">
-  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="password" autocomplete="off" />
+  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="text" autocomplete="off" />
   <button id="keysave" class="link">save key</button>
   <span class="dim" style="font-size:.78rem">— from <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">nano-gpt.com</a> → Settings → API</span>
   <span class="dim" style="flex-basis:100%;font-size:.72rem">new to nano-gpt? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a> — pay-per-use, no subscription needed; your key stays in this browser.</span>
@@ -3191,7 +3191,7 @@ window.NoodleApp = (function () {
       + (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
       + '<button class="link" id="auth-paste">paste key</button>'
       + ' <span class="keyrow" id="auth-keyrow" hidden>'
-      + '<input id="auth-keyinput" type="password" placeholder="nano-gpt API key" autocomplete="off">'
+      + '<input id="auth-keyinput" type="text" placeholder="nano-gpt API key" autocomplete="off">'
       + ' <button class="link" id="auth-keysave">save</button>'
       + '</span>'
       + (canOAuth ? '' : ' <span class="dim">— paste a nano-gpt.com key (one-click sign-in needs the app served over http)</span>');
