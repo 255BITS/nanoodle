@@ -7164,6 +7164,11 @@ $("signout").onclick = ()=> setKey(null);
   // shows signed-out instead of a false "ready ✓" that explodes on the first Run.
   try{ const k0 = getKey(); if(k0){ const k1 = cleanKey(k0);
     if(k1!==k0 || !keySendable(k1)) setKey(k1 && keySendable(k1) ? k1 : null); } }catch(_){}
+  // Model metadata changes node bodies (dimensions, LoRA/options panels, prices). Load it
+  // before the first graph paint so cards appear at their final size instead of popping
+  // larger a moment later when the background catalog request completes.
+  const catalogReady = Promise.all(["chat","image","video","audio"].map(k=>loadCatalog(k).catch(()=>null)));
+  await catalogReady;
   let restored = false;
   // came back from an OAuth redirect: restore the graph we stashed just before it (consumed once)
   try{ const rs = sessionStorage.getItem(RESUME_KEY); if(rs){ sessionStorage.removeItem(RESUME_KEY); applyGraphData(JSON.parse(rs)); save(); restored = true;
@@ -7188,8 +7193,7 @@ $("signout").onclick = ()=> setKey(null);
   renderAuth();   // paint the signed-out chrome first: a handleRedirect() failure below must not be overwritten by this
   try{ await handleRedirect(); }catch(e){ signInErr(e); }   // success re-renders via setKey; failure now stays visible (status + toast) instead of being wiped to "not signed in"
   refreshBalance();                 // already-signed-in visitor: show the bal without waiting for a run
-  // pull the full model catalogs in the background, then show per-node prices
-  Promise.all([loadCatalog("chat"), loadCatalog("image"), loadCatalog("video"), loadCatalog("audio")]).then(refreshAllPrices);
+  refreshAllPrices();              // catalogs were loaded before first paint; keep the estimate/auth chrome in sync
 })();
 
 /* ===================== 💬 Describe changes — graph copilot =====================
