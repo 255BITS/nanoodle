@@ -62,8 +62,10 @@
                color:var(--ink); font-weight:600; opacity:.9; }
   /* the app title doubles as a rename field — click it to edit in place */
   #bar-title{ cursor:text; border-radius:.35rem; padding:.06rem .3rem; margin:0 -.3rem; outline:none; }
+  /* the pencil sits there always (dim) so the name reads as editable at a glance, brightening on hover */
+  #bar-title::after{ content:" ✎"; opacity:.32; font-weight:400; }
   #bar-title:hover{ background:var(--panel2); }
-  #bar-title:hover::after{ content:" ✎"; opacity:.45; font-weight:400; }
+  #bar-title:hover::after{ opacity:.6; }
   #bar-title:focus{ background:var(--panel2); box-shadow:0 0 0 1px var(--accent-line) inset; }
   #bar-title:focus::after{ content:none; }
   #bar .status{ font-size:.76rem; color:var(--dim); }
@@ -137,7 +139,7 @@
   .sm-flag{ font-size:.66rem; color:var(--faint); }
 
   /* ---------- paste-key row ---------- */
-  #key{ display:none; align-items:center; gap:.5rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); background:#11141f; position:relative; z-index:70; }
+  #key{ display:none; align-items:center; flex-wrap:wrap; gap:.5rem; padding:.5rem .8rem; border-bottom:1px solid var(--line); background:#11141f; position:relative; z-index:70; }
   #key input{ max-width:420px; flex:0 1 420px; }
   input{ font:inherit; padding:.5rem .65rem; border-radius:.5rem; background:#0b0e18; border:1px solid var(--line); color:var(--ink); }
   input:focus{ outline:none; border-color:var(--accent-line); box-shadow:0 0 0 3px var(--accent-soft); }
@@ -319,9 +321,10 @@
 
 <!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
 <div id="key">
-  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="password" autocomplete="off" />
+  <input id="keyinput" placeholder="paste NanoGPT API key (sk-nano-… or a UUID)" type="text" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" data-1p-ignore data-lpignore="true" data-bwignore />
   <button id="keysave" class="link">save key</button>
   <span class="dim" style="font-size:.78rem">— from <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">nano-gpt.com</a> → Settings → API</span>
+  <span class="dim" style="flex-basis:100%;font-size:.72rem">new to nano-gpt? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a> — pay-per-use, no subscription needed; your key stays in this browser.</span>
 </div>
 
 <!-- THE APP — sandboxed, key never travels in srcdoc; the parent postMessages it after load -->
@@ -520,6 +523,19 @@ window.NoodleApp = (function () {
   // and signpost the fix; mirrors the editor's flagAuth. Embedded preview proxies auth through the parent, so
   // leave that path untouched (the key never lives here when EMBEDDED).
   function flagAuth(status){ if(!EMBEDDED && (status===401||status===403)){ setKey(null); statusLine("__auth__","error","your nano-gpt key was rejected — sign in or paste a valid key to run"); } }
+  // A generation call can fail purely for lack of credit: NanoGPT signals it with 402, or a body that
+  // mentions balance/funds/insufficient. Turn that into one actionable line (with the top-up link)
+  // instead of a raw "402: {...}" snippet the app surfaces verbatim. Mirrors the editor's httpRunError.
+  function isLowFundsError(status, body){
+    // 401/403 are auth's territory (flagAuth already owns them) — don't let a body that happens to say
+    // "insufficient permissions" masquerade as a funds problem and hand out conflicting guidance.
+    return status===402 || (status!==401 && status!==403 && /insufficient|balance|funds|not enough|payment required/i.test(String(body||"")));
+  }
+  function httpRunError(status, body){
+    return isLowFundsError(status, body)
+      ? new Error("out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.")
+      : new Error(status + ": " + String(body).slice(0,160));
+  }
   // Content-Type only — the key is attached by apiFetch (standalone) or the parent proxy (embedded).
   function authHeaders(){ return { "Content-Type":"application/json" }; }
 
@@ -576,7 +592,7 @@ window.NoodleApp = (function () {
      binary-audio path. We total it for the whole session ("spent on this app")
      and attribute each generation's slice to its result card. "exact" drops to
      false if any call omitted a price, so the running total is shown as a floor (~). */
-  const COST = { total:0, count:0, balance:null, exact:true };
+  const COST = { total:0, count:0, balance:null, exact:true, estUsd:null };
   function fmtUsd(v){
     const a = Math.abs(v);
     const d = a>0 && a<0.01 ? 5 : a<1 ? 4 : 2;   // keep sub-cent generations legible
@@ -774,6 +790,7 @@ window.NoodleApp = (function () {
       if(u==null){ unpriced++; continue; }
       usd+=u; priced++; if(SETTING_MODEL_KIND[n.type]!=="image") exact=false;
     }
+    COST.estUsd = priced ? usd : null;   // last known whole-run forecast — read by the pre-flight balance guard
     const el = ensureRunCostEl(); if(!el) return;
     if(!priced){ el.hidden = true; return; }
     el.hidden = false;
@@ -919,7 +936,7 @@ window.NoodleApp = (function () {
       if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint
       if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
       const r = await apiFetch(IMG_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
-      if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
+      if(!r.ok){ flagAuth(r.status); throw httpRunError(r.status, await r.text()); }
       const j = await r.json();
       const urls = (j.data||[]).map(function(d){ return d.b64_json ? "data:" + b64ImageMime(d.b64_json) + ";base64," + d.b64_json : d.url; }).filter(Boolean);
       if(!urls.length) throw new Error("no image in response");
@@ -938,7 +955,7 @@ window.NoodleApp = (function () {
       if(opts.response_format) body.response_format = opts.response_format;   // {type:"json_object"} for JSON mode
       if(opts.reasoning_effort) body.reasoning_effort = opts.reasoning_effort;
       const r = await apiFetch(CHAT_ENDPOINT, {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
-      if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
+      if(!r.ok){ flagAuth(r.status); throw httpRunError(r.status, await r.text()); }
       const j = await r.json();
       onCost(costFromJson(j));
       const msg = (j.choices && j.choices[0] && j.choices[0].message) || {};
@@ -978,11 +995,11 @@ window.NoodleApp = (function () {
       let runId = (prev && prev.sig===sig) ? prev.runId : null;
       if(!runId){
         if(payload.length > MEDIA_INLINE_MAX)
-          throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. A shorter clip works well — or build this flow into an app (✨ Create app) and run it offline.");
+          throw new Error("This audio/video is a bit large (~4 MB max). nanoodle sends media inline rather than uploading it (no S3 here), so NanoGPT's edge won't accept it. Use a shorter clip — the ✂️ Trim node can cut audio down to size.");
         let r;
         try{ r = await apiFetch(NANOGPT + "/api/generate-video", {method:"POST", headers:authHeaders(), body:payload}); }
-        catch(e){ throw new Error("couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip, or build this into an app and run it offline. (" + (e.message||e) + ")"); }
-        if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
+        catch(e){ throw new Error("couldn't reach the video API — if the source media is large it may have been rejected for size before CORS applies. Try a shorter clip (the ✂️ Trim node can cut audio down). (" + (e.message||e) + ")"); }
+        if(!r.ok){ flagAuth(r.status); throw httpRunError(r.status, await r.text()); }
         const j = await r.json(); onCost(costFromJson(j));
         runId = j.runId || j.id;
         if(!runId) throw new Error("no runId returned");
@@ -1020,7 +1037,7 @@ window.NoodleApp = (function () {
         const req = t.match(/["']?([a-z_]+)["']?\s+(?:is\s+)?required|missing[^a-z]+["']?([a-z_]+)/i);
         const field = req && (req[1]||req[2]);
         if(field) throw new Error('This model requires "' + field + '" — set it in the node, or add it under advanced params.');
-        throw new Error(r.status + ": " + t);
+        throw httpRunError(r.status, t);
       }
       const ct = r.headers.get("content-type") || "";
       if(ct.includes("application/json")){
@@ -1048,10 +1065,10 @@ window.NoodleApp = (function () {
     // parent-proxied apiFetch (it serializes bodies as strings), so the in-editor preview can't
     // run it — it works in the editor and in exported/standalone apps where auth is local.
     async transcribe(model, audioUrl, language){
-      if(EMBEDDED) throw new Error("Transcribe runs in the editor and exported apps, not the in-app preview — build this into an app (✨ Create app) and run it offline.");
+      if(EMBEDDED) throw new Error("Transcribe runs in the editor and in shared/exported apps, not in this in-editor preview — try it there.");
       const blob = await (await fetch(audioUrl)).blob();
       if(blob.size > 3.5*1024*1024)
-        throw new Error("This clip is a bit big to transcribe directly (~3 MB max) — nanoodle sends audio inline rather than uploading it (no S3 here). A shorter clip works, or build this into an app (✨ Create app) and run it offline.");
+        throw new Error("This clip is a bit big to transcribe directly (~3 MB max) — nanoodle sends audio inline rather than uploading it (no S3 here). Use a shorter clip, or cut it down with the ✂️ Trim node.");
       const ext = (blob.type.split("/")[1] || "mp3").split(";")[0];
       const fd = new FormData();
       fd.append("file", blob, "audio." + ext);    // OpenAI-compatible endpoint: the audio field MUST be "file" (sending "audio" 400s "Missing 'file'")
@@ -1060,7 +1077,7 @@ window.NoodleApp = (function () {
       const k = getKey();
       const r = await fetch(NANOGPT + "/api/v1/audio/transcriptions", {method:"POST",
         headers:{ Authorization:"Bearer " + k, "x-api-key":k }, body:fd});
-      if(!r.ok){ flagAuth(r.status); throw new Error(r.status + ": " + (await r.text()).slice(0,160)); }
+      if(!r.ok){ flagAuth(r.status); throw httpRunError(r.status, await r.text()); }
       const j = await r.json();
       const c = costFromJson(j);   // endpoint returns {text, language, duration} with no cost → estimate from duration × catalog per_minute
       if(c.usd==null){ const est = await estTranscribeUsd(model, +j.duration); if(est!=null){ c.usd = est; c.estimate = true; } }
@@ -1785,7 +1802,7 @@ window.NoodleApp = (function () {
             onResult && onResult(n);
           }
           // the owning lane deletes the entry if its generation fails; here just isolate per-node.
-          catch(err){ if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", err.message); }
+          catch(err){ if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", friendlyRunError(err)); }
           return;
         }
         onStatus && onStatus(id, "run", "running…");
@@ -1812,7 +1829,7 @@ window.NoodleApp = (function () {
           // don't poison the cache with a failed/aborted promise — drop our pending entry so a
           // later lane or run can retry (only if it's still ours, not already swapped/overwritten).
           if(seeded){ const c = RUN_CACHE.get(id); if(c && c.pending===p) RUN_CACHE.delete(id); }
-          if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", err.message);
+          if(isAbort(err)) throw err; nodeErrors++; onStatus && onStatus(id, "error", friendlyRunError(err));
         }
       })();
     }
@@ -2984,6 +3001,13 @@ window.NoodleApp = (function () {
     // prepends), so each run, or continuous generation, just stacks onto history.
     if(mbox) mbox.innerHTML = ""; if(obox) obox.classList.toggle("grid", N>1);
     startRun(N);
+    // Non-blocking heads-up when the KNOWN balance probably won't cover the KNOWN forecast. Estimates
+    // are fuzzy, so we warn and still run — never block. Silent when either number is unknown (never
+    // treat unknown balance as empty) or the forecast is $0. Emitted after the #app-msg clear above so
+    // the warning survives run start.
+    if(COST.balance!=null && COST.estUsd!=null && COST.estUsd>0 && COST.balance < COST.estUsd){
+      statusLine("__lowbal__","warn","balance " + fmtUsd(COST.balance) + " may not cover this ~" + fmtUsd(COST.estUsd) + " run — top up at nano-gpt.com");
+    }
     const outIds = new Set(STATE.outputs.map(n=>n.id));
 
     // One worker per lane. A worker runs the graph once, then — while "keep
@@ -3012,7 +3036,7 @@ window.NoodleApp = (function () {
           // a Stop-triggered abort is expected — swallow it; surface only real errors.
           if(isAbort(err)) break;
           failed = true;
-          statusLine("__run_"+i+"__","error", (N>1?("Run "+(i+1)+": "):"") + (err.message || String(err)));
+          statusLine("__run_"+i+"__","error", (N>1?("Run "+(i+1)+": "):"") + friendlyRunError(err));
         }
         if(RUN && RUN.lanes[i]) RUN.lanes[i].endAt = Date.now();
         paintRuns();
@@ -3105,18 +3129,77 @@ window.NoodleApp = (function () {
     if(!r.ok) throw new Error("token: "+(await r.text()));
     setKey((await r.json()).access_token);
   }
+  // Keys are plain ASCII, but hand-typed/copied ones arrive with mobile-keyboard dashes, NBSP or
+  // zero-width junk — ONE non-ISO-8859-1 char makes fetch() itself throw before the network
+  // (live-reproduced in the editor: key saves fine, then every run "fails to fetch").
+  function cleanKey(raw){
+    return String(raw||"").replace(/[\u2010-\u2015\u2212]/g,"-")   // unicode hyphen/dash/minus variants -> plain hyphen
+      .replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF]/g,"");       // whitespace, NBSP, zero-width chars, BOM -> gone
+  }
+  const keySendable = (k)=> /^[\x21-\x7E]+$/.test(k);   // printable ASCII — anything else can't ride in an HTTP header
   // Save-time key probe (standalone). chat/completions is CORS-enabled and checks auth BEFORE
   // body validation, so an empty body never generates and never charges: a good key 400s, a bad
-  // key 401s. Returns false ONLY on a definitive auth rejection; a network/CORS hiccup returns
-  // true so an offline user is never locked out of a key they pasted correctly. (No backticks —
-  // this lives inside RUNTIME_JS.)
+  // key 401s. "bad" ONLY on a definitive auth rejection; a network/CORS hiccup is "unverified" so
+  // an offline user is never locked out of a key they pasted correctly — but the caller now says
+  // so instead of a silent false "signed in ✓". (No backticks — this lives inside RUNTIME_JS.)
   async function probeKey(k){
     try{
       const r = await fetch(CHAT_ENDPOINT, { method:"POST",
         headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" },
         body:"{}" });
-      return !(r.status===401 || r.status===403);
-    }catch(_){ return true; }
+      return (r.status===401 || r.status===403) ? "bad" : "ok";
+    }catch(_){ return "unverified"; }
+  }
+  // Translate bare browser-internal failures ("Failed to fetch", "non ISO-8859-1 code point")
+  // into something a viewer can act on; curated errors that merely quote them pass through.
+  function friendlyRunError(err){
+    const m = (err && err.message) || String(err);
+    // TypeError gate is load-bearing: thrown "STATUS: body" errors relay API bodies verbatim,
+    // and a body saying "Invalid value" must NOT wipe a good key — browser-internal
+    // header/network failures are always TypeErrors, ours never are.
+    if((err instanceof TypeError) && /ISO-8859-1|invalid header|Invalid value/i.test(m)){
+      if(!EMBEDDED) setKey(null);   // an unsendable key fails every run the same way (embedded: the parent owns the key)
+      return "the saved API key contains a character that can't be sent (usually a smart-dash or an invisible character from typing/copying) — sign in again or re-paste the key";
+    }
+    if(/^(TypeError: )?(Failed to fetch|Load failed|NetworkError)/i.test(m.trim()))
+      return "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again";
+    return m;
+  }
+  // Warm landing for a shared-app / exported recipient who lands here without a key:
+  // styles injected at runtime (mirroring injectCostStyles, with var() fallbacks) so a
+  // gptdiff-customized shell that rewrote its CSS still renders the card themed.
+  function injectAuthIntroStyles(){
+    if(document.getElementById("noodle-authintro-style")) return;
+    const s = document.createElement("style"); s.id = "noodle-authintro-style";
+    // Deliberately NOT a card: no fill, no radius, no top/bottom rule (those still read as a
+    // boxed section) — just a left accent bar, like a blockquote. That's enough to mark it as
+    // an aside about the page rather than app content, without an ALL-CAPS eyebrow label that
+    // reads as a warning. Width matches #app-tagline's own 60ch cap so it sits in the page's
+    // existing rhythm instead of floating as its own block.
+    s.textContent =
+      '.auth-intro{border-left:2px solid var(--accent,#7c8cff);padding:.15rem 0 .15rem .8rem;'
+        + 'margin:.7rem 0 1.3rem;max-width:58ch;text-align:left;}'
+      + '.auth-intro p{margin:0;font-size:.82rem;line-height:1.5;color:var(--dim,#8b93b4);}'
+      + '.auth-intro p+p{margin-top:.35rem;}'
+      + '.auth-intro .auth-cta{color:var(--ink,#e6e9f5);}'
+      + '.auth-intro .auth-cta b{color:var(--accent,#7c8cff);font-weight:700;}'
+      + '.auth-intro a{color:var(--accent,#7c8cff);text-decoration:none;}'
+      + '.auth-intro a:hover{text-decoration:underline;}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  function authIntro(embedded){
+    injectAuthIntroStyles();
+    // The "create an account" call to action differs by surface: a standalone / exported
+    // app runs un-sandboxed, so a plain new-tab link works. The #a= share-link preview
+    // runs in a sandboxed iframe with no allow-popups, where a target=_blank link is dead
+    // — there we point at the top bar, which is un-sandboxed and owns sign-in / sign-up.
+    const cta = embedded
+      ? '<p class="auth-cta"><b>Sign in</b> from the bar at the top to run this app — new to nano-gpt? creating an account is free.</p>'
+      : '<p class="auth-cta">new to nano-gpt? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a> — it’s free, your key stays in this browser.</p>';
+    return '<div class="auth-intro">'
+      + '<p>nano-gpt is a pay-per-use AI service — hundreds of models, pay only for what you run.</p>'
+      + cta
+      + '</div>';
   }
   function renderAuth(){
     const box = $("app-auth"); if(!box) return;
@@ -3127,7 +3210,7 @@ window.NoodleApp = (function () {
       // (no "signed in" indicator) and only nudge when not yet signed in.
       box.innerHTML = parentAuthed
         ? ''
-        : '<span class="dim">sign in from the bar at the top to run this app</span>';
+        : authIntro(true);
       return;
     }
     const ok = !!getKey();
@@ -3138,28 +3221,41 @@ window.NoodleApp = (function () {
     const canOAuth = /^https?:$/.test(location.protocol);
     box.innerHTML = ok
       ? '<span class="authok">signed in ✓</span> <button class="link" id="auth-out">sign out</button>'
-      : (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
+      : authIntro(false)
+      + (canOAuth ? '<button class="link" id="auth-in">Sign in</button> ' : '')
       + '<button class="link" id="auth-paste">paste key</button>'
       + ' <span class="keyrow" id="auth-keyrow" hidden>'
-      + '<input id="auth-keyinput" type="password" placeholder="nano-gpt API key" autocomplete="off">'
+      + '<input id="auth-keyinput" type="text" placeholder="nano-gpt API key" autocomplete="off" spellcheck="false" autocapitalize="off" autocorrect="off" data-1p-ignore data-lpignore="true" data-bwignore>'
       + ' <button class="link" id="auth-keysave">save</button>'
       + '</span>'
       + (canOAuth ? '' : ' <span class="dim">— paste a nano-gpt.com key (one-click sign-in needs the app served over http)</span>');
+      // (the "new to nano-gpt? create an account" line already lives in authIntro's own
+      // .auth-cta above — a second copy here was pure duplication)
     if(ok){
       $("auth-out").onclick = ()=> setKey(null);
     } else {
       if(canOAuth) $("auth-in").onclick = ()=> signIn().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message));
-      $("auth-paste").onclick = ()=>{ $("auth-keyrow").hidden=false; $("auth-keyinput").focus(); };
+      $("auth-paste").onclick = async ()=>{
+        $("auth-keyrow").hidden=false; $("auth-keyinput").focus();
+        // it says "paste" — fill from the clipboard where allowed (denied/DLP-blocked → say so; manual paste still works)
+        try{ const t = cleanKey(await navigator.clipboard.readText()); if(t) $("auth-keyinput").value = t; }
+        catch(_){ statusLine("__auth__","error","couldn't read your clipboard — click the key field and press Ctrl+V to paste"); }
+      };
       $("auth-keysave").onclick = async ()=>{
-        const k=$("auth-keyinput").value.trim(); if(!k) return;
+        const k=cleanKey($("auth-keyinput").value); if(!k) return;
+        if(!keySendable(k)){
+          statusLine("__auth__","error","that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again");
+          $("auth-keyinput").focus(); return;
+        }
         const sb=$("auth-keysave"); sb.disabled=true; sb.textContent="checking…";
-        const valid = await probeKey(k);                 // 401/403 → reject; 200/400/offline → keep
-        if(!valid){
+        const probe = await probeKey(k);                 // 401/403 → reject; 200/400 → keep; offline → keep but say so
+        if(probe==="bad"){
           sb.disabled=false; sb.textContent="save";      // keep the row OPEN, never store → no false "signed in ✓"
           statusLine("__auth__","error","that key was rejected by nano-gpt — check you copied the whole key");
           $("auth-keyinput").focus(); return;
         }
         setKey(k);   // validated (or offline-tolerated): setKey() re-renders the header to the true signed-in state
+        if(probe==="unverified") statusLine("__auth__","error","key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail");
       };
       const ki = $("auth-keyinput");
       if(ki) ki.addEventListener("keydown", e=>{ if(e.key==="Enter") $("auth-keysave").click(); });
@@ -3196,6 +3292,21 @@ window.NoodleApp = (function () {
 
     const titleEl = $("app-title");
     if(titleEl && !titleEl.textContent.trim()) titleEl.textContent = "My nanoodle app";
+
+    // Heal a stored key that predates save-time cleaning (standalone only — embedded auth lives
+    // in the parent): clean in place, or drop an unsendable one so auth honestly shows signed-out.
+    if(!EMBEDDED){ try{ const k0 = getKey(); if(k0){ const k1 = cleanKey(k0);
+      if(k1!==k0 || !keySendable(k1)) setKey(k1 && keySendable(k1) ? k1 : null); } }catch(_){} }
+
+    // The made-with footer's link only works standalone: the builder/share preview iframe is
+    // sandboxed with no allow-popups, so a target=_blank anchor is silently dead there (same
+    // trap authIntro documents). When embedded, de-link it to honest plain text — the parent
+    // chrome IS nanoodle, so the way back is already on screen.
+    const madeWith = document.querySelector("#app-made-with a");
+    if(madeWith && EMBEDDED){
+      madeWith.removeAttribute("href"); madeWith.removeAttribute("target");
+      madeWith.style.textDecoration = "none";   // beat the a:hover underline — it's not clickable here
+    }
 
     renderAuth();
     handleRedirect().catch(e=> statusLine("__auth__","error","sign-in error: "+e.message)).finally(renderAuth);
@@ -3263,6 +3374,20 @@ function deriveTagline(graph){
                   : "Fill in the inputs and hit Run.";
 }
 
+// The export viral loop: every app carries a visible way back to nanoodle (exported .html
+// especially — its meta tags are crawler-only). ONE styleable element: Customize may restyle
+// or move #app-made-with freely, but a diff that deletes it gets re-injected by bundle()'s
+// self-heal, same engine-piece protection as the mount points.
+const MADE_WITH =
+  '<footer id="app-made-with" class="made-with"><a href="https://nanoodle.com/" target="_blank" rel="noopener">Made with nanoodle — build your own AI app</a></footer>';
+// Its default look, shared by the app.css template below and the self-heal: apps saved before
+// the footer existed have no .made-with rules in their stored css, so a bare re-inject would
+// render as a raw blue link — the heal carries the style along when the css lacks it.
+const MADE_WITH_CSS =
+  '.made-with{ margin-top:2.4rem; text-align:center; font-size:.75rem; color:var(--faint,#5d6788); }\n'
++ '.made-with a{ color:var(--faint,#5d6788); text-decoration:none; }\n'
++ '.made-with a:hover{ color:var(--accent,#7c8cff); text-decoration:underline; }';
+
 function defaultFiles(graph){
   const title = deriveTitle(graph);
   const tagline = deriveTagline(graph);
@@ -3313,6 +3438,8 @@ function defaultFiles(graph){
   <div id="app-status" class="status"></div>
 
   <section id="app-output" class="output"></section>
+
+  ${MADE_WITH}
 </main>
 
 <!-- include-config: graph.json -->
@@ -3340,6 +3467,9 @@ body{ background:
 .app-head .auth{ font-size:.78rem; color:var(--dim); margin-top:.4rem; min-height:1.1em; }
 .app-head .auth input{ font:inherit; padding:.3rem .45rem; border-radius:.4rem; background:var(--panel); border:1px solid var(--line); color:var(--ink); }
 .app-head .auth .link{ background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font:inherit; }
+.app-head .auth .auth-new{ display:block; margin-top:.35rem; font-size:.72rem; line-height:1.4; }
+.app-head .auth .auth-new a{ color:var(--accent); text-decoration:none; }
+.app-head .auth .auth-new a:hover{ text-decoration:underline; }
 #app-tagline{ color:var(--dim); margin:0; max-width:60ch; }
 
 .inputs{ display:flex; flex-direction:column; gap:1rem; margin:1.6rem 0; }
@@ -3374,7 +3504,7 @@ body{ background:
   color:#180a0a; box-shadow:0 0 26px #ff6b6b3a; }
 .run.stop:hover{ box-shadow:0 0 36px #ff6b6b5c; }
 .status{ font-size:.82rem; color:var(--dim); min-height:1.2em; display:flex; flex-direction:column; gap:.2rem; }
-.status .stline.error{ color:var(--danger); } .status .stline.done{ color:var(--ok); }
+.status .stline.error{ color:var(--danger); } .status .stline.done{ color:var(--ok); } .status .stline.warn{ color:#ffcf6b; }
 
 .output{ display:flex; flex-direction:column; gap:1rem; }
 .output .card{ background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:1rem; }
@@ -3410,7 +3540,7 @@ body{ background:
   color:var(--faint); font-variant-numeric:tabular-nums; }
 .prog-now.is-ok{ color:var(--ok); } .prog-now.is-err{ color:var(--danger); }
 .msg-area{ display:flex; flex-direction:column; gap:.2rem; }
-.msg-area .stline.error{ color:var(--danger); } .msg-area .stline.done{ color:var(--ok); }
+.msg-area .stline.error{ color:var(--danger); } .msg-area .stline.done{ color:var(--ok); } .msg-area .stline.warn{ color:#ffcf6b; }
 
 /* error detail — click "N errors" to reveal which steps failed and why */
 .err-toggle{ font:inherit; font-size:.76rem; margin-top:.4rem; padding:.28rem .6rem; cursor:pointer;
@@ -3474,6 +3604,9 @@ body{ background:
 .run-badge{ display:inline-block; background:var(--accent-soft); border:1px solid var(--accent-line);
   color:var(--ink); border-radius:99px; padding:0 .45rem; font-size:.7rem; font-weight:700; }
 .output.grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); }
+
+/* made-with footer — quiet one-liner back to nanoodle */
+${MADE_WITH_CSS}
 
 /* touch devices: finger-friendly targets + no iOS focus-zoom on inputs */
 @media (pointer:coarse){
@@ -3565,6 +3698,11 @@ function bundle(files){
   const missing = MOUNT_IDS.filter(id => !html.includes('id="'+id+'"') && !html.includes("id='"+id+"'"));
   if(missing.length)
     html = injectInBody(html, '<div class="noodle-shim">' + missing.map(id => MOUNT_FALLBACK[id]).join("") + '</div>');
+  // 1b) the made-with footer is an engine piece too — restyle/move it all you like, but a
+  //     diff that deletes it outright gets it back (Export is the viral loop). Apps whose
+  //     stored css predates the footer get its default style injected alongside.
+  if(!html.includes('id="app-made-with"') && !html.includes("id='app-made-with'"))
+    html = injectInBody(html, (/\.made-with\s*\{/.test(html) ? "" : "<style>"+MADE_WITH_CSS+"</style>") + MADE_WITH);
   // 2) data + engine go in <head> so they're ready before any in-body mount call,
   //    no matter where (or whether) the marker survived.
   if(!cssDone)     html = injectInHead(html, ENGINE.css());
@@ -3893,6 +4031,7 @@ function streamingCallLlm(phase){
 
 let busy = false;
 let custAbort = null;   // AbortController for the in-flight customize/port; the ■ Stop button aborts it
+let pendingHandoff = null;   // editor __handoff__ parked while a customize/port runs; applied in runDiffPass's finally
 
 // While a customize/port runs, the Apply button doubles as a ■ Stop control (mirrors the runtime
 // run button): a stalled LLM can always be cancelled instead of leaving the bar permanently disabled.
@@ -3900,7 +4039,7 @@ function stopCustomize(){ if(custAbort && !custAbort.signal.aborted) custAbort.a
 function setCustBusy(on){
   const a = $("apply"); if(!a) return;
   if(on){ a.disabled = false; a.classList.add("stop"); a.classList.remove("idle"); a.textContent = "■ Stop"; a.onclick = stopCustomize; }
-  else { a.classList.remove("stop"); a.textContent = "✦ Apply"; a.onclick = applyCustomize; a.disabled = !getKey(); syncApply(); }
+  else { a.classList.remove("stop"); a.textContent = "✦ Apply"; a.onclick = applyCustomize; a.disabled = false; syncApply(); }   // signed-out stays clickable — the click kicks sign-in
 }
 // Signed-out users shouldn't dead-end on a toast — launch the same sign-in the ✨ Sign in button
 // uses (https → OAuth popup; file:// → reveal the paste-key row), so Customize has a way forward like Run.
@@ -3915,7 +4054,10 @@ function kickBuilderSignIn(){
 // opts: { preamble, genLabel, applyLabel, okLabel, versionGoal }
 async function runDiffPass(goal, opts){
   opts = opts || {};
-  if(!getKey()){ kickBuilderSignIn(); return false; }   // signed out → launch sign-in, not a dead-end toast
+  if(!getKey()){   // signed out → say why, then launch sign-in; stashResume keeps the typed goal across a redirect
+    $("cust-status").innerHTML = '<span class="dim" id="keyless-hint">Customizing uses your nano-gpt.com key — sign in' + (hasResumable() ? ' and your goal is kept.' : ' to continue.') + '</span>';
+    kickBuilderSignIn(); return false;
+  }
   const key = getKey();
   if(!goal || !goal.trim()) return false;
   if(busy) return false; busy = true;
@@ -3962,10 +4104,12 @@ async function runDiffPass(goal, opts){
     return true;
   }catch(e){
     if(e && e.name==="AbortError") $("cust-status").innerHTML = '<span class="dim">Stopped.</span> ' + usageMeter();   // you hit ■ Stop — neutral, not an error
-    else $("cust-status").innerHTML = '<span class="err">Error: ' + esc(e.message) + '</span>';
+    else $("cust-status").innerHTML = '<span class="err">Error: ' + esc(friendlyRunError(e)) + '</span>';
     return false;
   }finally{
     busy = false; custAbort = null; setCustBusy(false); $("undo").disabled = APP_STATE.curVer <= 0;
+    // the editor handed a new graph over while we were generating — apply it now that the run settled
+    if(pendingHandoff){ const p = pendingHandoff; pendingHandoff = null; applyHandoff(p); }
   }
 }
 async function applyCustomize(){
@@ -4070,20 +4214,35 @@ function withTitle(html, enc){
     ? html.replace(/<title>[\s\S]*?<\/title>/i, "<title>"+enc+"</title>")
     : html.replace(/<head([^>]*)>/i, "<head$1>\n<title>"+enc+"</title>");
 }
-// Rename the open app: the title lives in the <title> tag of the app's index.html,
-// so we rewrite it in the live files AND the current version's snapshot (otherwise
-// flipping versions would lose the new name), re-sync the bar/tab, and persist.
-// Renaming a draft is a real edit (not regenerable from the graph) so it commits.
+// rewrite the VISIBLE heading — the element the runtime mounts as #app-title (usually the
+// default <h1>, but a customized shell may use any tag as long as the id stays). Matches the
+// id-bearing element regardless of tag so a rename reaches what the user actually sees in the
+// frame; if a customize pass dropped the heading, the <title> rewrite alone still stands.
+function withHeading(html, htmlText){
+  return html.replace(
+    /(<([a-zA-Z][\w-]*)[^>]*\bid=["']app-title["'][^>]*>)[\s\S]*?(<\/\2>)/i,
+    "$1"+htmlText+"$3");
+}
+// Apply a new name to both the <title> tag (browser tab / social card) and the visible
+// heading in one pass, so the two never drift.
+function withName(html, name){
+  return withHeading(withTitle(html, escTitleTag(name)), esc(name));
+}
+// Rename the open app: the name lives in the <title> tag AND the visible #app-title heading
+// of the app's index.html, so we rewrite both in the live files AND the current version's
+// snapshot (otherwise flipping versions would lose the new name), re-sync the bar/tab, and
+// persist. Renaming a draft is a real edit (not regenerable from the graph) so it commits.
 function setAppTitle(raw){
   const name = (raw||"").replace(/\s+/g," ").trim();
   const html = APP_STATE.files && APP_STATE.files["index.html"];
   if(!name || !html) return false;
   if(name === titleFromFiles(APP_STATE.files)) return false;   // no-op
-  const enc = escTitleTag(name);
-  APP_STATE.files = { ...APP_STATE.files, "index.html": withTitle(html, enc) };
+  APP_STATE.files = { ...APP_STATE.files, "index.html": withName(html, name) };
   const cv = APP_STATE.versions[APP_STATE.curVer];
-  if(cv && cv.files && cv.files["index.html"]) cv.files["index.html"] = withTitle(cv.files["index.html"], enc);
+  if(cv && cv.files && cv.files["index.html"]) cv.files["index.html"] = withName(cv.files["index.html"], name);
   syncTitleFromFiles();
+  renderApp();   // remount the frame so the new heading shows immediately (the sandboxed
+                 // iframe has no same-origin access, so a live DOM poke isn't possible)
   commit();   // naming an app is intent to keep it → promote a draft into "My apps"
   return true;
 }
@@ -4123,15 +4282,19 @@ function wireTitle(){
 /* ======================================================================
    CENTRAL STATE + PERSISTENCE
    APP_STATE is the app currently open in the builder. CUR_ID is its slot in
-   the "My apps" library (noodle_apps) — null while it's an uncustomized draft
-   straight off the editor (those are regenerable from the graph, so we don't
-   clutter the library with them). The moment it's customized or imported it
-   gets an id and lives in the library, with its OWN versions, so closing the
-   builder never loses it.
+   the "My apps" library (noodle_apps) — null only for restored drafts whose
+   slot was lost (quota/deleted). Fresh handoffs commit immediately (installApp),
+   so "Create app" creates a durable library entry with its OWN versions, and
+   closing the builder never loses it; the editor is told via __appsaved__ and
+   binds to it, so re-creates update in place instead of stacking duplicates.
    ====================================================================== */
 let APP_STATE = { v:1, graph:{ nodes:[], links:[] }, files:{}, versions:[], curVer:0, uiSig:null };
 let CUR_ID = null;          // library id of the open app, or null for a draft
 let curImported = false;    // open app came in via a share link (#a=)
+let FROM_EDITOR = false;    // open app derives from the host editor's canvas. Only THEN may a
+                            // commit post __appsaved__ — binding the editor to an app whose
+                            // graph was never on the canvas (e.g. one merely browsed in the
+                            // "My apps" drawer) would make its next Update overwrite that app.
 
 const APPS_KEY = "noodle_apps";   // [{id,title,imported,graph,files,versions,curVer,updated}]
 function loadApps(){ try{ return JSON.parse(localStorage.getItem(APPS_KEY) || "[]") || []; }catch{ return []; } }
@@ -4169,22 +4332,34 @@ function writeState(){
 }
 let persistTimer = null;
 function persist(){ clearTimeout(persistTimer); persistTimer = setTimeout(writeState, 300); }
-// promote a draft into the library (called on first customize / on import) and save now
-function commit(){ if(!CUR_ID) CUR_ID = newId(); clearTimeout(persistTimer); return writeState(); }
+// promote a draft into the library (called on first customize / on import) and save now.
+// A commit/rename of the CANVAS-DERIVED app (FROM_EDITOR) tells the host editor it now
+// durably exists under this id, so its button flips to "✨ Update <name>" and later
+// handoffs can't mint duplicate defaults.
+function commit(){
+  if(!CUR_ID) CUR_ID = newId();
+  clearTimeout(persistTimer);
+  const ok = writeState();
+  if(ok && IN_EDITOR && FROM_EDITOR){ try{ parent.postMessage({ type:"__appsaved__", appId:CUR_ID, title:titleFromFiles(APP_STATE.files) }, "*"); }catch(_){} }
+  return ok;
+}
 // Stash the open app in sessionStorage right before a full-page OAuth redirect.
 // sessionStorage is a separate quota bucket and survives same-tab navigation, so the
 // app returns even when localStorage is full or a debounced autosave hasn't flushed.
+function hasResumable(){ return !!((APP_STATE.graph && APP_STATE.graph.nodes && APP_STATE.graph.nodes.length) || (APP_STATE.versions && APP_STATE.versions.length > 1)); }
 function stashResume(){
   try{
-    if((APP_STATE.graph && APP_STATE.graph.nodes && APP_STATE.graph.nodes.length) || (APP_STATE.versions && APP_STATE.versions.length > 1))
-      sessionStorage.setItem(RESUME_KEY, JSON.stringify({ ...curEntry(), v:1 }));
+    const goal = ($("goal") && $("goal").value.trim()) || "";   // a typed-but-unapplied goal survives the redirect too
+    if(hasResumable())
+      sessionStorage.setItem(RESUME_KEY, JSON.stringify({ ...curEntry(), goal, v:1 }));
   }catch(_){}
 }
 
 // install a freshly-loaded {graph, files} into the builder (used by every load path)
-function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig }){
+function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig, fromEditor }){
   if($("portbar")){ $("portbar").hidden = true; setPortMode(false); }   // any (re)load clears a stale "port?" offer
   CUR_ID = id || null;
+  FROM_EDITOR = !!fromEditor;   // set BEFORE the commit below — it gates the __appsaved__ post
   curImported = !!imported;
   APP_STATE.graph = graph || { nodes:[], links:[] };
   APP_STATE.files = files && files["index.html"] ? files : defaultFiles(APP_STATE.graph);
@@ -4198,6 +4373,10 @@ function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig
   APP_STATE.curVer = (curVer!=null && curVer<APP_STATE.versions.length) ? curVer : APP_STATE.versions.length-1;
   $("empty").hidden = true; $("appframe").style.display = "";
   syncTitleFromFiles(); renderVersions(); renderApp();
+  // "Create app" creates for real: a fresh graph handoff lands in "My apps" immediately
+  // (and commit() tells the editor, which binds ✨ Update to it) — before this, a fresh
+  // app was a transient draft that vanished unless customized/renamed.
+  if(fresh && !CUR_ID) CUR_ID = newId();
   // committed apps refresh their slot (and report whether the write stuck); drafts
   // only schedule a debounced autosave, so there's no synchronous result to report.
   const saved = CUR_ID ? commit() : (persist(), true);
@@ -4214,11 +4393,11 @@ function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").s
    the user-facing shape is unchanged we keep the UI verbatim; if it changed we
    open on the new graph (the runtime still rebuilds the controls, so it RUNS)
    and offer a gptdiff port to refresh the now-mismatched copy/layout. */
-function updateAppWorkflow(appId, newGraph){
+function updateAppWorkflow(appId, newGraph, fromEditor){
   newGraph = newGraph || { nodes:[], links:[] };
   const app = appId ? loadApps().find(a=> a.id===appId) : null;
   if(!app){                                  // unknown/forgotten app → just open the workflow as a fresh draft
-    installApp({ graph:newGraph, files:defaultFiles(newGraph), fresh:true });
+    installApp({ graph:newGraph, files:defaultFiles(newGraph), fresh:true, fromEditor });
     if(appId) toast("That app’s no longer here — started a new one from this workflow");   // don't silently swap an update for a new app
     return;
   }
@@ -4228,12 +4407,24 @@ function updateAppWorkflow(appId, newGraph){
   // their graph's signature (best-effort: assume the UI matched when it was saved).
   const uiSig = app.uiSig != null ? app.uiSig : ioSignature(oldGraph);
   // open the existing app, on the NEW graph, keeping its UI / versions / identity / uiSig
-  installApp({ graph:newGraph, files:app.files, versions:app.versions, curVer:app.curVer, id:app.id, imported:app.imported, uiSig });
+  installApp({ graph:newGraph, files:app.files, versions:app.versions, curVer:app.curVer, id:app.id, imported:app.imported, uiSig, fromEditor });
   if(uiFitsGraph(uiSig, newGraph)){
     toast("Workflow updated — your app UI was kept");
   }else{
     offerPort(oldGraph);
   }
+}
+
+/* ---------- live handoff from the host editor (__handoff__) ----------
+   Re-handoffs can't ride the iframe src: "play.html"+hash differs only in the fragment,
+   so the browser never reloads us. The editor postMessages the graph instead. An appId
+   means "update that app" (same path as the #ga= boot); null means "mint a brand-new
+   app" (same as the #g= boot — installApp commits fresh apps, so Create creates). */
+function applyHandoff(d){
+  const graph = d.graph || { nodes:[], links:[] };
+  if(d.appId) updateAppWorkflow(d.appId, graph, true);
+  else installApp({ graph, files:defaultFiles(graph), fresh:true, fromEditor:true });
+  try{ localStorage.removeItem("noodle_app_handoff"); }catch(_){}   // consume the belt-and-suspenders copy
 }
 
 /* ---------- "My apps" library UI ---------- */
@@ -4418,13 +4609,34 @@ function renderAuth(){
   $("signin").style.display  = signed ? "none" : "";
   $("pastebtn").style.display = signed ? "none" : "";
   $("signout").style.display  = signed ? "" : "none";
-  $("apply").disabled = busy ? false : !signed;   // while busy the Apply button is the ■ Stop control — keep it live
+  $("apply").disabled = false;   // signed-out clicks route through kickBuilderSignIn (same as Enter) — never a dead-end
 }
-// Save-time key probe: a definitively-rejected key (401/403) → false; anything else → true.
-// /api/v1/chat/completions is CORS-enabled (unlike /api/check-balance, which a browser can't
-// reach) and checks auth BEFORE body validation, so an empty body never generates and never
-// charges: a good key 400s (kept), a bad key 401s (rejected). A network/CORS hiccup also returns
-// true, so an offline blip can never lock a user out of a key they pasted correctly.
+// Hand-typed/copied keys arrive with mobile-keyboard dashes, NBSP or zero-width junk — ONE
+// non-ISO-8859-1 char makes fetch() itself throw before the network. Mirrors index.html.
+function cleanKey(raw){
+  return String(raw||"").replace(/[\u2010-\u2015\u2212]/g,"-")   // unicode hyphen/dash/minus variants -> plain hyphen
+    .replace(/[\s\u00A0\u200B-\u200D\u2060\uFEFF]/g,"");        // whitespace, NBSP, zero-width chars, BOM -> gone
+}
+const keySendable = (k)=> /^[\x21-\x7E]+$/.test(k);   // printable ASCII — anything else can't ride in an HTTP header
+// Builder-chrome twin of the runtime's error translator (Customize/Apply hits the same nano-gpt
+// endpoint with the same stored key). TypeError gate: thrown "STATUS: body" errors relay API
+// bodies verbatim and must never wipe a good key — browser header/network failures are TypeErrors.
+function friendlyRunError(err){
+  const m = (err && err.message) || String(err);
+  if((err instanceof TypeError) && /ISO-8859-1|invalid header|Invalid value/i.test(m)){
+    setKey(null);
+    return "the saved API key contains a character that can't be sent (usually a smart-dash or an invisible character from typing/copying) — sign in again or re-paste the key";
+  }
+  if(/^(TypeError: )?(Failed to fetch|Load failed|NetworkError)/i.test(m.trim()))
+    return "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and try again";
+  return m;
+}
+// Save-time key probe: a definitively-rejected key (401/403) → "bad"; a readable response →
+// "ok"; a network/CORS hiccup → "unverified" (kept, so an offline blip can never lock a user
+// out of a key they pasted correctly — but the caller says so instead of a silent false
+// "signed in ✓"). /api/v1/chat/completions is CORS-enabled (unlike /api/check-balance, which a
+// browser can't reach) and checks auth BEFORE body validation, so an empty body never generates
+// and never charges: a good key 400s, a bad key 401s.
 async function probeKey(k){
   try{
     const r = await fetch(NANOGPT + "/api/v1/chat/completions", {
@@ -4432,15 +4644,16 @@ async function probeKey(k){
       headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" },
       body:"{}"
     });
-    return !(r.status===401 || r.status===403);
-  }catch(_){ return true; }
+    return (r.status===401 || r.status===403) ? "bad" : "ok";
+  }catch(_){ return "unverified"; }
 }
 // Reflect the current key (e.g. one the OAuth popup just stored) into the builder + inner app.
 // Idempotent so the storage listener and the popup poll can both call it without double-toasting.
 let _signedInReflected = false;
 function finishSignIn(){
   renderAuth(); pushAuthToApp();
-  if(getKey()){ if(!_signedInReflected){ _signedInReflected = true; toast("signed in — the app can run now"); } }
+  if(getKey()){ if($("keyless-hint")) $("cust-status").innerHTML = "";   // the "sign in…" hint has done its job
+    if(!_signedInReflected){ _signedInReflected = true; toast("signed in — the app can run now"); } }
   else { _signedInReflected = false; }
 }
 
@@ -4588,7 +4801,7 @@ async function loadFromHash(){
       const json = tag[0]==="u" ? new TextDecoder().decode(b64urlToBytes(tag.slice(1)))
                                 : await gunzip(b64urlToBytes(tag));
       const spec = JSON.parse(json);
-      updateAppWorkflow(spec.appId, spec.graph);
+      updateAppWorkflow(spec.appId, spec.graph, true);
       consumeHandoff();
       return true;
     }catch(_){ /* fall through */ }
@@ -4599,7 +4812,7 @@ async function loadFromHash(){
       const json = h.startsWith("#g=") ? await gunzip(b64urlToBytes(h.slice(3)))
                                        : new TextDecoder().decode(b64urlToBytes(h.slice(3)));
       const graph = JSON.parse(json);
-      installApp({ graph, files:defaultFiles(graph), fresh:true });   // straight from the editor → lead with the prompt
+      installApp({ graph, files:defaultFiles(graph), fresh:true, fromEditor:true });   // straight from the editor → lead with the prompt
       consumeHandoff();   // a reload now restores the saved draft, not the original graph
       return true;
     }catch(_){ /* fall through */ }
@@ -4640,8 +4853,16 @@ if(IN_EDITOR){
   // come back to your app. When hidden, pause any media in the builder chrome so nothing keeps
   // playing out of sight. (The app preview runs in a no-same-origin sandbox we can't reach into.)
   addEventListener("message", (e)=>{
-    if(e.source===parent && e.data && e.data.type==="__appmodalhidden__"){
+    if(e.source!==parent || !e.data) return;
+    if(e.data.type==="__appmodalhidden__"){
       document.querySelectorAll("audio,video").forEach(m=>{ try{ m.pause(); }catch(_){} });
+    }
+    // the editor re-handed-off a changed graph into this live document (see applyHandoff)
+    else if(e.data.type==="__handoff__"){
+      // never yank the app out from under an in-flight customize/port — park the graph
+      // and let runDiffPass's finally apply it once the run settles
+      if(busy){ pendingHandoff = e.data; toast("Workflow received — applying it when this customize finishes"); }
+      else applyHandoff(e.data);
     }
   });
 }
@@ -4729,20 +4950,28 @@ $("signin").addEventListener("click",(e)=>{ e.preventDefault(); signIn().catch(e
 // The OAuth popup (or another tab) stores the key from another window — reflect it the moment it
 // lands. The poll in signIn() is the primary path for the popup; this covers cross-tab changes.
 window.addEventListener("storage",(e)=>{ if(e.key==="ngpt_key") finishSignIn(); });
-$("pastebtn").addEventListener("click",()=>{ $("key").style.display="flex"; $("keyinput").focus(); });
+$("pastebtn").addEventListener("click", async ()=>{
+  $("key").style.display="flex"; $("keyinput").focus();
+  // it says "paste" — fill from the clipboard where the browser allows it (denied/DLP-blocked → say so; manual paste still works)
+  try{ const t = cleanKey(await navigator.clipboard.readText()); if(t) $("keyinput").value = t; }
+  catch(_){ toast("couldn't read your clipboard — click the key field and press Ctrl+V to paste","err"); }
+});
 $("keysave").addEventListener("click", async ()=>{
-  const k=$("keyinput").value.trim();
+  const k=cleanKey($("keyinput").value);
   if(!k) return;
+  if(!keySendable(k)){ $("keyinput").focus();
+    toast("that key has a character that can't be sent — re-copy it from nano-gpt.com → Settings → API and paste again","err"); return; }
   const btn=$("keysave"); btn.disabled=true; btn.textContent="checking…";
-  const ok = await probeKey(k);                          // 401/403 → reject; 200/400/offline → keep
+  const probe = await probeKey(k);                       // 401/403 → reject; 200/400 → keep; offline → keep but say so
   btn.disabled=false; btn.textContent="save key";
-  if(!ok){                                               // rejected → keep the row OPEN, never show "signed in ✓"
+  if(probe==="bad"){                                     // rejected → keep the row OPEN, never show "signed in ✓"
     $("keyinput").focus();
     toast("that key was rejected by nano-gpt — check you copied the whole key","err");
     return;
   }
   setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp();
-  toast("key saved — the app can run now");
+  $("keyinput").value="";   // don't leave the plaintext key in the DOM — reopening the row (streamer on camera) would show it
+  toast(probe==="unverified" ? "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail" : "key saved — the app can run now", probe==="unverified" ? "err" : undefined);
 });
 $("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
 $("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
@@ -4762,7 +4991,12 @@ function migrateLegacy(){
 }
 
 async function boot(){
-  try{ await handleRedirect(); }catch(e){ $("auth-status").textContent = "sign-in error: "+e.message; }
+  // Heal a stored key that predates save-time cleaning (one invisible char makes every run throw
+  // before the network): clean in place, or drop an unsendable one so auth honestly shows signed-out.
+  try{ const k0 = getKey(); if(k0){ const k1 = cleanKey(k0);
+    if(k1!==k0 || !keySendable(k1)) setKey(k1 && keySendable(k1) ? k1 : null); } }catch(_){}
+  let authErr = null;   // surfaced AFTER renderAuth() below — writing it here would just get wiped to "not signed in"
+  try{ await handleRedirect(); }catch(e){ authErr = e; }
   // OAuth popup (opened from the embedded builder): the key is now in shared localStorage and
   // the opener's poll finishes sign-in there. Close this window. NanoGPT's OAuth page sets
   // Cross-Origin-Opener-Policy, which swaps the browsing-context group across the roundtrip —
@@ -4779,6 +5013,7 @@ async function boot(){
     return;
   }
   renderAuth();
+  if(authErr){ $("auth-status").textContent = "sign-in error: "+authErr.message; toast("sign-in didn't complete: "+authErr.message,"err"); }
   migrateLegacy();
   renderAppsBtn();
 
@@ -4800,6 +5035,7 @@ async function boot(){
   if(!loaded && resumeSt && resumeSt.graph){
     if(resumeSt.id && !loadApps().some(a=>a.id===resumeSt.id)) resumeSt.id = null;   // its library slot was lost (e.g. quota) → reopen as a draft
     installApp(resumeSt); loaded = true;
+    if(resumeSt.goal && $("goal")){ $("goal").value = resumeSt.goal; syncSuggest(); }   // the goal typed before the sign-in redirect
   }
 
   if(!loaded) loaded = await loadFromHash();
@@ -4808,7 +5044,7 @@ async function boot(){
   if(!loaded){
     try{ const ho = localStorage.getItem("noodle_app_handoff");
       if(ho){ const graph = JSON.parse(ho); localStorage.removeItem("noodle_app_handoff");
-        installApp({ graph, files:defaultFiles(graph), fresh:true }); loaded = true; } }catch(_){}
+        installApp({ graph, files:defaultFiles(graph), fresh:true, fromEditor:true }); loaded = true; } }catch(_){}
   }
   // saved builder session — restore the app that was open, reconnecting it to its library slot
   if(!loaded){
@@ -4821,6 +5057,11 @@ async function boot(){
   // friendly empty state
   if(!loaded) showEmpty();
   renderAppsBtn();
+  // Tell the host editor we're live: only NOW is a __handoff__ postMessage safe (sent
+  // earlier it would find no listener, or this boot would overwrite it with the stale
+  // hash graph). The editor parks handoffs until this arrives. Posted AFTER any commit
+  // above, so a bind-on-create __appsaved__ is already in flight ahead of it.
+  if(IN_EDITOR){ try{ parent.postMessage({ type:"__appready__" }, "*"); }catch(_){} }
 }
 boot();
 </script>
