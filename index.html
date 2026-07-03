@@ -560,6 +560,26 @@
   .pill{ font-size:.66rem; padding:.05rem .4rem; border-radius:1rem; background:#7c8cff22; color:#aeb6ff }
   .dim{ color:var(--dim) }
 
+  /* ---------- sample-run pill (signed-out Run) — same shelf as #keyrow ---------- */
+  #demopop{ position:fixed; top:60px; left:50%; transform:translateX(-50%); z-index:49; display:flex; gap:.5rem; flex-wrap:wrap;
+            max-width:min(560px, calc(100vw - .5rem));
+            background:var(--panel); border:1px solid var(--line); border-radius:.6rem; padding:.6rem 2.2rem .6rem .7rem; align-items:center; box-shadow:0 12px 40px #0008 }
+  #demopop[hidden]{ display:none }
+  #demopop .dp-b b{ color:var(--accent); white-space:nowrap }
+  #demopop .dp-t{ font-size:.76rem; color:var(--dim); flex:1 1 16rem; min-width:0 }
+  #demosignin{ background:linear-gradient(90deg,#67e8f9,var(--accent)); color:#0b0d12; font-weight:700; border:none;
+               border-radius:.45rem; padding:.45rem .7rem; cursor:pointer; white-space:nowrap }
+  #demosignin:hover{ filter:brightness(1.12) }
+  #demopaste{ background:var(--panel2); color:var(--ink); border:1px solid var(--line); border-radius:.45rem; padding:.45rem .6rem; cursor:pointer; white-space:nowrap }
+  #demopaste:hover{ border-color:var(--accent) }
+  #demox{ position:absolute; top:.3rem; right:.35rem; display:inline-flex; align-items:center; justify-content:center;
+          min-width:36px; min-height:36px; border:none; background:none; color:var(--dim); cursor:pointer;
+          font-size:1.2rem; line-height:1; padding:.2rem; border-radius:.4rem }
+  #demox:hover{ background:var(--panel2); color:var(--ink) }
+  /* the badge a canned result carries — dashed = "not the real thing" */
+  .result .demobadge{ margin-top:.35rem; font-size:.68rem; color:var(--accent); border:1px dashed var(--accent);
+                      border-radius:.4rem; padding:.25rem .45rem; opacity:.9 }
+
   /* ---------- model picker ---------- */
   #mpickback{ position:fixed; inset:0; z-index:55; background:#0008; display:none }
   #mpickback.show{ display:block }
@@ -760,6 +780,15 @@
   <button id="keysave" class="btn">save</button>
   <span class="dim" style="font-size:.72rem;color:var(--dim)">nano-gpt.com → Settings → API</span>
   <span class="dim" style="flex-basis:100%;font-size:.72rem">new to nano-gpt? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a> — pay-per-use, no subscription needed; your key stays in this browser.</span>
+</div>
+
+<!-- Signed-out Run → the workflow plays a canned sample; this pill says so and offers the two real ways in. -->
+<div id="demopop" hidden>
+  <span class="dp-b"><b>Sample run</b></span>
+  <span class="dp-t">results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.</span>
+  <button id="demosignin">Sign in with NanoGPT</button>
+  <button id="demopaste"><span data-no-i18n>🔑</span> paste key</button>
+  <button id="demox" title="Close" aria-label="Close">×</button>
 </div>
 
 <div id="mpickback"></div>
@@ -1162,6 +1191,10 @@ const I18N = {
     "sign in":"iniciar sesión",
     "paste key":"pegar clave",
     "Sign in with NanoGPT":"Iniciar sesión con NanoGPT",
+    "Sample run":"Ejecución de muestra",
+    "results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.":"los resultados de abajo son ejemplos pregrabados, no IA en vivo — inicia sesión para ejecutarlo de verdad, pago por uso con tu propia clave.",
+    "sample result — sign in to run it for real":"resultado de muestra — inicia sesión para ejecutarlo de verdad",
+    "samples cover text and images only — sign in to run this node for real":"las muestras solo cubren texto e imágenes — inicia sesión para ejecutar este nodo de verdad",
     "more sign-in options":"más opciones de inicio de sesión",
     "sign out":"cerrar sesión",
     "checking…":"comprobando…",
@@ -1535,6 +1568,10 @@ const I18N = {
     "sign in":"se connecter",
     "paste key":"coller la clé",
     "Sign in with NanoGPT":"Se connecter avec NanoGPT",
+    "Sample run":"Exécution d’exemple",
+    "results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.":"les résultats ci-dessous sont des exemples préenregistrés, pas de l’IA en direct — connectez-vous pour l’exécuter vraiment, paiement à l’usage avec votre propre clé.",
+    "sample result — sign in to run it for real":"résultat d’exemple — connectez-vous pour l’exécuter vraiment",
+    "samples cover text and images only — sign in to run this node for real":"les exemples ne couvrent que le texte et les images — connectez-vous pour vraiment exécuter ce nœud",
     "more sign-in options":"autres options de connexion",
     "sign out":"se déconnecter",
     "checking…":"vérification…",
@@ -1908,6 +1945,10 @@ const I18N = {
     "sign in":"anmelden",
     "paste key":"Schlüssel einfügen",
     "Sign in with NanoGPT":"Mit NanoGPT anmelden",
+    "Sample run":"Beispiel-Lauf",
+    "results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.":"die Ergebnisse unten sind vorbereitete Beispiele, keine echte KI — melde dich an, um es wirklich auszuführen, Bezahlung pro Nutzung mit eigenem Schlüssel.",
+    "sample result — sign in to run it for real":"Beispielergebnis — melde dich an, um es wirklich auszuführen",
+    "samples cover text and images only — sign in to run this node for real":"Beispiele decken nur Text und Bilder ab — melde dich an, um diesen Knoten wirklich auszuführen",
     "more sign-in options":"weitere Anmeldeoptionen",
     "sign out":"abmelden",
     "checking…":"wird geprüft…",
@@ -2281,6 +2322,10 @@ const I18N = {
     "sign in":"entrar",
     "paste key":"colar chave",
     "Sign in with NanoGPT":"Entrar com NanoGPT",
+    "Sample run":"Execução de amostra",
+    "results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.":"os resultados abaixo são exemplos pré-gravados, não IA ao vivo — entre para executar de verdade, pagamento por uso com a sua própria chave.",
+    "sample result — sign in to run it for real":"resultado de amostra — entre para executar de verdade",
+    "samples cover text and images only — sign in to run this node for real":"as amostras cobrem apenas texto e imagens — entre para executar este nó de verdade",
     "more sign-in options":"mais opções de login",
     "sign out":"sair",
     "checking…":"verificando…",
@@ -2654,6 +2699,10 @@ const I18N = {
     "sign in":"サインイン",
     "paste key":"キーを貼り付け",
     "Sign in with NanoGPT":"NanoGPTでサインイン",
+    "Sample run":"サンプル実行",
+    "results below are canned examples, not live AI — sign in to run it for real, pay-per-use on your own key.":"以下の結果はあらかじめ用意されたサンプルで、実際のAIではありません — サインインすると自分のキーで本当に実行できます(従量課金)。",
+    "sample result — sign in to run it for real":"サンプル結果 — サインインすると本当に実行できます",
+    "samples cover text and images only — sign in to run this node for real":"サンプルはテキストと画像のみ対応 — サインインするとこのノードを本当に実行できます",
     "more sign-in options":"その他のサインイン方法",
     "sign out":"サインアウト",
     "checking…":"確認中…",
@@ -5561,8 +5610,11 @@ function nodeSig(n, inp){
 }
 // Run one group: lock its whole connected component, execute the ancestors of `seedIds` in topo order.
 // Multiple groups run concurrently because callers don't await each other.
-async function runGroup(seedIds){
-  if(!ensureAuth()) return;
+// Signed out → the group still "runs", against DEMO_CTX: canned results (badged as samples, no
+// network, no charge) instead of a dead-end key prompt — the first Run click always shows the wow.
+async function runGroup(seedIds, ctx){
+  ctx = ctx || (getKey() ? CTX : DEMO_CTX);
+  if(ctx.demo) openDemoPop();          // say it's a sample up front + offer the two real ways in
   const lock = new Set();
   for(const id of seedIds) for(const x of componentOf(id)) lock.add(x);
   if(!lock.size || groupBusy(lock)) return;         // empty, or this group is already running
@@ -5631,7 +5683,12 @@ async function runGroup(seedIds){
         const sig = nodeSig(rn, inp);
         if(isSeeded(rn) && n._sig===sig && n.out && Object.keys(n.out).length){ showResult(n); setStatus(n, "done"); return; }
         setStatus(n, "run");
-        try{ n.out = await t.run(rn, inp, CTX) || {}; n._sig = sig; showResult(n); setStatus(n, "done");
+        try{ n.out = await t.run(rn, inp, ctx) || {};
+          // a demo run must never mint a real signature — the first REAL run after sign-in has to
+          // regenerate everything, not "skip" onto a canned sample via the seeded-result cache
+          if(ctx.demo) delete n._sig; else n._sig = sig;
+          showResult(n); setStatus(n, "done");
+          if(ctx.demo) markDemoResult(n);
           // a downstream Inpaint node brushing a WIRED source can now load its canvas from this output
           for(const l of graph.links){
             const dn = l.from.node===n.id ? byId(l.to.node) : null;
@@ -5646,8 +5703,9 @@ async function runGroup(seedIds){
     }
     await Promise.all(order.map(id=> done[id]));
     // a clean finish (nothing failed or Stopped, ≥1 node actually produced output) is the
-    // post-wow moment — one-time nudge toward ✨ Create app
-    if(!failed.size && !ctl.signal.aborted && order.some(id=>{ const n = byId(id); return n?.out && Object.keys(n.out).length; })) maybeAppNudge();
+    // post-wow moment — one-time nudge toward ✨ Create app. Not after a demo run: the one
+    // next step there is signing in (the demo popover already owns that CTA).
+    if(!ctx.demo && !failed.size && !ctl.signal.aborted && order.some(id=>{ const n = byId(id); return n?.out && Object.keys(n.out).length; })) maybeAppNudge();
   } finally {
     lock.forEach(id=>runningNodes.delete(id));
     if(!runningNodes.size && runAbort===ctl) runAbort = null;   // last group out clears the shared controller
@@ -5665,8 +5723,8 @@ function warnLowBalance(){
   toast(t("balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com").replace("{bal}", fmtUsd(bal)).replace("{usd}", fmtUsd(usd)), "warn");
 }
 // Run every idle group at once (busy ones keep going untouched).
+// No key needed: runGroup falls back to the sample run (DEMO_CTX) when signed out.
 function runAll(){
-  if(!ensureAuth()) return;
   if(!graph.nodes.length){ flash("nothing to run — add a node"); return; }
   warnLowBalance();
   for(const c of components()) if(!groupBusy(c)) runGroup([...c]);   // fire-and-forget → groups run in parallel
@@ -5977,6 +6035,54 @@ const CTX = {
     return txt;
   }
 };
+
+/* ---------- DEMO MODE (signed-out Run) ----------
+   No key yet → the Run click still delivers the moment: the graph "runs" on canned sample
+   results (badged on every node, zero network calls, zero charge) while #demopop offers the
+   two real ways in — Sign in with NanoGPT, or paste a key. The canned text/image pair was
+   generated once with the shipped starter graph's own models (glm-5.2 → nano-banana-2-lite),
+   so what a first-timer watches is exactly what a real run of the starter produces. */
+const DEMO_LLM_TEXT = "A cozy, intimate ramen shop on a rainy night, viewed from the quiet street looking slightly through the steamed glass window. Warm, glowing amber light spills out onto the wet pavement, contrasting beautifully with the cool, moody blue and teal tones of the rainy city. Inside, a lone patron in a yellow raincoat sits at a wooden bar, steam rising in thick, inviting plumes from a large bowl of rich tonkotsu ramen. Paper lanterns emit a soft, nostalgic luminescence over wooden interiors. Puddles on the cobblestone street reflect the vibrant shop signs and passing neon city lights. Cinematic lighting, photorealistic, 8k resolution, ultra-detailed, comforting and atmospheric mood, anime-inspired realism.";
+// Fallback when demo-sample.jpg can't be fetched (file:// open) — a labeled stand-in, never a broken img.
+const DEMO_IMG_FALLBACK = "data:image/svg+xml," + encodeURIComponent(
+  '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="640"><rect width="640" height="640" fill="#12151d"/><text x="320" y="310" fill="#67e8f9" font-family="sans-serif" font-size="30" text-anchor="middle">🍜 sample image</text><text x="320" y="352" fill="#8b93a7" font-family="sans-serif" font-size="18" text-anchor="middle">sign in to generate for real</text></svg>');
+let _demoImgUrl = null;
+async function demoImage(){                        // shipped alongside the page → data URL, so ⬇ save etc. behave like a real result
+  if(_demoImgUrl) return _demoImgUrl;
+  try{
+    const blob = await (await fetch("demo-sample.jpg")).blob();
+    _demoImgUrl = await new Promise((res, rej)=>{ const fr = new FileReader(); fr.onload = ()=> res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+  }catch(_){ _demoImgUrl = DEMO_IMG_FALLBACK; }
+  return _demoImgUrl;
+}
+// A believable pause that still honors ■ Stop (rejects as AbortError, same as a real fetch).
+const demoPause = (ms)=> new Promise((res, rej)=>{
+  const s = runSignal();
+  if(s?.aborted) return rej(new DOMException("Aborted", "AbortError"));
+  const id = setTimeout(res, ms);
+  s?.addEventListener("abort", ()=>{ clearTimeout(id); rej(new DOMException("Aborted", "AbortError")); }, { once:true });
+});
+const demoDeny = async ()=>{ await demoPause(600); throw new Error("samples cover text and images only — sign in to run this node for real"); };
+const DEMO_CTX = { ...CTX, demo:true,
+  async genChat(){ await demoPause(1400 + Math.random()*1200); return DEMO_LLM_TEXT; },
+  async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra, opts){
+    const [url] = await Promise.all([demoImage(), demoPause(2800 + Math.random()*1600)]);
+    return (opts && opts.multi) ? [url] : url;
+  },
+  genVideo: demoDeny, genAudio: demoDeny, transcribe: demoDeny,
+};
+// Every canned result carries its own label — the badge is what keeps a sample honest.
+function markDemoResult(n){
+  const r = n.el?.querySelector(".result");
+  if(!r || !r.classList.contains("show") || r.querySelector(".demobadge")) return;   // pass-through nodes (text/media inputs) show no result — nothing to label
+  r.insertAdjacentHTML("beforeend", `<div class="demobadge">✨ ${esc(t("sample result — sign in to run it for real"))}</div>`);
+}
+function openDemoPop(){
+  const p = $("demopop"); if(!p) return;
+  $("demosignin").style.display = /^https?:$/.test(location.protocol) ? "" : "none";   // OAuth needs http(s); file:// keeps paste-key only
+  const ch = $("connecthint"); if(ch && !ch.hidden) ch.hidden = true;   // don't stack teaching pills behind the sample pitch (no flag — it can return next load)
+  p.hidden = false;
+}
 // turn a blob:/data:/http url into a base64 data URL (for video/audio source payloads)
 // Output ports for the frame extractor: one image port per requested frame (clamped).
 const MAX_FRAMES = 12;
@@ -7327,9 +7433,14 @@ addEventListener("message", e=>{
 });
 function seed(){
   undoMuted = true;   // the built-in starter graph must not be undoable — a new user's first Ctrl+Z must not empty it
-  const a = addNode("text", 60, 80, { text:"a cozy ramen shop on a rainy neon street, cinematic" });
-  const b = addNode("image", 360, 60);
+  // text → LLM → image: the three-step shape that teaches what nanoodle IS in one Run.
+  // Mirror of the shipped noodle-graph.json (this fallback only fires when that fetch fails, e.g. file://);
+  // the signed-out sample run (DEMO_LLM_TEXT + demo-sample.jpg) was generated from these exact nodes.
+  const a = addNode("text", 60, 130, { text:"a cozy ramen shop on a rainy night" });
+  const b = addNode("llm", 340, 70, { model:"zai-org/glm-5.2", system:"You write image prompts. Turn the idea into one vivid, detailed image prompt — scene, lighting, mood, style. Reply with the prompt only." });
+  const c = addNode("image", 650, 100, { model:"nano-banana-2-lite" });
   connect(a.id, "text", b.id, "prompt");
+  connect(b.id, "text", c.id, "prompt");
   undoMuted = false;
 }
 
@@ -7435,6 +7546,7 @@ function renderAuth(){
   $("status").textContent = ok ? t("ready ✓") : t("not signed in");
   $("signin").style.display = ok?"none":""; $("pastebtn").style.display = ok?"none":""; $("signout").style.display = ok?"":"none";
   $("authmenu").style.display = ok?"none":"";   // the split-button shell (caret + popover) has no signed-in job; "" defers to the stylesheet (flex, or narrowbar's none)
+  if(ok){ const dp = $("demopop"); if(dp) dp.hidden = true; }   // signed in → the sample-run pitch is over
   layoutBar();   // auth controls differ in width between states → re-measure the bar's fit
 }
 const REDIRECT_URI = location.origin + location.pathname;
@@ -7494,12 +7606,17 @@ $("pastebtn").onclick = async ()=>{
   catch(_){ toast("couldn't read your clipboard — click the key field and press Ctrl+V to paste", "err"); }
 };
 $("keysignin").onclick = ()=> signIn().catch(signInErr);
+// sample-run pill (#demopop) — the two real ways in, plus a plain close
+$("demosignin").onclick = ()=> signIn().catch(signInErr);
+$("demopaste").onclick = ()=>{ $("demopop").hidden = true; $("pastebtn").onclick(); };   // reuse the paste flow (opens #keyrow + clipboard fill)
+$("demox").onclick = ()=> $("demopop").hidden = true;
+addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("demopop").hidden) $("demopop").hidden = true; });
 addEventListener("keydown", e=>{ if(e.key==="Escape" && $("keyrow").classList.contains("open")){ e.preventDefault(); $("keyrow").classList.remove("open"); } });
 $("keyx").onclick = ()=> $("keyrow").classList.remove("open");   // touch-dismissable ✕ (phones have no Escape key)
 // tap-outside dismiss (mirror #morepop line ~4441); closest() guard keeps the opening tap (Run/paste/Apply, which
 // open the row on the same click that bubbles here) from immediately closing it again.
 document.addEventListener("click", e=>{ const kr=$("keyrow");
-  if(kr.classList.contains("open") && !e.target.closest("#keyrow,#run,#pastebtn,#describego")) kr.classList.remove("open"); });
+  if(kr.classList.contains("open") && !e.target.closest("#keyrow,#run,#pastebtn,#describego,#demopop")) kr.classList.remove("open"); });
 // Keys are plain ASCII (sk-nano-… or a UUID), but hand-typed/copied ones arrive with mobile-keyboard
 // dashes, NBSP or zero-width junk — ONE non-ISO-8859-1 char makes fetch() itself throw before
 // anything reaches the network (live-reproduced: key saves fine, then every run "fails to fetch").

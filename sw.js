@@ -3,7 +3,7 @@
 // cache fallback when offline. Cross-origin requests (the NanoGPT API) are never touched.
 const CACHE = "nanoodle-v5"; // bump this version on every release to purge stale offline caches
 const SHELL = [
-  "/", "/index.html", "/play", "/legal", "/site.webmanifest", "/noodle-graph.json",
+  "/", "/index.html", "/play", "/legal", "/site.webmanifest", "/noodle-graph.json", "/demo-sample.jpg",
   "/favicon.ico", "/favicon-16.png", "/favicon-32.png", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png",
 ];
 
