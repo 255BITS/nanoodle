@@ -50,9 +50,17 @@ function makeWorld(len, failFirst) {
   return { nodes, ids, runs, paid, NODE_TYPES, links };
 }
 
-async function run(world, seed) {
+async function run(world, seed, opts = {}) {
   const ctx = {
     ensureAuth: () => true,
+    getKey: () => (opts.signedOut ? null : "k"),          // signed out → runGroup must fall back to DEMO_CTX
+    DEMO_CTX: { demo: true },
+    openDemoPop: (custom) => { world.demoPopOpened = true; world.demoPopCustom = custom; },
+    markDemoResult: (n) => { (world.demoBadged ||= []).push(n.id); },
+    setNodeProgress: () => {},
+    demoRunLabel: () => "loading sample…",
+    demoStarterSig: "STARTER",                             // demo run only serves a sample when the graph matches the starter…
+    appHandoffSig: () => (opts.customGraph ? "OTHER" : "STARTER"),   // …so control this in the test to exercise both paths
     componentOf: () => world.ids.slice(),
     groupBusy: () => false,
     ancestors: () => new Set(world.ids),
@@ -68,6 +76,9 @@ async function run(world, seed) {
     graph: { links: world.links },
     imgSpec: () => ({ re: /never/ }), VID_PORT_RE: /^vid\d+$/,
     nodeSig: () => 0, isSeeded: () => false, showResult: () => {}, rerenderNode: () => {}, CTX: {},
+    friendlyRunError: (e) => e?.message || String(e),   // identity here — the real mapper is UX-only
+    maybeAppNudge: () => {},   // post-first-wow "Create app" nudge — UI-only, inert here
+
     console,
   };
   ctx.globalThis = ctx;
@@ -103,6 +114,34 @@ const ok = (c, m) => { if (!c) { fail++; console.log("  ✗ " + m); } else conso
   await run(w, "n1");
   ok(w.runs.n1 === 1, `dependent runs normally when upstream succeeds (run count=${w.runs.n1})`);
   ok(w.paid[0] === "n1<=FRESH_n0", `dependent consumed FRESH upstream output, not stale (got ${w.paid[0]})`);
+  ok(w.nodes.n1._sig !== undefined, `real run minted a seed-cache signature (sig=${w.nodes.n1._sig})`);
+}
+
+// 4) Signed out → the run still happens, but as a SAMPLE: DEMO_CTX reaches every run(), the
+//    sample pill opens, results get badged, and NO seed-cache signature is minted (the first
+//    real run after sign-in must regenerate, not "skip" onto a canned result).
+{
+  const w = makeWorld(2, false);
+  const seen = [];
+  const origRun = w.NODE_TYPES.edit.run;
+  w.NODE_TYPES.edit.run = async (n, inp, c) => { seen.push(c && c.demo === true); return origRun(n, inp, c); };
+  await run(w, "n1", { signedOut: true });
+  ok(seen.length === 1 && seen[0] === true, `signed-out run executed against DEMO_CTX (saw demo=${seen[0]})`);
+  ok(w.demoPopOpened === true, "sample pill (openDemoPop) surfaced on a signed-out run");
+  ok((w.demoBadged || []).includes("n1"), `sample results are badged (badged=${JSON.stringify(w.demoBadged || [])})`);
+  ok(w.nodes.n1._sig === undefined, `demo run minted NO seed-cache signature (sig=${w.nodes.n1._sig})`);
+  ok(w.demoPopCustom === false, `sample pill shown in SAMPLE mode for the unedited starter (custom=${w.demoPopCustom})`);
+}
+
+// 5) Signed out on an EDITED / non-starter graph → NO fake result: the sample can't honestly
+//    represent a changed graph, so runGroup opens the pill in "sign in to run your workflow" mode
+//    and runs NOTHING (no canned output, no badge, no charge).
+{
+  const w = makeWorld(2, false);
+  await run(w, "n1", { signedOut: true, customGraph: true });
+  ok(!w.runs.n1 && !w.paid.length, `edited signed-out graph ran no node and charged nothing (runs=${w.runs.n1 || 0}, paid=${w.paid.length})`);
+  ok(w.demoPopOpened === true && w.demoPopCustom === true, `sign-in pill surfaced in CUSTOM mode (opened=${w.demoPopOpened}, custom=${w.demoPopCustom})`);
+  ok(!(w.demoBadged || []).length, `no sample badge on a graph we refused to fake (badged=${JSON.stringify(w.demoBadged || [])})`);
 }
 
 if (fail) { console.error(`\n✗ stale-input-charge: ${fail} assertion(s) failed.`); process.exit(1); }

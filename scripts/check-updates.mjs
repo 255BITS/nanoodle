@@ -1,10 +1,23 @@
 #!/usr/bin/env node
-// Validate updates.json: a newest-first array of { date:"YYYY-MM-DD", text:"one line" }.
+// Validate updates.json: a newest-first array of
+//   { date:"YYYY-MM-DD", text:"one line", i18n?:{ es,fr,de,pt,ja:"one line" } }.
 // The pre-commit hook runs this when updates.json is staged, so a malformed hand
 // edit can't ship and break the in-app Updates changelog.
+//
+// The optional `i18n` object localizes an entry for the editor's other languages
+// (the 📣 Updates modal falls back to English `text` for any missing one). If
+// present it is validated STRICTLY (all langs, non-empty, single line). Entries
+// with NO i18n are still valid — they just render English everywhere — so an
+// English-only commit (or the post-commit --amend that appends one) never blocks.
+// Missing translations are reported as a non-fatal reminder to run:
+//   node scripts/translate-updates.mjs
 import { readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+// Editor UI languages that an entry's i18n object must cover, in full, when set.
+// Keep in sync with index.html's I18N_LANGS (es/fr/de/pt/ja).
+const LANGS = ["es", "fr", "de", "pt", "ja"];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const file = join(root, "updates.json");
@@ -19,6 +32,7 @@ try {
 }
 
 const errs = [];
+const untranslated = []; // indices with no (or partial) i18n — reported, not fatal
 if (!Array.isArray(list)) {
   errs.push("top level must be an array");
 } else {
@@ -27,10 +41,34 @@ if (!Array.isArray(list)) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date || "")) errs.push(`#${i}: date must be YYYY-MM-DD`);
     if (typeof e.text !== "string" || !e.text.trim()) errs.push(`#${i}: text must be a non-empty string`);
     else if (/[\r\n]/.test(e.text)) errs.push(`#${i}: text must be a single line`);
+
+    if (e.i18n === undefined) { untranslated.push(i); return; }
+    if (typeof e.i18n !== "object" || e.i18n === null || Array.isArray(e.i18n)) {
+      errs.push(`#${i}: i18n must be an object of { lang: "text" }`); return;
+    }
+    const extra = Object.keys(e.i18n).filter(k => !LANGS.includes(k));
+    if (extra.length) errs.push(`#${i}: i18n has unknown language(s): ${extra.join(", ")}`);
+    const missing = [];
+    LANGS.forEach(lang => {
+      const v = e.i18n[lang];
+      if (v === undefined) { missing.push(lang); return; }
+      if (typeof v !== "string" || !v.trim()) errs.push(`#${i}: i18n.${lang} must be a non-empty string`);
+      else if (/[\r\n]/.test(v)) errs.push(`#${i}: i18n.${lang} must be a single line`);
+    });
+    if (missing.length) untranslated.push(i); // partial i18n → still needs a backfill
   });
 }
 
 if (errs.length) {
   console.error("updates.json:\n  " + errs.join("\n  "));
   process.exit(1);
+}
+
+// Non-fatal: nudge toward backfilling translations, but let the commit through so
+// English-only entries (and the post-commit auto-append) always ship.
+if (untranslated.length) {
+  console.warn(
+    `updates.json: ${untranslated.length} entr${untranslated.length === 1 ? "y is" : "ies are"} untranslated ` +
+    `(missing some of ${LANGS.join("/")}).\n  Backfill with:  node scripts/translate-updates.mjs`
+  );
 }
