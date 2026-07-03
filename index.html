@@ -4851,8 +4851,7 @@ const NODE_TYPES = {
       if(!inp.video) throw new Error("no video — wire a video into the video port");
       const start = parseFloat(n.fields.start) || 0;
       const lenRaw = parseFloat(n.fields.length);
-      const capSec = Math.floor((MEDIA_INLINE_MAX*3/4)/(24000*2)) - 2;      // ~66s of 24 kHz mono WAV still base64-inlines
-      const length = (Number.isFinite(lenRaw) && lenRaw>0) ? lenRaw : capSec;   // blank ⇒ whole clip, capped to what inlines
+      const length = (Number.isFinite(lenRaw) && lenRaw>0) ? lenRaw : 0;   // blank ⇒ genuinely whole clip (0 ⇒ dur-start locally); over-limit clips are flagged at send time by Transcribe/LLM, which point at ✂️ Trim
       setNodeProgress(n, "extracting audio…");
       return { audio: await extractAudioToWavUrl(inp.video, start, length, 24000) };
     }

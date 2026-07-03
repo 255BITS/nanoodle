@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-02",
+    "text": "🔊 Extract audio with a blank length now really does grab the whole clip — it used to silently stop at ~70 seconds, so long talking-head videos lost everything past the first minute before Transcribe ever saw it. Very long clips still get a clear heads-up (with a ✂️ Trim tip) only when a model's size limit is actually hit.",
+    "i18n": {
+      "es": "🔊 Extract audio con la duración en blanco ahora sí toma todo el clip — antes se detenía en silencio a los ~70 segundos, así que los vídeos largos de una persona hablando perdían todo lo posterior al primer minuto antes de que Transcribe lo viera. Los clips muy largos siguen avisándote con claridad (con un consejo de ✂️ Trim) solo cuando de verdad se alcanza el límite de tamaño de un modelo.",
+      "fr": "🔊 Extract audio avec une durée vide prend désormais vraiment tout le clip — auparavant il s'arrêtait silencieusement à ~70 secondes, si bien que les longues vidéos de personnes qui parlent perdaient tout ce qui suivait la première minute avant même que Transcribe le voie. Les clips très longs vous préviennent toujours clairement (avec un conseil ✂️ Trim), uniquement lorsque la limite de taille d'un modèle est réellement atteinte.",
+      "de": "🔊 Extract audio mit leerer Länge erfasst jetzt wirklich den ganzen Clip — vorher stoppte es stillschweigend bei ~70 Sekunden, sodass lange Talking-Head-Videos alles nach der ersten Minute verloren, bevor Transcribe es überhaupt sah. Sehr lange Clips bekommen weiterhin einen klaren Hinweis (mit einem ✂️ Trim-Tipp), aber nur, wenn tatsächlich das Größenlimit eines Modells erreicht wird.",
+      "pt": "🔊 Extract audio com a duração em branco agora realmente pega o clipe inteiro — antes ele parava silenciosamente aos ~70 segundos, então vídeos longos de alguém falando perdiam tudo depois do primeiro minuto antes mesmo de o Transcribe ver. Clipes muito longos ainda recebem um aviso claro (com uma dica de ✂️ Trim) apenas quando o limite de tamanho de um modelo é de fato atingido.",
+      "ja": "🔊 Extract audio で長さを空欄にすると、本当にクリップ全体を取得するようになりました。以前は約70秒で無音のまま止まっていたため、長いトーキングヘッド動画は Transcribe に渡る前に最初の1分より後をすべて失っていました。とても長いクリップについては、モデルのサイズ上限に実際に達したときにだけ、✂️ Trim のヒント付きで明確に知らせます。"
+    }
+  },
+  {
+    "date": "2026-07-02",
     "text": "The 🎨 Draw node now shows its thinking — Gemini's reasoning appears on the node's text output, so you can see how it planned your image before drawing it. Switch it off with the new \"show thinking\" toggle.",
     "i18n": {
       "es": "El nodo 🎨 Draw ahora muestra su razonamiento — el razonamiento de Gemini aparece en la salida de texto del nodo, para que veas cómo planificó tu imagen antes de dibujarla. Desactívalo con la nueva opción «mostrar razonamiento».",
