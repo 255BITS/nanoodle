@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-02",
+    "text": "Not signed in? Press ▶ Run anyway — nanoodle now plays a sample of the starter workflow so you can see it work, then sign in to run it for real."
+  },
+  {
+    "date": "2026-07-02",
     "text": "signing in is clearer — one \"Sign in with NanoGPT\" button, with paste-key and account creation under its ▾ menu",
     "i18n": {
       "es": "iniciar sesión es más claro: un único botón \"Sign in with NanoGPT\", con opciones para pegar la clave y crear cuenta en su menú ▾",
