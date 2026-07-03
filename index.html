@@ -4595,7 +4595,7 @@ const NODE_TYPES = {
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`
       ${modelFieldHTML(n)}
-      <div><label>question</label><textarea data-f="q" placeholder="Describe this image.">${esc(n.fields.q || "Describe this image in vivid detail.")}</textarea></div>`,
+      <div><label>question</label><textarea data-f="q" placeholder="Describe this image.">${esc(n.fields.q || "Describe this image.")}</textarea></div>`,
     async run(n, inp, ctx){
       if(!inp.image) throw new Error("no image — wire an image into the image port");
       const q = (n.fields.q||"Describe this image.").trim();
@@ -6700,7 +6700,9 @@ const CTX = {
   // speech→text: multipart upload to /api/v1/audio/transcriptions (audio file + model + language).
   // The in-graph audio is a blob/data URL, so we re-fetch its bytes and post them as a file.
   async transcribe(model, audioUrl, language){
-    const blob = await (await fetch(audioUrl, {signal:runSignal()})).blob();
+    let blob;
+    try{ blob = await (await fetch(audioUrl, {signal:runSignal()})).blob(); }
+    catch(e){ if(e?.name==="AbortError") throw e; throw mediaFetchError(audioUrl, e); }
     if(blob.size > 3.5*1024*1024)
       throw new Error("This clip is a bit big to transcribe directly (~3 MB max) — nanoodle sends audio inline rather than uploading it (no S3 here). Use a shorter clip, or cut it down with the ✂️ Trim node.");
     const ext = (blob.type.split("/")[1] || "mp3").split(";")[0];
@@ -6868,6 +6870,8 @@ async function bytesToMonoWavUrl(arr, start, len, rate, decodeFail){
   catch{ throw new Error(decodeFail); }
   finally{ try{ dec.close(); }catch{} }
   const dur = src.duration;
+  if((start||0) >= dur)
+    throw new Error("the start point (" + (Math.round((start||0)*10)/10) + "s) is past the end of this clip, which is only " + dur.toFixed(1) + "s long — pick an earlier start");
   const s = Math.max(0, Math.min(start||0, Math.max(0, dur-0.05)));
   const take = Math.max(0.05, Math.min(len>0 ? len : (dur - s), dur - s));
   const off = new OAC(1, Math.max(1, Math.floor(take*rate)), rate);                 // 1 channel ⇒ downmix
