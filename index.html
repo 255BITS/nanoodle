@@ -6488,7 +6488,7 @@ const CTX = {
     const images = (msg.images||[]).map(im=> im?.image_url?.url || im?.url || (typeof im==="string"?im:null)).filter(Boolean);
     const text = typeof msg.content==="string" ? msg.content : Array.isArray(msg.content) ? msg.content.map(p=>p.text||"").join("") : "";
     if(!images.length) throw new Error(text ? "this model replied with text, not an image — pick an image-output model" : "no image in response");
-    accrue(j, EST.chatImageUsd*images.length);   // chat endpoint reports no usable image cost (image_tokens) → count the measured per-image estimate
+    accrue(j, EST.chatImageUsd*images.length, r);   // chat endpoint reports no usable image cost (image_tokens) → count the measured per-image estimate
     return { images, text, reasoning: msg.reasoning||"" };
   },
   // async video: submit → poll /api/video/status until COMPLETED (up to 10 min)
