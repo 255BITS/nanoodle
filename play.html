@@ -80,6 +80,9 @@
   button.link{ background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font-size:.8rem; }
   #signin{ font-size:.8rem; }
   #myapps{ font-weight:600; }
+  #baractions{ display:contents; }   /* desktop: children lay out in #bar exactly as before */
+  #barmore{ display:none; }          /* desktop: no overflow button */
+  #custtoggle{ display:none; }       /* desktop: no collapse handle */
 
   /* ---------- "My apps" dropdown ---------- */
   #appsback{ position:fixed; inset:0; z-index:90; }            /* click-away catcher */
@@ -284,6 +287,26 @@
     .cust-label{ display:none; }
     #goal{ min-width:140px; }
     #modelpick{ max-width:120px; }
+    /* --- mobile: creator chrome → overflow ⋯ menu; composer → ✨ handle; Run rises above the fold --- */
+    .brand{ display:none; }            /* the title identifies the app; reclaim width for a one-row bar */
+    #barmore{ display:inline-flex; align-items:center; font-size:1.1rem; padding:.2rem .5rem; min-height:44px; }
+    #baractions{ display:none; position:absolute; top:calc(100% + .3rem); right:.5rem; z-index:92;
+                 flex-direction:column; align-items:stretch; gap:.4rem; min-width:210px;
+                 background:var(--panel); border:1px solid var(--line); border-radius:.6rem;
+                 box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.55rem; }
+    body.bar-open #baractions{ display:flex; }
+    #baractions .sep{ display:none; }
+    #baractions #auth-status{ display:block; }   /* re-show status inside the menu (base rule hides it) */
+    body.recipient #export{ display:none; }      /* a non-owner didn't build it — drop Export (Share+Edit stay) */
+    #custtoggle{ display:flex; width:100%; justify-content:center; align-items:center; gap:.4rem;
+                 background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-weight:700;
+                 border-radius:.5rem; padding:.55rem; min-height:44px; }
+    body.firstrun #custtoggle{ display:none; }   /* fresh creator: the composer is the hero, no handle */
+    body:not(.cust-open):not(.firstrun) #customize > .cust-row,
+    body:not(.cust-open):not(.firstrun) #cust-suggest,
+    body:not(.cust-open):not(.firstrun) #cust-status,
+    body:not(.cust-open):not(.firstrun) #versions,
+    body:not(.cust-open):not(.firstrun) #portbar{ display:none; }
   }
 
   /* ---------- short viewports (phone landscape): collapse chrome so the app gets the height ---------- */
@@ -313,6 +336,7 @@
   <div class="grow"></div>
 
   <!-- auth status mirrors index.html: sign in / paste key / sign out, shared ngpt_key -->
+  <div id="baractions">
   <span id="auth-status" class="status">checking…</span>
   <a id="signin" href="#" style="display:none">Sign in with NanoGPT</a>
   <button id="pastebtn" class="link" style="display:none">paste key</button>
@@ -323,6 +347,8 @@
   <button id="share" title="Copy a link that loads this exact app — recipients sign in with their own key">🔗 Share</button>
   <button id="export" title="Download this app as one self-contained .html (no key inside)">⭳ Export</button>
   <button id="openeditor" title="Edit this app's underlying workflow in the nanoodle editor — your app UI is kept">✎ Edit workflow</button>
+  </div>
+  <button id="barmore" class="link" title="More" aria-label="More" aria-expanded="false">⋯</button>
 </div>
 
 <!-- "My apps" library — created + imported apps, each with its own versions -->
@@ -382,6 +408,7 @@
 <!-- CUSTOMIZE composer: goal + Apply drives the gptdiff loop over index.html + app.css.
      Docked at the bottom; floats centered as the "describe your app" prompt on first run. -->
 <div id="customize">
+  <button id="custtoggle" class="link">✨ Customize this app</button>
   <!-- first run: the live app is the hero; the whole composer is present but dimmed
        until you pay it attention (hover/focus brightens it) — see the firstrun CSS -->
   <div class="cust-row">
@@ -446,6 +473,7 @@ const ACCENT = "#7c8cff";
    I18N_SKIP_B + data-no-i18n. The 🌐 selector persists localStorage noodle_lang (same key
    as the editor + runtime) and reloads. Named tB (not t) — the module has local t vars. */
 const PLAY_I18N_B = {
+  "More":{es:"Más",fr:"Plus",de:"Mehr",pt:"Mais",ja:"その他"},
   "checking…":{es:"comprobando…",fr:"vérification…",de:"wird geprüft…",pt:"verificando…",ja:"確認中…"},
   "paste key":{es:"pegar clave",fr:"coller la clé",de:"Schlüssel einfügen",pt:"colar chave",ja:"キーを貼り付け"},
   "sign out":{es:"cerrar sesión",fr:"se déconnecter",de:"abmelden",pt:"sair",ja:"サインアウト"},
@@ -5371,6 +5399,7 @@ function setPortMode(on){ const c = $("customize"); if(c) c.classList.toggle("po
 function offerPort(oldGraph){
   const bar = $("portbar"); if(!bar) return;
   bar.hidden = false; setPortMode(true);
+  document.body.classList.add("cust-open");   // a shape-change port CTA must never hide under the collapsed handle
   $("portbar-go").onclick   = ()=>{ bar.hidden = true; portWorkflow(oldGraph).finally(()=> setPortMode(false)); };
   $("portbar-skip").onclick = ()=>{ bar.hidden = true; setPortMode(false); };
 }
@@ -5586,6 +5615,7 @@ function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig
   CUR_ID = id || null;
   FROM_EDITOR = !!fromEditor;   // set BEFORE the commit below — it gates the __appsaved__ post
   curImported = !!imported;
+  document.body.classList.toggle("recipient", curImported);   // non-owner recipient → hide owner-only Export on mobile
   // Creator language for THIS app: an explicit value from the caller (a stored app's saved lang,
   // or an imported share link's spec.lang) wins; otherwise a fresh build/edit here adopts THIS
   // creator's explicit editor choice. An import with no baked lang stays neutral ("").
@@ -5614,7 +5644,7 @@ function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig
   if(fresh && APP_STATE.versions.length <= 1) enterFirstRun(); else exitFirstRun();
   return saved;
 }
-function showEmpty(){ exitFirstRun(); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My nanoodle app"; renderAppsBtn(); }
+function showEmpty(){ exitFirstRun(); document.body.classList.remove("recipient"); $("empty").hidden = false; $("appframe").style.display="none"; $("bar-title").textContent="My nanoodle app"; renderAppsBtn(); }
 
 /* ---------- re-target an existing app onto an edited workflow ----------
    Called when the editor hands a graph back (#ga=) carrying the app's id. The
@@ -6248,6 +6278,12 @@ async function boot(){
   // My-apps list, version chips, the running app iframe) via I18N_SKIP_B.
   translateTreeB(document.body);
   mountLangPickerB();
+  // Mobile chrome: ⋯ opens the creator-actions dropdown; a click inside it (or anywhere
+  // outside) closes it. #custtoggle expands the collapsed customize composer.
+  $("barmore").addEventListener("click",(e)=>{ e.stopPropagation(); const o=document.body.classList.toggle("bar-open"); $("barmore").setAttribute("aria-expanded", o?"true":"false"); });
+  document.addEventListener("click",(e)=>{ if(document.body.classList.contains("bar-open") && !e.target.closest("#baractions") && !e.target.closest("#barmore")){ document.body.classList.remove("bar-open"); $("barmore").setAttribute("aria-expanded","false"); } });
+  $("baractions").addEventListener("click",(e)=>{ if(e.target.closest("button,a")){ document.body.classList.remove("bar-open"); $("barmore").setAttribute("aria-expanded","false"); } });
+  $("custtoggle").addEventListener("click",()=>{ const o=document.body.classList.toggle("cust-open"); if(o){ const g=$("goal"); if(g) g.focus(); } });
   renderAuth();
   if(authErr){ $("auth-status").textContent = "sign-in error: "+authErr.message; toast("sign-in didn't complete: "+authErr.message,"err"); }
   migrateLegacy();
