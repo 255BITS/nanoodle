@@ -47,8 +47,8 @@ touches_share=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.html|
 # index.html + play.html both carry the universal pricing resolver (every NanoGPT shape → a USD number:
 # picker prices + "~$X to run" / "~$X / run" estimates); the check asserts both engines stay in lockstep.
 touches_pricing=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.html|scripts/check-pricing\.mjs|scripts/pricing-fixtures\.json)$' || true)
-# index.html carries the Combine node's lossless mp4 remux (MP4CAT); the check runs it on fixtures.
-touches_combine=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|scripts/check-combine\.mjs|scripts/fixtures/clip[AB]\.mp4)$' || true)
+# index.html + play.html carry the Combine node's lossless mp4 remux (MP4CAT); the check runs BOTH engines' copies on fixtures.
+touches_combine=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.html|scripts/check-combine\.mjs|scripts/fixtures/clip[AB]\.mp4)$' || true)
 
 # Nothing to check unless an .html file or one of the checkers changed.
 [ -z "$staged_html" ] && [ -z "$touches_export" ] && [ -z "$touches_login" ] && [ -z "$touches_sw" ] && [ -z "$touches_compat" ] && [ -z "$touches_run" ] && [ -z "$touches_seedcache" ] && [ -z "$touches_imgports" ] && [ -z "$touches_langpages" ] && [ -z "$touches_editorports" ] && [ -z "$touches_settings" ] && [ -z "$touches_quickadd" ] && [ -z "$touches_i18n" ] && [ -z "$touches_updates" ] && [ -z "$touches_createapp" ] && [ -z "$touches_stale" ] && [ -z "$touches_vresume" ] && [ -z "$touches_share" ] && [ -z "$touches_pricing" ] && [ -z "$touches_combine" ] && exit 0
