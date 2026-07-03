@@ -1,7 +1,14 @@
 [
   {
     "date": "2026-07-02",
-    "text": "Not signed in? Press ▶ Run anyway — nanoodle now plays a sample of the starter workflow so you can see it work, then sign in to run it for real."
+    "text": "Not signed in? Press ▶ Run anyway — nanoodle now plays a sample of the starter workflow so you can see it work, then sign in to run it for real.",
+    "i18n": {
+      "es": "¿No has iniciado sesión? Pulsa ▶ Run anyway — nanoodle ahora ejecuta una muestra del flujo de trabajo inicial para que veas cómo funciona, luego inicia sesión para ejecutarlo de verdad.",
+      "fr": "Pas connecté ? Appuyez sur ▶ Run quand même — nanoodle exécute maintenant un exemple du workflow de démarrage pour que vous puissiez voir comment ça fonctionne, puis connectez-vous pour le lancer réellement.",
+      "de": "Nicht angemeldet? Drück ▶ Run trotzdem — nanoodle zeigt dir jetzt eine Vorschau des Starter-Workflows, damit du siehst, wie es funktioniert. Melde dich danach an, um es richtig auszuführen.",
+      "pt": "Não está conectado? Pressione ▶ Run mesmo assim — o nanoodle agora executa uma amostra do fluxo inicial para você ver como funciona, depois faça login para rodar de verdade.",
+      "ja": "サインインしてない？▶ Run を押せば、nanoodleがスターターワークフローのサンプルを実行して動作を確認できるよ。その後、サインインして本番で使ってみてね。"
+    }
   },
   {
     "date": "2026-07-02",
