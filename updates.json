@@ -56,6 +56,17 @@
   },
   {
     "date": "2026-07-01",
+    "text": "New 📚 Examples gallery — load a ready-made text→image, video, song, or vision→speech workflow in one click.",
+    "i18n": {
+      "es": "Nueva galería 📚 Examples — carga un flujo de trabajo prediseñado de texto→imagen, video, canción o visión→voz con un solo clic.",
+      "fr": "Nouvelle galerie 📚 Examples — chargez un workflow prêt à l'emploi texte→image, vidéo, chanson ou vision→parole en un clic.",
+      "de": "Neue 📚 Examples-Galerie — lade einen fertigen Text→Bild-, Video-, Song- oder Vision→Sprache-Workflow mit einem Klick.",
+      "pt": "Nova galeria 📚 Examples — carregue um fluxo pronto de texto→imagem, vídeo, música ou visão→voz com um clique.",
+      "ja": "新しい 📚 Examples ギャラリー — text→image、video、song、vision→speechのワークフローをワンクリックで読み込めます。"
+    }
+  },
+  {
+    "date": "2026-07-01",
     "text": "sign-in and key problems now tell you what went wrong — cancelled sign-ins, rejected keys and blocked clipboards all show a clear message instead of failing silently.",
     "i18n": {
       "es": "Los problemas de inicio de sesión y de clave ahora te dicen qué salió mal — inicios de sesión cancelados, claves rechazadas y portapapeles bloqueados muestran un mensaje claro en lugar de fallar en silencio.",
