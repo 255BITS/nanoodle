@@ -2518,8 +2518,7 @@ function mp4ParamsMatch(bufs){
         if(!inp.video) throw new Error("no video input");
         const start = parseFloat(n.fields.start) || 0;
         const lenRaw = parseFloat(n.fields.length);
-        const capSec = Math.floor((MEDIA_INLINE_MAX*3/4)/(24000*2)) - 2;   // ~66s of 24 kHz mono WAV still inlines
-        const length = (Number.isFinite(lenRaw) && lenRaw>0) ? lenRaw : capSec;
+        const length = (Number.isFinite(lenRaw) && lenRaw>0) ? lenRaw : 0;   // blank ⇒ genuinely whole clip (0 ⇒ dur-start locally); over-limit clips are flagged at send time by Transcribe/LLM, which point at Trim
         onProgress && onProgress("extracting audio…");
         return { audio: await extractAudioToWavUrl(inp.video, start, length, 24000) };
       }
