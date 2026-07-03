@@ -939,6 +939,10 @@
   <div id="connecthint" hidden><span>Drag a <b>●</b> port onto a matching one to connect — or drop a wire on empty canvas to quick-add.</span><button id="connecthintx" title="Got it" aria-label="Dismiss">×</button></div>
 </main>
 <div id="quickadd"></div>
+<!-- keep these ABOVE the main script: the boot-time translateTree(document.body) runs
+     mid-parse, so anything after the script tag is invisible to it (missed-i18n bug). -->
+<div id="runest" hidden></div>
+<a id="legallink" href="/legal" target="_blank" rel="noopener">Terms · Privacy</a>
 
 <script>
 const NANOGPT = "https://nano-gpt.com";
@@ -1080,6 +1084,10 @@ const I18N = {
     "Save this as a brand-new app — the one you’re editing stays untouched":"Guarda esto como una app totalmente nueva — la que estás editando queda intacta",
     "Search nodes… (image, voice, video)":"Buscar nodos… (imagen, voz, vídeo)",
     "Sends this link to a third-party shortener so":"Envía este enlace a un acortador de terceros para que",
+    "Open the Noodle Cookoff rules":"Abrir las reglas del Noodle Cookoff",
+    "See the rules →":"Ver las reglas →",
+    "Terms · Privacy":"Términos · Privacidad",
+    "The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>":"El <b>Noodle Cookoff</b> está en marcha — gana Nano con tu mejor noodle. <b>Termina el 12 de julio.</b>",
     "Share this workflow":"Compartir este flujo",
     "Share to":"Compartir en",
     "Share workflow":"Compartir flujo",
@@ -1465,6 +1473,10 @@ const I18N = {
     "Save this as a brand-new app — the one you’re editing stays untouched":"Enregistrer ceci comme une toute nouvelle app — celle que vous modifiez reste inchangée",
     "Search nodes… (image, voice, video)":"Rechercher des nœuds… (image, voix, vidéo)",
     "Sends this link to a third-party shortener so":"Envoie ce lien à un raccourcisseur tiers pour que",
+    "Open the Noodle Cookoff rules":"Ouvrir les règles du Noodle Cookoff",
+    "See the rules →":"Voir les règles →",
+    "Terms · Privacy":"Conditions · Confidentialité",
+    "The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>":"Le <b>Noodle Cookoff</b> est en cours — gagnez du Nano avec votre meilleur noodle. <b>Fin le 12 juillet.</b>",
     "Share this workflow":"Partager ce workflow",
     "Share to":"Partager sur",
     "Share workflow":"Partager le workflow",
@@ -1839,6 +1851,10 @@ const I18N = {
     "Save this as a brand-new app — the one you’re editing stays untouched":"Dies als brandneue App speichern — die, die du gerade bearbeitest, bleibt unverändert",
     "Search nodes… (image, voice, video)":"Nodes suchen… (Bild, Stimme, Video)",
     "Sends this link to a third-party shortener so":"Sendet diesen Link an einen Drittanbieter-Kürzungsdienst, damit",
+    "Open the Noodle Cookoff rules":"Regeln des Noodle Cookoff öffnen",
+    "See the rules →":"Zu den Regeln →",
+    "Terms · Privacy":"AGB · Datenschutz",
+    "The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>":"Der <b>Noodle Cookoff</b> läuft — gewinne Nano mit deiner besten Noodle. <b>Endet am 12. Juli.</b>",
     "Share this workflow":"Diesen Workflow teilen",
     "Share to":"Teilen auf",
     "Share workflow":"Workflow teilen",
@@ -2215,6 +2231,10 @@ const I18N = {
     "Save this as a brand-new app — the one you’re editing stays untouched":"Salve isto como um app totalmente novo — o que você está editando permanece inalterado",
     "Search nodes… (image, voice, video)":"Buscar nós… (imagem, voz, vídeo)",
     "Sends this link to a third-party shortener so":"Envia este link para um encurtador de terceiros para",
+    "Open the Noodle Cookoff rules":"Abrir as regras do Noodle Cookoff",
+    "See the rules →":"Ver as regras →",
+    "Terms · Privacy":"Termos · Privacidade",
+    "The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>":"O <b>Noodle Cookoff</b> está no ar — ganhe Nano com o seu melhor noodle. <b>Termina em 12 de julho.</b>",
     "Share this workflow":"Compartilhar este fluxo",
     "Share to":"Compartilhar em",
     "Share workflow":"Compartilhar fluxo",
@@ -2589,6 +2609,10 @@ const I18N = {
     "Save this as a brand-new app — the one you’re editing stays untouched":"これを新しいアプリとして保存 — 編集中のアプリはそのまま残ります",
     "Search nodes… (image, voice, video)":"ノードを検索… (画像、音声、動画)",
     "Sends this link to a third-party shortener so":"このリンクをサードパーティの短縮サービスに送信するので",
+    "Open the Noodle Cookoff rules":"Noodle Cookoffのルールを開く",
+    "See the rules →":"ルールを見る →",
+    "Terms · Privacy":"利用規約 · プライバシー",
+    "The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>":"<b>Noodle Cookoff</b> 開催中 — 自慢のヌードルで Nano を獲得。<b>7月12日まで。</b>",
     "Share this workflow":"このワークフローを共有",
     "Share to":"共有先",
     "Share workflow":"ワークフローを共有",
@@ -7518,8 +7542,10 @@ async function openUpdates(){
   body.innerHTML = "";
   if(!COOKOFF_OVER){                     // pin a live-contest notice above the changelog; click opens the rules
     const cta = document.createElement("button"); cta.type = "button"; cta.className = "update-cookoff";
-    cta.title = "Open the Noodle Cookoff rules";
-    cta.innerHTML = "<span class='uc-emoji'>🍜</span><span class='uc-text'>The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b></span><span class='uc-go'>See the rules →</span>";
+    cta.title = t("Open the Noodle Cookoff rules");
+    cta.innerHTML = "<span class='uc-emoji'>🍜</span><span class='uc-text'>"
+      + t("The <b>Noodle Cookoff</b> is live — win Nano for your best noodle. <b>Ends Jul 12.</b>")
+      + "</span><span class='uc-go'>" + t("See the rules →") + "</span>";
     cta.onclick = ()=>{ closeUpdates(); $("cookoffmodal").hidden = false; };
     body.appendChild(cta);
   }
@@ -8184,7 +8210,5 @@ RULES for the diff:
   }
 })();
 </script>
-<div id="runest" hidden></div>
-<a id="legallink" href="/legal" target="_blank" rel="noopener">Terms · Privacy</a>
 </body>
 </html>
