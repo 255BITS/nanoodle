@@ -634,6 +634,7 @@ window.NoodleApp = (function () {
   "Runs":{es:"Ejecuciones",fr:"Exécutions",de:"Durchläufe",pt:"Execuções",ja:"実行回数"},
   "Stopped.":{es:"Detenido.",fr:"Arrêté.",de:"Gestoppt.",pt:"Parado.",ja:"停止しました。"},
   "Made with nanoodle — build your own AI app":{es:"Hecho con nanoodle — crea tu propia app de IA",fr:"Créé avec nanoodle — créez votre propre app IA",de:"Erstellt mit nanoodle — bau deine eigene KI-App",pt:"Feito com nanoodle — crie seu próprio app de IA",ja:"nanoodleで作成 — 自分だけのAIアプリを作ろう"},
+  "✨ Make your own app →":{es:"✨ Crea tu propia app →",fr:"✨ Créez votre propre app →",de:"✨ Bau deine eigene App →",pt:"✨ Crie seu próprio app →",ja:"✨ 自分だけのアプリを作ろう →"},
   "Run steps":{es:"Pasos de la ejecución",fr:"Étapes de l’exécution",de:"Ausführungsschritte",pt:"Etapas da execução",ja:"実行ステップ"},
   "✗ failed":{es:"✗ falló",fr:"✗ échec",de:"✗ fehlgeschlagen",pt:"✗ falhou",ja:"✗ 失敗"},
   "✓ done":{es:"✓ listo",fr:"✓ terminé",de:"✓ fertig",pt:"✓ concluído",ja:"✓ 完了"},
@@ -3865,6 +3866,52 @@ function mp4ParamsMatch(bufs){
     const badge = runNo ? '<span class="run-badge">Run '+runNo+'</span> ' : '';
     const card = resultCard(n, badge); if(!card) return;
     box.insertBefore(card, box.firstChild);   // newest at the top; nothing is removed
+    maybeShowMakeCta();                         // one-time wow-moment nudge, only after a real card lands
+  }
+
+  // One-time viral nudge at the WOW moment. The first time a real result card renders, slip a
+  // tappable CTA in just ABOVE the results — never covering them, never on every run, and never in
+  // the builder/share preview (EMBEDDED: the target=_blank link is dead in the sandbox and the parent
+  // chrome already IS nanoodle — same trap the made-with footer documents at mount()). The quiet
+  // #app-made-with footer stays; this is its bright, timed twin. Runtime-injected so every app gets
+  // it: default, gptdiff-customized, and exported standalone.
+  function injectMakeCtaStyles(){
+    if(document.getElementById("noodle-makecta-style")) return;
+    const s = document.createElement("style"); s.id = "noodle-makecta-style";
+    s.textContent =
+      '#app-make-cta{display:flex;align-items:center;gap:.55rem;margin:.2rem 0 1rem;padding:.6rem .75rem;'
+        + 'border:1px solid var(--accent,#7c8cff);border-radius:12px;'
+        + 'background:linear-gradient(90deg,var(--panel,#161a27),rgba(124,140,255,.14));'
+        + 'animation:ndCtaIn .45s ease both;}'
+      + '#app-make-cta[hidden]{display:none;}'
+      + '#app-make-cta a{flex:1 1 auto;font-weight:700;font-size:.9rem;line-height:1.25;'
+        + 'text-decoration:none;color:var(--ink,#e6e9f5);}'
+      + '#app-make-cta a:hover{color:var(--accent,#7c8cff);}'
+      + '#app-make-cta .mc-x{flex:0 0 auto;background:transparent;border:0;color:var(--dim,#8b93b4);'
+        + 'font-size:1.05rem;line-height:1;cursor:pointer;padding:.2rem .4rem;border-radius:8px;}'
+      + '#app-make-cta .mc-x:hover{background:#ffffff12;color:var(--ink,#e6e9f5);}'
+      + '@media(prefers-reduced-motion:reduce){#app-make-cta{animation:none;}}'
+      + '@keyframes ndCtaIn{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+  var MAKE_CTA_KEY = "noodle_make_cta_shown";
+  var MAKE_CTA_DONE = false;                          // PRIMARY guard: survives storage failure, scoped to this page load
+  function maybeShowMakeCta(){
+    if(EMBEDDED) return;                               // builder/share preview: dead link + parent IS nanoodle
+    if(MAKE_CTA_DONE) return;                          // strictly once per page load (covers multi-sink single run + storage-blocked boot)
+    if(document.getElementById("app-make-cta")){ MAKE_CTA_DONE = true; return; }  // belt-and-suspenders vs duplicate id
+    try{ if(sessionStorage.getItem(MAKE_CTA_KEY)){ MAKE_CTA_DONE = true; return; } }catch(_){}  // suppress across reloads when storage works
+    MAKE_CTA_DONE = true;                              // set BEFORE any DOM work → no re-entry
+    try{ sessionStorage.setItem(MAKE_CTA_KEY, "1"); }catch(_){}                     // best-effort cross-reload flag
+    injectMakeCtaStyles();
+    const el = document.createElement("div"); el.id = "app-make-cta";
+    el.innerHTML = '<a href="https://nanoodle.com/" target="_blank" rel="noopener">'
+        + esc(t("✨ Make your own app →")) + '</a>'
+      + '<button type="button" class="mc-x" aria-label="' + t("Close") + '">✕</button>';
+    el.querySelector(".mc-x").onclick = function(){ el.remove(); };   // MAKE_CTA_DONE already true → won't re-show
+    const out = $("app-output");
+    if(out && out.parentNode) out.parentNode.insertBefore(el, out);   // just above results — never covering them
+    else document.body.appendChild(el);
   }
 
   /* ---------- run "steps" sheet ----------
