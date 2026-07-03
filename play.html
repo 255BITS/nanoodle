@@ -4479,12 +4479,25 @@ function mp4ParamsMatch(bufs){
    mount-point ids the runtime binds to. Works the instant play.html opens.
    ====================================================================== */
 function deriveTitle(graph){
-  const txt = (graph.nodes||[]).find(n=>n.type==="text" && (n.fields && n.fields.text||"").trim());
-  if(txt){ const w=txt.fields.text.trim().replace(/\s+/g," ").split(" ").slice(0,5).join(" "); if(w) return w.slice(0,48); }
-  const kinds=new Set((graph.nodes||[]).map(n=>({image:"Image",tvideo:"Video",ivideo:"Video",music:"Music",
-    tts:"Speech",llm:"Text",vision:"Vision"}[n.type])).filter(Boolean));
-  if(kinds.size===1) return [...kinds][0]+" Generator";
-  return "My nanoodle app";
+  // Sticky-note captions are author scaffolding, not the app's purpose — exclude them
+  // so a note-only graph never titles the app with a stray caption.
+  const nodes = (graph.nodes||[]).filter(n=> n && n.type!=="comment");
+  // 1) Prompt gist — a text node first, else the first prompt-ish field on any node.
+  const PF = ["text","prompt","instruction","system","description","caption"];
+  let promptStr = "";
+  const txt = nodes.find(n=>n.type==="text" && ((n.fields&&n.fields.text)||"").trim());
+  if(txt){ promptStr = txt.fields.text; }
+  else { for(const n of nodes){ if(!n.fields) continue;
+    for(const f of PF){ const v=n.fields[f]; if(typeof v==="string" && v.trim()){ promptStr=v; break; } }
+    if(promptStr) break; } }
+  if(promptStr){ const w=promptStr.trim().replace(/\s+/g," ").split(" ").slice(0,5).join(" "); if(w) return w.slice(0,48); }
+  // 2) Output kinds -> "<Kind> Generator", or "<A> & <B> Generator" for a mixed pipeline.
+  const kinds=[...new Set(nodes.map(n=>({image:"Image",tvideo:"Video",ivideo:"Video",music:"Music",
+    tts:"Speech",llm:"Text",vision:"Vision"}[n.type])).filter(Boolean))];
+  if(kinds.length===1) return kinds[0]+" Generator";
+  if(kinds.length>1)  return kinds.slice(0,2).join(" & ")+" Generator";
+  // 3) Never bake the frozen default into shareable files — distinct but graph-agnostic.
+  return "AI Workflow";
 }
 function deriveTagline(graph){
   const out=new Set((graph.nodes||[]).map(n=>({image:"images",tvideo:"video",ivideo:"video",

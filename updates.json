@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-03",
+    "text": "Shared apps now get a descriptive name — from your prompt or the models used — instead of the generic \"My nanoodle app\""
+  },
+  {
+    "date": "2026-07-03",
     "text": "🎨🎬 Text→Video reference images — on seedance/luma models, wire in reference images to guide the subject, character, or style of a generated video",
     "i18n": {
       "es": "🎨🎬 Imágenes de referencia para Texto→Video — en modelos seedance/luma, conecta imágenes de referencia para guiar el sujeto, personaje o estilo de un video generado",
