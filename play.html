@@ -1381,7 +1381,9 @@ window.NoodleApp = (function () {
     // run it — it works in the editor and in exported/standalone apps where auth is local.
     async transcribe(model, audioUrl, language){
       if(EMBEDDED) throw new Error("Transcribe runs in the editor and in shared/exported apps, not in this in-editor preview — try it there.");
-      const blob = await (await fetch(audioUrl)).blob();
+      let blob;
+      try{ blob = await (await fetch(audioUrl)).blob(); }
+      catch(e){ throw mediaFetchError(audioUrl, e); }
       if(blob.size > 3.5*1024*1024)
         throw new Error("This clip is a bit big to transcribe directly (~3 MB max) — nanoodle sends audio inline rather than uploading it (no S3 here). Use a shorter clip, or cut it down with the ✂️ Trim node.");
       const ext = (blob.type.split("/")[1] || "mp3").split(";")[0];
@@ -1460,6 +1462,8 @@ window.NoodleApp = (function () {
     catch(e){ throw new Error("couldn’t decode that audio for trimming (unsupported format?)"); }
     finally{ try{ dec.close(); }catch(e){} }
     const dur = src.duration;
+    if((start||0) >= dur)
+      throw new Error("the start point (" + (Math.round((start||0)*10)/10) + "s) is past the end of this clip, which is only " + dur.toFixed(1) + "s long — pick an earlier start");
     const s = Math.max(0, Math.min(start||0, Math.max(0, dur-0.05)));
     const take = Math.max(0.05, Math.min(len>0 ? len : 30, dur - s));
     const off = new OAC(1, Math.max(1, Math.floor(take*rate)), rate);
@@ -1486,6 +1490,8 @@ window.NoodleApp = (function () {
     catch(e){ throw new Error("this video is silent — generated videos usually have no audio track to extract"); }
     finally{ try{ dec.close(); }catch(e){} }
     const dur = src.duration;
+    if((start||0) >= dur)
+      throw new Error("the start point (" + (Math.round((start||0)*10)/10) + "s) is past the end of this clip, which is only " + dur.toFixed(1) + "s long — pick an earlier start");
     const s = Math.max(0, Math.min(start||0, Math.max(0, dur-0.05)));
     const take = Math.max(0.05, Math.min(len>0 ? len : (dur - s), dur - s));
     const off = new OAC(1, Math.max(1, Math.floor(take*rate)), rate);
