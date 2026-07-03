@@ -682,7 +682,7 @@ window.NoodleApp = (function () {
   "search models or paste an id…":{es:"busca modelos o pega un id…",fr:"cherchez un modèle ou collez un id…",de:"Modelle suchen oder eine ID einfügen…",pt:"busque modelos ou cole um id…",ja:"モデルを検索、またはIDを貼り付け…"},
   "NanoGPT API key":{es:"clave API de nano-gpt",fr:"clé API nano-gpt",de:"nano-gpt API-Schlüssel",pt:"chave de API nano-gpt",ja:"nano-gpt APIキー"},
   "NanoGPT is a pay-per-use AI service — hundreds of models, pay only for what you run.":{es:"nano-gpt es un servicio de IA de pago por uso — cientos de modelos, paga solo por lo que ejecutas.",fr:"nano-gpt est un service d’IA à l’usage — des centaines de modèles, payez seulement ce que vous exécutez.",de:"nano-gpt ist ein KI-Dienst mit Abrechnung nach Nutzung — Hunderte Modelle, zahle nur, was du ausführst.",pt:"o nano-gpt é um serviço de IA de pagamento por uso — centenas de modelos, pague só pelo que executar.",ja:"nano-gptは従量課金のAIサービスです — 数百のモデル、実行した分だけお支払いです。"},
-  "<b>Sign in</b> from the bar at the top to run this app — new to NanoGPT? creating an account is free.":{es:"<b>Inicia sesión</b> desde la barra superior para ejecutar esta app — ¿nuevo en nano-gpt? crear una cuenta es gratis.",fr:"<b>Connectez-vous</b> depuis la barre du haut pour exécuter cette app — nouveau sur nano-gpt ? créer un compte est gratuit.",de:"<b>Melde dich</b> über die Leiste oben an, um diese App auszuführen — neu bei nano-gpt? ein Konto zu erstellen ist kostenlos.",pt:"<b>Entre</b> pela barra no topo para executar este app — novo no nano-gpt? criar uma conta é grátis.",ja:"このアプリを実行するには上部のバーから<b>サインイン</b>してください — nano-gptは初めてですか？アカウント作成は無料です。"},
+  "to run this app — new to NanoGPT? creating an account is free.":{es:"para ejecutar esta app — ¿nuevo en nano-gpt? crear una cuenta es gratis.",fr:"pour exécuter cette app — nouveau sur nano-gpt ? créer un compte est gratuit.",de:"um diese App auszuführen — neu bei nano-gpt? ein Konto zu erstellen ist kostenlos.",pt:"para executar este app — novo no nano-gpt? criar uma conta é grátis.",ja:"してこのアプリを実行 — nano-gptは初めてですか？アカウント作成は無料です。"},
   "new to NanoGPT? <a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">create an account →</a> — it’s free, your key stays in this browser.":{es:"¿nuevo en nano-gpt? <a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">crea una cuenta →</a> — es gratis, tu clave se queda en este navegador.",fr:"nouveau sur nano-gpt ? <a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">créez un compte →</a> — c’est gratuit, votre clé reste dans ce navigateur.",de:"neu bei nano-gpt? <a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">erstelle ein Konto →</a> — kostenlos, dein Schlüssel bleibt in diesem Browser.",pt:"novo no nano-gpt? <a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">crie uma conta →</a> — é grátis, sua chave fica neste navegador.",ja:"nano-gptは初めてですか？<a href=\"https://nano-gpt.com/r/mgzwtqjw\" target=\"_blank\" rel=\"noopener\">アカウントを作成 →</a> — 無料で、キーはこのブラウザーに保存されます。"},
   "Paste a nano-gpt.com API key to run this app.":{es:"Pega una clave API de nano-gpt.com para ejecutar esta app.",fr:"Collez une clé API nano-gpt.com pour exécuter cette app.",de:"Füge einen nano-gpt.com API-Schlüssel ein, um diese App auszuführen.",pt:"Cole uma chave de API do nano-gpt.com para executar este app.",ja:"このアプリを実行するにはnano-gpt.comのAPIキーを貼り付けてください。"},
   "Signing in… press Run again once you're signed in.":{es:"Iniciando sesión… pulsa Ejecutar de nuevo cuando hayas iniciado sesión.",fr:"Connexion… appuyez de nouveau sur Exécuter une fois connecté.",de:"Anmeldung… drücke erneut auf Ausführen, sobald du angemeldet bist.",pt:"Entrando… clique em Executar de novo depois de entrar.",ja:"サインイン中… サインインしたらもう一度実行を押してください。"},
@@ -4447,7 +4447,11 @@ function mp4ParamsMatch(bufs){
       + '.auth-intro .auth-cta{color:var(--ink,#e6e9f5);}'
       + '.auth-intro .auth-cta b{color:var(--accent,#7c8cff);font-weight:700;}'
       + '.auth-intro a{color:var(--accent,#7c8cff);text-decoration:none;}'
-      + '.auth-intro a:hover{text-decoration:underline;}';
+      + '.auth-intro a:hover{text-decoration:underline;}'
+      // The embedded "Sign in" is a real clickable link (triggers OAuth via the parent),
+      // styled to match the top-bar sign-in: accent, bold, underline-on-hover, pointer.
+      + '.auth-intro .cta-link{color:var(--accent,#7c8cff);font-weight:700;cursor:pointer;text-decoration:none;}'
+      + '.auth-intro .cta-link:hover,.auth-intro .cta-link:focus-visible{text-decoration:underline;outline:none;}';
     (document.head || document.documentElement).appendChild(s);
   }
   function authIntro(embedded){
@@ -4457,7 +4461,7 @@ function mp4ParamsMatch(bufs){
     // runs in a sandboxed iframe with no allow-popups, where a target=_blank link is dead
     // — there we point at the top bar, which is un-sandboxed and owns sign-in / sign-up.
     const cta = embedded
-      ? '<p class="auth-cta">' + t('<b>Sign in</b> from the bar at the top to run this app — new to NanoGPT? creating an account is free.') + '</p>'
+      ? '<p class="auth-cta"><a class="cta-link" id="auth-embed-signin" role="button" tabindex="0">' + t("Sign in") + '</a> ' + t("to run this app — new to NanoGPT? creating an account is free.") + '</p>'
       : '<p class="auth-cta">' + t('new to NanoGPT? <a href="https://nano-gpt.com/r/mgzwtqjw" target="_blank" rel="noopener">create an account →</a> — it’s free, your key stays in this browser.') + '</p>';
     return '<div class="auth-intro">'
       + '<p>' + t("NanoGPT is a pay-per-use AI service — hundreds of models, pay only for what you run.") + '</p>'
@@ -4474,6 +4478,20 @@ function mp4ParamsMatch(bufs){
       box.innerHTML = parentAuthed
         ? ''
         : authIntro(true);
+      // Make the banner's "Sign in" clickable — the sandboxed app owns no key, so it asks the
+      // parent (real origin) to start OAuth, exactly like the Run preflight's Continue button.
+      if(!parentAuthed){
+        const si = $("auth-embed-signin");
+        if(si){
+          const kick = ()=>{
+            try{ stashRunInputs(); }catch(_){}
+            try{ window.parent.postMessage({ type:"__signin__" }, "*"); }catch(_){}
+            statusLine("__auth__","done",t("Signing in… press Run again once you're signed in."));
+          };
+          si.onclick = kick;
+          si.onkeydown = (e)=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); kick(); } };
+        }
+      }
       return;
     }
     const ok = !!getKey();
