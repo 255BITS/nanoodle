@@ -40,6 +40,8 @@ touches_updates=$(printf '%s\n' "$staged" | grep -E '(^|/)(updates\.json|scripts
 touches_createapp=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.html|scripts/check-create-app\.mjs)$' || true)
 # index.html runGroup must not run/charge a downstream node on a failed upstream's stale output.
 touches_stale=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|scripts/check-stale-input-charge\.mjs)$' || true)
+# index.html + play.html carry the AI-upscale-through-Edit path (prompt-optional for /upscal/ models, blank prompt omitted from genImage) — the check pins both engines in lockstep.
+touches_upscale=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.html|scripts/check-upscale\.mjs)$' || true)
 # play.html runtime must resume a timed-out video job instead of re-submitting (double charge).
 touches_vresume=$(printf '%s\n' "$staged" | grep -E '(^|/)(play\.html|scripts/check-video-resume\.mjs)$' || true)
 # index.html + play.html carry the Share→Shorten flow; the short link must keep the #g=/#a= payload.
@@ -53,7 +55,7 @@ touches_combine=$(printf '%s\n' "$staged" | grep -E '(^|/)(index\.html|play\.htm
 touches_pacing=$(printf '%s\n' "$staged" | grep -E '(^|/)(play\.html|scripts/check-import-pacing\.mjs)$' || true)
 
 # Nothing to check unless an .html file or one of the checkers changed.
-[ -z "$staged_html" ] && [ -z "$touches_export" ] && [ -z "$touches_login" ] && [ -z "$touches_sw" ] && [ -z "$touches_compat" ] && [ -z "$touches_run" ] && [ -z "$touches_seedcache" ] && [ -z "$touches_imgports" ] && [ -z "$touches_langpages" ] && [ -z "$touches_editorports" ] && [ -z "$touches_settings" ] && [ -z "$touches_quickadd" ] && [ -z "$touches_i18n" ] && [ -z "$touches_updates" ] && [ -z "$touches_createapp" ] && [ -z "$touches_stale" ] && [ -z "$touches_vresume" ] && [ -z "$touches_share" ] && [ -z "$touches_pricing" ] && [ -z "$touches_combine" ] && [ -z "$touches_pacing" ] && exit 0
+[ -z "$staged_html" ] && [ -z "$touches_export" ] && [ -z "$touches_login" ] && [ -z "$touches_sw" ] && [ -z "$touches_compat" ] && [ -z "$touches_run" ] && [ -z "$touches_seedcache" ] && [ -z "$touches_imgports" ] && [ -z "$touches_langpages" ] && [ -z "$touches_editorports" ] && [ -z "$touches_settings" ] && [ -z "$touches_quickadd" ] && [ -z "$touches_i18n" ] && [ -z "$touches_updates" ] && [ -z "$touches_createapp" ] && [ -z "$touches_stale" ] && [ -z "$touches_upscale" ] && [ -z "$touches_vresume" ] && [ -z "$touches_share" ] && [ -z "$touches_pricing" ] && [ -z "$touches_combine" ] && [ -z "$touches_pacing" ] && exit 0
 
 if ! command -v node >/dev/null 2>&1; then
   echo "pre-commit: node not found, skipping HTML JS checks" >&2
@@ -169,6 +171,13 @@ fi
 #     the real runGroup() and drives it with spy run()s in a node:vm sandbox.
 if [ -n "$touches_stale" ]; then
   node "$root/scripts/check-stale-input-charge.mjs"
+fi
+
+# 13b) AI upscale runs through the Edit node: /upscal/ models take no instruction, so the
+#      "no edit instruction" throw must be gated and genImage must omit a blank prompt — in
+#      BOTH engines (recurring twin-drift risk). Source-assertion, no browser/network.
+if [ -n "$touches_upscale" ]; then
+  node "$root/scripts/check-upscale.mjs"
 fi
 
 # 14) the exported/standalone runtime must RESUME a video job that outlived the 10-min poll window

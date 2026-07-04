@@ -4579,7 +4579,8 @@ const NODE_TYPES = {
         imgs = imgs.slice(0, cap);
       }
       const prompt = (inp.prompt ?? n.fields.prompt ?? "").trim();
-      if(!prompt) throw new Error("no edit instruction — describe the change to make");
+      // Upscalers just enlarge — they need no instruction. Every other edit model requires one.
+      if(!prompt && !/upscal/i.test(n.fields.model||"")) throw new Error("no edit instruction — describe the change to make");
       // N inlined refs add up fast — refuse before any paid call (mirrors the inpaint guard)
       if(imgs.reduce((s,u)=> s + (u?u.length:0), 0) > MEDIA_INLINE_MAX)
         throw new Error("reference images too large (~4 MB combined limit) — use fewer or smaller images");
@@ -6746,7 +6747,8 @@ const CTX = {
   // multi callers surface all of them so the user doesn't silently pay for 3 discarded images.
   async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra, opts){
     opts = opts || {};
-    const body = { model, prompt, size, n: opts.n||1, response_format:"b64_json" };
+    const body = { model, size, n: opts.n||1, response_format:"b64_json" };
+    if(prompt) body.prompt = prompt;                     // omit when blank — upscalers run with no instruction; every other path guarantees a non-empty prompt before reaching here
     if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
     if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint (verified live)
     if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
