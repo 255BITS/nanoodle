@@ -8012,14 +8012,18 @@ function load(){
   if(!raw) return false;
   try{ applyGraphData(JSON.parse(raw)); return true; }catch{ return false; }
 }
+let _starterData = null;   // the shipped starter graph (noodle-graph.json), fetched once and reused as the demo baseline
+async function starterGraphData(){   // the shipped starter's data, or null on file:// where the fetch is blocked (caller falls back to the built-in seed)
+  if(_starterData) return _starterData;
+  try{ const r = await fetch("noodle-graph.json", {cache:"no-store"}); if(r.ok) _starterData = await r.json(); }catch(_){}
+  return _starterData;
+}
 async function loadDefault(){   // noodle-graph.json shipped alongside the page = the starting point
-  try{
-    const r = await fetch("noodle-graph.json", {cache:"no-store"});
-    if(!r.ok) return false;
-    applyGraphData(await r.json());
-    fitView(hintPad());   // always frame the shipped demo for THIS screen — its baked-in view pins top-left on wide monitors; the user hasn't positioned it. hintPad() reserves the (already-shown) first-run banner so the graph frames below it, not under it.
-    return true;
-  }catch{ return false; }      // e.g. opened via file:// — fall back to the built-in seed
+  const d = await starterGraphData();
+  if(!d) return false;          // e.g. opened via file:// — fall back to the built-in seed
+  applyGraphData(JSON.parse(JSON.stringify(d)));   // clone: applyGraphData shares the fields ref and edits would corrupt the cached baseline
+  fitView(hintPad());   // always frame the shipped demo for THIS screen — its baked-in view pins top-left on wide monitors; the user hasn't positioned it. hintPad() reserves the (already-shown) first-run banner so the graph frames below it, not under it.
+  return true;
 }
 function saveFile(){
   const blob = new Blob([JSON.stringify(shareableGraph(), null, 2)], {type:"application/json"});
@@ -8030,7 +8034,12 @@ function saveFile(){
 function loadFile(file){
   if(!file) return;
   const r = new FileReader();
-  r.onload = ()=>{ try{ setPendingApp(null); applyGraphData(JSON.parse(r.result)); window.resetDescribeVersions?.(); save(); }catch(e){ alert(t("Couldn’t load that file:")+" "+e.message); } };
+  r.onload = ()=>{ try{
+    const had = graph.nodes.length > 0;   // only park + reassure if there's a workflow to bring back (mirrors loadExample; skip an empty canvas)
+    if(had) pushUndo();                    // BEFORE the mutation — ↺ Undo restores the prior graph
+    setPendingApp(null); applyGraphData(JSON.parse(r.result)); window.resetDescribeVersions?.(); save();
+    if(had) toast(t("↺ Undo restores your previous workflow"));   // opening a file replaced your graph — one Ctrl+Z away
+  }catch(e){ alert(t("Couldn’t load that file:")+" "+e.message); } };
   r.readAsText(file);
 }
 $("save").onclick = saveFile;
@@ -8198,14 +8207,19 @@ async function loadFromHash(){
   }catch{ /* bad link */ }
   if(!json) return false;
   try{
+    // Both the app-handoff (#ga=) and the share-link (#g=/#j=) paths run at boot BEFORE load(), so the
+    // canvas is empty — pushUndo() would snapshot nothing. Park the STORED graph (same serializeGraph
+    // JSON) instead: the save() below overwrites the noodle someone left on this browser, and Ctrl+Z
+    // must bring it back. (Skip when there's nothing stored — no snapshot of an empty canvas.)
+    let parked = false;
+    try{ const prev = localStorage.getItem("noodle_graph"); if(prev){ undoStack.push(prev); syncUndoBtn(); parked = true; } }catch(_){}
     if(ga){
-      // #ga= runs at boot BEFORE load(), so the canvas is empty — pushUndo() would snapshot
-      // nothing. Park the STORED graph (same serializeGraph JSON) instead: the save() below
-      // overwrites the noodle someone left on this browser, and Ctrl+Z must bring it back.
-      try{ const prev = localStorage.getItem("noodle_graph"); if(prev){ undoStack.push(prev); syncUndoBtn(); } }catch(_){}
       const spec = JSON.parse(json); setPendingApp(spec.appId, spec.title); applyGraphData(spec.graph);
     }
-    else { setPendingApp(null); applyGraphData(JSON.parse(json)); }
+    else {
+      setPendingApp(null); applyGraphData(JSON.parse(json));
+      if(parked) toast(t("↺ Undo restores your previous workflow"));   // a share link just replaced your graph — reassure it's one Ctrl+Z away
+    }
     window.resetDescribeVersions?.();   // a shared/handoff graph replaces the workflow → drop the old describe-version chips
     history.replaceState({}, "", location.pathname + location.search); // consume the link; edits now win
     save();
@@ -8255,10 +8269,10 @@ let lastHandoffSig = null;      // signature of the graph last handed to the bui
 // is an app-meaningful change and must re-hand-off. Deliberately EXCLUDES the canvas view
 // (panX/panY/scale) and node positions/sizes — panning, zooming or nudging a node must NOT
 // count as a change, or the resume never fires. Trim to match serializeGraph/displayName.
-function appHandoffSig(g){
+function appHandoffSig(g, appOverride){
   g = g || graph;   // no arg → the live canvas; pass a stored app's graph to sign that instead
   return JSON.stringify({
-    app: pendingAppId || "",
+    app: appOverride!==undefined ? appOverride : (pendingAppId || ""),   // override for the demo baseline: the shipped starter is never app-bound
     nodes: (g.nodes||[]).map(n=>({ id:n.id, type:n.type, name:(n.name&&n.name.trim())||"", fields:n.fields })),
     links: (g.links||[]).map(l=>({ f:l.from, t:l.to }))
   });
@@ -8794,10 +8808,21 @@ $("signout").onclick = ()=> setKey(null);
   const freshStart = !restored;                                   // nothing personal loaded → we're about to show the shipped starter
   if(!restored) restored = await loadDefault();                   // else noodle-graph.json
   if(!restored) seed();                                           // else built-in starter
-  // Only the pristine shipped starter has a canned sample. Capture its signature so a signed-out
-  // Run knows whether the sample honestly represents what's on the canvas (see runGroup demo path).
-  // A restored graph / share link never matches → those are asked to sign in, never faked.
-  if(freshStart) demoStarterSig = appHandoffSig();
+  // Only the pristine shipped starter has a canned sample. Capture its signature so a signed-out Run
+  // knows whether the sample honestly represents what's on the canvas (see runGroup / inDemoRun).
+  // Compute it from the CANONICAL noodle-graph.json, not from whatever's on the canvas: autosave makes
+  // a returning visitor's boot a "restore" (not a freshStart), so gating on freshStart hid the demo
+  // forever once a signed-out visitor touched the canvas even once — even after they returned it to the
+  // pristine starter. The shipped ids (n1/n2/n3) are deterministic and survive save/restore, so a plain
+  // sig comparison is id-stable — no normalization needed. Signed-out only: demo affordances never apply
+  // to a signed-in user (inDemoRun gates on !getKey), so don't spend a fetch computing a baseline for them.
+  if(!getKey()){
+    try{
+      const starter = await starterGraphData();
+      if(starter) demoStarterSig = appHandoffSig(starter, "");       // app:"" — the shipped starter is never app-bound
+      else if(freshStart) demoStarterSig = appHandoffSig(undefined, "");   // file://: the fetch is blocked, but seed() just mounted the starter live
+    }catch(_){}
+  }
   updateTitle();                                                  // reflect whether an app's workflow is loaded
   redraw();
   // Reconcile once the fresh catalog lands: resize cards, backfill default models, refresh prices/panels
