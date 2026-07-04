@@ -4785,7 +4785,14 @@ function deriveTitle(graph){
   else { for(const n of nodes){ if(!n.fields) continue;
     for(const f of PF){ const v=n.fields[f]; if(typeof v==="string" && v.trim()){ promptStr=v; break; } }
     if(promptStr) break; } }
-  if(promptStr){ const w=promptStr.trim().replace(/\s+/g," ").split(" ").slice(0,5).join(" "); if(w) return w.slice(0,48); }
+  if(promptStr){
+    let w = promptStr.trim().replace(/\s+/g," ").split(" ").slice(0,5).join(" ");
+    // Cap at 48 chars, but prefer the last word boundary so we don't chop a word in half.
+    if(w.length>48){ w=w.slice(0,48); const sp=w.lastIndexOf(" "); if(sp>0) w=w.slice(0,sp); }
+    // Strip trailing punctuation/whitespace the 5-word slice dragged along (Latin + CJK 、。，).
+    w = w.replace(/[\s,;:.!…–—、。，\-]+$/,"");
+    if(w) return w.charAt(0).toUpperCase()+w.slice(1);   // capitalize the derived name
+  }
   // 2) Output kinds -> "<Kind> Generator", or "<A> & <B> Generator" for a mixed pipeline.
   const kinds=[...new Set(nodes.map(n=>({image:"Image",tvideo:"Video",ivideo:"Video",music:"Music",
     tts:"Speech",llm:"Text",vision:"Vision"}[n.type])).filter(Boolean))];
