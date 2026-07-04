@@ -3874,6 +3874,23 @@ function mp4ParamsMatch(bufs){
     box.querySelector("#app-loop-cb").addEventListener("change", function(e){ KEEP = e.target.checked; });
   }
 
+  // Gate the spend multipliers (Keep generating + the RUNS 1×/2×/4×/8× selector) behind
+  // having a key: a signed-out first-time recipient shouldn't be one click from an 8× run
+  // before spending a first dollar. Authed = a stored key standalone, the parent's signed-in
+  // flag when embedded. While hidden, force RUNS_N=1 / KEEP=false so a stale 8×/checked state
+  // can't ride into a run, and re-render so a later reveal shows that reset (not a stale pick).
+  // The "~$X /run" chip stays put either way — that's deliberate spend honesty. Called from
+  // renderAuth(), which every auth change hits, so the reveal is reactive, not next-load-only.
+  function applyRunGating(){
+    const authed = EMBEDDED ? parentAuthed : !!getKey();
+    if(!authed){ RUNS_N = 1; KEEP = false; }
+    const loop = $("app-loop"), cnt = $("app-count");
+    if(loop) loop.hidden = !authed;
+    if(cnt) cnt.hidden = !authed;
+    renderCount(); renderLoop();   // keep the DOM in sync with the (possibly reset) RUNS_N/KEEP
+    paintRunCost();   // the chip scales by RUNS_N, so a gating reset must repaint it (no-op while unpriced)
+  }
+
   /* ---------- session cost meter ----------
      A running "spent on this app" line. Self-styled and self-mounted so it shows
      up in every app — the default one, customized ones, exported standalones, and
@@ -4662,6 +4679,7 @@ function mp4ParamsMatch(bufs){
     return '<div class="auth-intro">' + cta + '</div>';
   }
   function renderAuth(){
+    applyRunGating();   // reveal/hide the spend multipliers reactively on every auth change
     const box = $("app-auth"); if(!box) return;
     // Embedded in the builder, auth belongs to the parent (it holds the key and proxies
     // calls) — the app never takes a key of its own, so just reflect the parent's state.
@@ -5106,6 +5124,10 @@ body{ background:
 .field .setbool input{ accent-color:var(--accent); width:1rem; height:1rem; margin:0; }
 
 /* keep-generating toggle — keeps all N lanes busy until Stop / unchecked */
+/* .loop / .count each set display:flex, which beats the UA [hidden] rule (equal specificity,
+   author wins) — so gate them with a class+attr rule that outranks it (applyRunGating hides
+   these until a key is connected). */
+.loop[hidden], .count[hidden]{ display:none !important; }
 .loop{ display:flex; align-items:center; gap:.4rem; font-size:.8rem; color:var(--dim); cursor:pointer; user-select:none; }
 .loop input{ accent-color:var(--accent); width:1rem; height:1rem; cursor:pointer; margin:0; }
 .loop:hover{ color:var(--ink); }
