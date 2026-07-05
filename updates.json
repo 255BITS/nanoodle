@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-05",
+    "text": "Run progress now highlights the step that's actually running — and the progress bar's \"working\" color no longer looks like an error."
+  },
+  {
+    "date": "2026-07-05",
     "text": "Apps now keep a history of everything they've made — every past result comes back when you return, newest on top (still stored only in your own browser).",
     "i18n": {
       "es": "Las apps ahora guardan un historial de todo lo que han creado: cada resultado anterior vuelve cuando regresas, con el más reciente arriba (siempre almacenado solo en tu propio navegador).",
