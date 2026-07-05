@@ -17,8 +17,8 @@
       "es": "Las apps guardadas hace tiempo (o rediseñadas con Customize) vuelven a mostrar selectores de modelo y casillas ordenadas — el reproductor de apps ahora aplica los estilos que necesitan sus propios controles.",
       "fr": "Les apps sauvegardées il y a un moment (ou restylées via Customize) affichent à nouveau des sélecteurs de modèles et cases à cocher bien rangés — le lecteur d'app conserve désormais les styles nécessaires à ses propres contrôles.",
       "de": "Apps, die vor einiger Zeit gespeichert wurden (oder mit Customize umgestaltet wurden), zeigen wieder übersichtliche Modell-Auswahlen und Checkboxen – der App-Player übernimmt jetzt die Styles, die seine eigenen Steuerelemente brauchen.",
-      "pt": "Apps salvas há um tempo (ou reestilizadas pelo Customize) mostram novamente seletores de modelo e caixas de seleção organizados — o player de apps agora aplica os estilos necessários aos seus próprios controles.",
-      "ja": "以前保存されたアプリ（またはCustomizeで再スタイルされたもの）は、モデル選択やチェックボックスが再び整然と表示されるようになりました。アプリプレイヤーが必要なコントロールのスタイルを保持するようになっています。"
+      "pt": "Apps salvos há um tempo (ou reestilizados pelo Customize) mostram novamente seletores de modelo e caixas de seleção organizados — o player de apps agora aplica os estilos necessários aos seus próprios controles.",
+      "ja": "以前保存されたアプリ（またはCustomizeで再スタイルされたもの）は、モデル選択やチェックボックスが再び整然と表示されるようになりました。アプリプレイヤーが、自身のコントロールに必要なスタイルを自ら持つようになったためです。"
     }
   },
   {
@@ -26,10 +26,10 @@
     "text": "Your saved apps are now one click from the editor — the ▾ next to ✨ opens \"≡ My apps\"",
     "i18n": {
       "es": "Tus apps guardadas ahora están a un clic desde el editor — el ▾ junto a ✨ abre \"≡ Mis apps\"",
-      "fr": "Vos apps sauvegardées sont maintenant à un clic de l'éditeur — le ▾ à côté de ✨ ouvre \"≡ My apps\"",
-      "de": "Deine gespeicherten Apps sind jetzt nur einen Klick vom Editor entfernt – das ▾ neben ✨ öffnet \"≡ My apps\"",
-      "pt": "Seus apps salvos agora estão a um clique do editor — o ▾ ao lado de ✨ abre \"≡ My apps\"",
-      "ja": "保存したアプリがエディターからワンクリックでアクセス可能に — ✨の隣の▾をクリックすると「≡ My apps」が開きます"
+      "fr": "Vos apps sauvegardées sont maintenant à un clic de l'éditeur — le ▾ à côté de ✨ ouvre \"≡ Mes apps\"",
+      "de": "Deine gespeicherten Apps sind jetzt nur einen Klick vom Editor entfernt – das ▾ neben ✨ öffnet \"≡ Meine Apps\"",
+      "pt": "Seus apps salvos agora estão a um clique do editor — o ▾ ao lado de ✨ abre \"≡ Meus apps\"",
+      "ja": "保存したアプリがエディターからワンクリックでアクセス可能に — ✨の隣の▾をクリックすると「≡ マイアプリ」が開きます"
     }
   },
   {
@@ -40,7 +40,7 @@
       "fr": "Les applis partagées ouvertes depuis un lien ne peuvent plus lancer de requêtes payantes toutes seules : elles restent bloquées jusqu'à ce que vous cliquiez sur Exécuter, et ne peuvent pas télécharger de fichiers automatiquement au chargement.",
       "de": "Über einen Link geöffnete geteilte Apps können nicht mehr von selbst kostenpflichtige Anfragen stellen — sie bleiben blockiert, bis du auf Ausführen klickst, und können beim Laden keine Dateien automatisch herunterladen.",
       "pt": "Apps compartilhados abertos por um link não podem mais fazer solicitações pagas sozinhos — ficam bloqueados até você clicar em Executar e não podem baixar arquivos automaticamente ao carregar.",
-      "ja": "リンクから開いた共有アプリが勝手に有料リクエストを実行できないようになりました。実行をクリックするまでブロックされ、読み込み時にファイルを自動ダウンロードすることもできません。"
+      "ja": "リンクから開いた共有アプリが勝手に有料リクエストを実行できないようになりました。Runをクリックするまでブロックされ、読み込み時にファイルを自動ダウンロードすることもできません。"
     }
   },
   {
@@ -102,21 +102,21 @@
     "date": "2026-07-04",
     "text": "Re-running after a failed step no longer re-charges upstream steps that already succeeded.",
     "i18n": {
-      "es": "Volver a ejecutar después de un paso fallido ya no recarga los pasos anteriores que ya se completaron con éxito.",
-      "fr": "Relancer après une étape échouée ne recharge plus les étapes en amont qui ont déjà réussi.",
-      "de": "Das erneute Ausführen nach einem fehlgeschlagenen Schritt lädt erfolgreich abgeschlossene vorherige Schritte nicht mehr neu auf.",
-      "pt": "Reexecutar após uma etapa falhar não recarrega mais as etapas anteriores que já foram concluídas com sucesso.",
-      "ja": "失敗したステップの再実行時、すでに成功した上流のステップが再実行されなくなりました。"
+      "es": "Volver a ejecutar después de un paso fallido ya no vuelve a cobrar los pasos anteriores que ya se completaron con éxito.",
+      "fr": "Relancer après une étape échouée ne refacture plus les étapes en amont qui ont déjà réussi.",
+      "de": "Das erneute Ausführen nach einem fehlgeschlagenen Schritt berechnet bereits erfolgreich abgeschlossene vorherige Schritte nicht noch einmal.",
+      "pt": "Reexecutar após uma etapa falhar não cobra de novo pelas etapas anteriores que já foram concluídas com sucesso.",
+      "ja": "失敗したステップの後に再実行しても、すでに成功した上流のステップには再課金されなくなりました。"
     }
   },
   {
     "date": "2026-07-04",
     "text": "Upscaler models now work in the Edit node — wire an image, pick an upscaler, and run with no instruction needed",
     "i18n": {
-      "es": "Los modelos de escalado ahora funcionan en el nodo Editar: conecta una imagen, elige un escalador y ejecuta sin necesidad de instrucciones.",
-      "fr": "Les modèles d'agrandissement fonctionnent maintenant dans le nœud Édition : reliez une image, choisissez un agrandisseur et lancez sans aucune instruction.",
+      "es": "Los modelos de escalado ahora funcionan en el nodo Edit: conecta una imagen, elige un escalador y ejecuta sin necesidad de instrucciones.",
+      "fr": "Les modèles d'upscaling fonctionnent maintenant dans le nœud Edit : reliez une image, choisissez un upscaler et lancez sans aucune instruction.",
       "de": "Upscaler-Modelle funktionieren jetzt im Bearbeiten-Knoten: Bild verbinden, Upscaler wählen und ohne Anweisung ausführen.",
-      "pt": "Modelos de upscale agora funcionam no nó Editar: conecte uma imagem, escolha um upscaler e execute sem precisar de instruções.",
+      "pt": "Modelos de upscale agora funcionam no nó Edit: conecte uma imagem, escolha um upscaler e execute sem precisar de instruções.",
       "ja": "アップスケーラーモデルが編集ノードで使えるようになりました。画像をつないでアップスケーラーを選び、指示なしで実行できます。"
     }
   },
@@ -158,10 +158,10 @@
     "text": "Music node no longer bills for extra songs it couldn't deliver — the \"Number of songs\" field is capped at 1.",
     "i18n": {
       "es": "El nodo de música ya no cobra por canciones extra que no pudo entregar — el campo \"Number of songs\" está limitado a 1.",
-      "fr": "Le nœud Musique ne facture plus les chansons supplémentaires qu'il ne peut pas livrer — le champ « Nombre de chansons » est limité à 1.",
-      "de": "Der Musik-Knoten berechnet keine zusätzlichen Songs mehr, die er nicht liefern konnte – das Feld „Anzahl der Songs“ ist auf 1 begrenzt.",
+      "fr": "Le nœud Musique ne facture plus les chansons supplémentaires qu'il ne peut pas livrer — le champ « Number of songs » est limité à 1.",
+      "de": "Der Musik-Knoten berechnet keine zusätzlichen Songs mehr, die er nicht liefern konnte – das Feld „Number of songs“ ist auf 1 begrenzt.",
       "pt": "O nó de música não cobra mais por músicas extras que não conseguiu entregar — o campo \"Number of songs\" agora está limitado a 1.",
-      "ja": "Musicノードが配信できなかった追加の曲に対して請求しなくなり、「Number of songs」フィールドが1曲に制限されました。"
+      "ja": "Musicノードが提供できなかった追加の曲に対して請求しなくなり、「Number of songs」フィールドは1に制限されました。"
     }
   },
   {
@@ -169,7 +169,7 @@
     "text": "Multi-image apps now label each upload by role (End frame, Reference 1, …)",
     "i18n": {
       "es": "Las apps de múltiples imágenes ahora etiquetan cada carga según su rol (End frame, Reference 1, …).",
-      "fr": "Les apps multi-images étiquettent maintenant chaque upload selon son rôle (Image finale, Référence 1, …).",
+      "fr": "Les apps multi-images étiquettent maintenant chaque upload selon son rôle (End frame, Reference 1, …).",
       "de": "Multi-Image-Apps kennzeichnen jetzt jeden Upload nach Rolle (End Frame, Referenz 1, …).",
       "pt": "Apps com múltiplas imagens agora rotulam cada upload pelo seu papel (End frame, Reference 1, …).",
       "ja": "マルチ画像アプリが各アップロードを役割別にラベル付けするようになりました（End frame、Reference 1、…）。"
@@ -180,7 +180,7 @@
     "text": "/play now tells you when a shared app's model ignores your reference images, end frame, or extra images instead of dropping them silently.",
     "i18n": {
       "es": "/play ahora te avisa cuando el modelo de una app compartida ignora tus imágenes de referencia, end frame o imágenes extra en lugar de descartarlas sin aviso.",
-      "fr": "/play vous informe désormais quand le modèle d'une app partagée ignore vos images de référence, image finale ou images supplémentaires, au lieu de les ignorer sans explication.",
+      "fr": "/play vous informe désormais quand le modèle d'une app partagée ignore vos images de référence, image finale ou images supplémentaires, au lieu de les écarter sans explication.",
       "de": "/play informiert dich jetzt, wenn das Modell einer geteilten App deine Referenzbilder, End Frame oder zusätzliche Bilder ignoriert, statt sie stillschweigend zu verwerfen.",
       "pt": "/play agora avisa quando o modelo de um app compartilhado ignora suas imagens de referência, end frame ou imagens extras, em vez de descartá-las sem aviso.",
       "ja": "/playで、共有アプリのモデルが参照画像、エンドフレーム、または追加画像を無視する場合に通知されるようになりました（以前は黙って削除されていました）。"
@@ -190,10 +190,10 @@
     "date": "2026-07-04",
     "text": "Image→Video now points you at Text→Video for character/subject reference images when the picked model supports them.",
     "i18n": {
-      "es": "Image→Video ahora te redirige a Text→Video para imágenes de referencia de personajes/temas cuando el modelo seleccionado las admite.",
-      "fr": "Image→Vidéo vous redirige maintenant vers Texte→Vidéo pour les images de référence de personnage/sujet si le modèle choisi les prend en charge.",
+      "es": "Image→Video ahora te remite a Text→Video para imágenes de referencia de personaje/sujeto cuando el modelo elegido las admite.",
+      "fr": "Image→Vidéo vous oriente maintenant vers Texte→Vidéo pour les images de référence de personnage/sujet si le modèle choisi les prend en charge.",
       "de": "Image→Video verweist dich jetzt auf Text→Video für Charakter-/Subjekt-Referenzbilder, wenn das ausgewählte Modell diese unterstützt.",
-      "pt": "Image→Video agora direciona você para Text→Video para imagens de referência de personagens/sujeitos quando o modelo escolhido as suporta.",
+      "pt": "Image→Video agora direciona você para Text→Video para imagens de referência de personagem/tema quando o modelo escolhido as suporta.",
       "ja": "Image→Videoで、選択したモデルが対応している場合、キャラクターや対象の参照画像にText→Videoを使用するよう案内されるようになりました。"
     }
   },
@@ -202,9 +202,9 @@
     "text": "Soundtrack error now suggests a fix that actually works",
     "i18n": {
       "es": "El error de Soundtrack ahora sugiere una solución que realmente funciona.",
-      "fr": "L'erreur de bande-son propose maintenant une solution qui fonctionne vraiment.",
+      "fr": "L'erreur du nœud Soundtrack propose maintenant une solution qui fonctionne vraiment.",
       "de": "Soundtrack-Fehler schlägt jetzt eine Lösung vor, die tatsächlich funktioniert.",
-      "pt": "Erro de trilha sonora agora sugere uma solução que realmente funciona.",
+      "pt": "O erro do Soundtrack agora sugere uma solução que realmente funciona.",
       "ja": "Soundtrackエラーが実際に機能する修正方法を提案するようになりました。"
     }
   },
@@ -234,11 +234,11 @@
     "date": "2026-07-03",
     "text": "Shared apps now show a gentle \"make your own app\" link after your first result — closing the loop back to nanoodle",
     "i18n": {
-      "es": "Las apps compartidas ahora muestran un suave enlace de \"haz tu propia app\" después de tu primer resultado — cerrando el círculo de vuelta a nanoodle",
+      "es": "Las apps compartidas ahora muestran un discreto enlace de \"haz tu propia app\" después de tu primer resultado — cerrando el círculo de vuelta a nanoodle",
       "fr": "Les apps partagées affichent maintenant un lien discret \"créez votre propre app\" après votre premier résultat — pour boucler la boucle avec nanoodle",
       "de": "Geteilte Apps zeigen jetzt nach deinem ersten Ergebnis einen dezenten \"Mach deine eigene App\"-Link – damit du wieder bei nanoodle landest.",
-      "pt": "Apps compartilhados agora mostram um link suave de \"crie seu próprio app\" depois do primeiro resultado — conectando você de volta ao nanoodle",
-      "ja": "共有アプリで初回の結果が表示された後、優しく「自分のアプリを作る」リンクが表示されるようになり、nanoodleへの流れがスムーズになりました。"
+      "pt": "Apps compartilhados agora mostram um link discreto de \"crie seu próprio app\" depois do primeiro resultado — conectando você de volta ao nanoodle",
+      "ja": "共有アプリで初回の結果が出た後、さりげなく「自分のアプリを作る」リンクが表示されるようになり、nanoodleへ戻る流れができました。"
     }
   },
   {
@@ -249,7 +249,7 @@
       "fr": "Les apps partagées affichent désormais le coût estimé à côté du bouton Run — et il s'ajuste quand vous choisissez des exécutions 2x/4x/8x",
       "de": "Geteilte Apps zeigen jetzt die geschätzten Laufkosten direkt neben dem Run-Button – und die Kosten passen sich an, wenn du 2x/4x/8x Läufe auswählst.",
       "pt": "Apps compartilhados agora exibem o custo estimado de execução ao lado do botão Run — e ele se ajusta quando você escolhe rodar em 2x/4x/8x",
-      "ja": "共有アプリでRunボタンの横に推定実行コストが表示されるようになりました — さらに2x/4x/8x実行を選ぶとスケールします。"
+      "ja": "共有アプリでRunボタンの横に推定実行コストが表示されるようになりました — 2x/4x/8x実行を選ぶと金額もそれに応じて変わります。"
     }
   },
   {
@@ -259,7 +259,7 @@
       "es": "Las apps compartidas ahora tienen un nombre descriptivo — basado en tu prompt o los modelos usados — en lugar del genérico \"My nanoodle app\"",
       "fr": "Les apps partagées ont maintenant un nom descriptif — basé sur votre prompt ou les modèles utilisés — au lieu du générique \"My nanoodle app\"",
       "de": "Geteilte Apps bekommen jetzt einen beschreibenden Namen – basierend auf deinem Prompt oder den verwendeten Modellen – statt dem generischen \"My nanoodle app\".",
-      "pt": "Apps compartilhados agora recebem um nome descritivo — baseado no seu prompt ou nos modelos usados — em vez do genérico \"Meu app nanoodle\"",
+      "pt": "Apps compartilhados agora recebem um nome descritivo — baseado no seu prompt ou nos modelos usados — em vez do genérico \"My nanoodle app\"",
       "ja": "共有アプリが「My nanoodle app」のような汎用名ではなく、プロンプトや使用モデルから生成された説明的な名前を持つようになりました。"
     }
   },
@@ -271,16 +271,16 @@
       "fr": "🎨🎬 Images de référence pour Text→Video — sur les modèles seedance/luma, ajoutez des images de référence pour guider le sujet, le personnage ou le style d'une vidéo générée",
       "de": "🎨🎬 Text→Video-Referenzbilder — bei seedance/luma-Modellen kannst du Referenzbilder einfügen, um das Motiv, den Charakter oder den Stil eines generierten Videos zu steuern",
       "pt": "🎨🎬 Imagens de referência para Texto→Vídeo — nos modelos seedance/luma, conecte imagens de referência para orientar o tema, personagem ou estilo de um vídeo gerado",
-      "ja": "🎨🎬 Text→Video参照画像 — seedance/lumaモデルで、生成される動画の対象、キャラクター、またはスタイルをガイドするために参照画像を組み込めるようになったよ"
+      "ja": "🎨🎬 Text→Video参照画像 — seedance/lumaモデルで、生成される動画の対象、キャラクター、またはスタイルをガイドするために参照画像を組み込めるようになりました"
     }
   },
   {
     "date": "2026-07-03",
     "text": "🖼️→🖼️ Image→Video morph — wire a second \"end frame\" image on seedance-2.0 models and the clip animates from the first image to the last",
     "i18n": {
-      "es": "🖼️→🖼️ Imagen→Video morph — conecta una segunda imagen como \"fotograma final\" en modelos seedance-2.0 y el clip se anima desde la primera imagen hasta la última.",
+      "es": "🖼️→🖼️ Imagen→Video morph — conecta una segunda imagen \"end frame\" (fotograma final) en modelos seedance-2.0 y el clip se anima desde la primera imagen hasta la última.",
       "fr": "🖼️→🖼️ Morphing Image→Vidéo — connectez une deuxième image \"image finale\" aux modèles seedance-2.0 et le clip s'anime de la première image à la dernière.",
-      "de": "🖼️→🖼️ Image→Video-Morph — Verbinde ein zweites „Endframe“-Bild mit Seedance-2.0-Modellen, und der Clip animiert sich vom ersten zum letzten Bild.",
+      "de": "🖼️→🖼️ Image→Video-Morph — verbinde bei Seedance-2.0-Modellen ein zweites „Endframe“-Bild, und der Clip geht fließend vom ersten zum letzten Bild über.",
       "pt": "🖼️→🖼️ Image→Video morph — conecte uma segunda imagem de \"quadro final\" nos modelos seedance-2.0 e o clipe anima da primeira imagem até a última.",
       "ja": "🖼️→🖼️ Image→Videoモーフ — seedance-2.0モデルで2枚目の「エンドフレーム」画像を接続すると、クリップが最初の画像から最後の画像へアニメーションします。"
     }
@@ -292,19 +292,19 @@
       "es": "Las vistas previas de TTS ahora se reproducen en el editor incluso cuando el proveedor devuelve audio con un tipo de contenido genérico o faltante (ya no más reproductores muertos de 0:00).",
       "fr": "Les aperçus TTS se jouent maintenant dans l'éditeur même si le fournisseur renvoie un fichier audio avec un type de contenu manquant ou générique (fini le lecteur mort à 0:00).",
       "de": "TTS-Vorschauen werden jetzt im Editor abgespielt, auch wenn der Anbieter Audio mit fehlendem oder generischem Content-Type zurückgibt (kein toter 0:00-Player mehr).",
-      "pt": "Pré-visualizações de TTS agora tocam no editor mesmo quando o provedor retorna áudio com um tipo de conteúdo ausente ou genérico (nada de mais players mortos com 0:00).",
-      "ja": "TTSプレビューが、プロバイダーがコンテンツタイプを欠落または一般的なものとして返した場合でも、エディター内で再生されるようになりました（もう0:00のプレイヤーが動かないことはありません）。"
+      "pt": "Pré-visualizações de TTS agora tocam no editor mesmo quando o provedor retorna áudio com um tipo de conteúdo ausente ou genérico (chega de player morto em 0:00).",
+      "ja": "TTSプレビューが、プロバイダーの返す音声のコンテンツタイプが欠落していたり汎用的だったりしても、エディター内で再生されるようになりました（0:00のまま動かないプレイヤーはもうありません）。"
     }
   },
   {
     "date": "2026-07-03",
     "text": "The run-cost estimate no longer overcharges for \"number of songs\" on music models that don't support it — swap to a model without a song count and the price drops to a single song, matching what actually runs.",
     "i18n": {
-      "es": "La estimación de costos de ejecución ya no cobra de más por \"número de canciones\" en modelos de música que no lo admiten — cambia a un modelo sin conteo de canciones y el precio baja a una sola canción, coincidiendo con lo que realmente se ejecuta.",
-      "fr": "L'estimation du coût d'exécution ne surévalue plus le \"nombre de chansons\" pour les modèles musicaux qui ne le prennent pas en charge — passez à un modèle sans comptage de chansons et le prix tombe à une seule chanson, correspondant à ce qui est réellement exécuté.",
-      "de": "Die Kostenschätzung für Run überfordert nicht mehr bei \"Anzahl der Songs\" für Musikmodelle, die das nicht unterstützen – wechsle zu einem Modell ohne Songanzahl, und der Preis fällt auf einen einzelnen Song, passend zu dem, was tatsächlich läuft.",
-      "pt": "A estimativa de custo de execução não cobra mais a mais pelo \"número de músicas\" em modelos de música que não suportam isso — troque para um modelo sem contagem de músicas e o preço cai para uma única música, correspondendo ao que realmente é executado.",
-      "ja": "音楽モデルで「曲数」をサポートしていない場合、実行コストの見積もりが過剰請求されなくなりました — 曲数なしのモデルに切り替えると、実際に実行される1曲分の価格に調整されます。"
+      "es": "La estimación de costos de ejecución ya no sobreestima el precio por \"número de canciones\" en modelos de música que no lo admiten — cambia a un modelo sin conteo de canciones y el precio baja a una sola canción, coincidiendo con lo que realmente se ejecuta.",
+      "fr": "L'estimation du coût d'exécution ne compte plus en trop le \"nombre de chansons\" pour les modèles musicaux qui ne le prennent pas en charge — passez à un modèle sans comptage de chansons et le prix retombe à une seule chanson, correspondant à ce qui est réellement exécuté.",
+      "de": "Die Laufkosten-Schätzung berechnet nicht mehr zu viel für „Number of songs“ bei Musikmodellen, die das nicht unterstützen – wechsle zu einem Modell ohne Songanzahl, und der Preis fällt auf einen einzelnen Song, passend zu dem, was tatsächlich läuft.",
+      "pt": "A estimativa de custo de execução não superestima mais o \"Number of songs\" em modelos de música que não suportam esse campo — troque para um modelo sem contagem de músicas e o preço cai para uma única música, correspondendo ao que realmente é executado.",
+      "ja": "「曲数」をサポートしていない音楽モデルで、実行コストの見積もりが過大に表示されなくなりました — 曲数のないモデルに切り替えると、価格は実際に実行される1曲分に下がります。"
     }
   },
   {
@@ -314,8 +314,8 @@
       "es": "Errores más claros: Trim ahora te avisa si tu punto de inicio está después del final del clip (con su duración real) en lugar de producir un fragmento silencioso, Transcribe explica honestamente cuando una descarga de audio está bloqueada, y el nodo Vision ahora envía exactamente la pregunta que aparece en pantalla.",
       "fr": "Des erreurs plus claires — Trim vous indique désormais si votre point de départ dépasse la fin du clip (avec sa vraie durée) au lieu de produire un fragment silencieux, Transcribe explique honnêtement un téléchargement audio bloqué, et le nœud Vision envoie exactement la question affichée à l'écran.",
       "de": "Klarere Fehlermeldungen – Trim zeigt dir jetzt an, wenn dein Startpunkt hinter dem Ende des Clips liegt (mit der tatsächlichen Länge), statt einen stummen Schnipsel zu erzeugen. Transcribe erklärt ehrlich, warum ein Audio-Download blockiert wurde, und der Vision-Knoten sendet genau die Frage, die auf dem Bildschirm angezeigt wird.",
-      "pt": "Erros mais claros — Trim agora avisa quando o ponto inicial está além do fim do clipe (com o comprimento real) em vez de criar um fragmento silencioso, Transcribe explica honestamente quando um download de áudio é bloqueado, e o nó Vision agora envia exatamente a pergunta exibida na tela.",
-      "ja": "エラーがより明確に—Trimは、開始ポイントがクリップの終了点を超えている場合に（実際の長さとともに）通知し、無音の断片を生成する代わりに説明します。Transcribeはブロックされた音声ダウンロードについて正直に説明し、Visionノードは画面に表示されている質問を正確に送信します。"
+      "pt": "Erros mais claros — Trim agora avisa quando o ponto inicial está além do fim do clipe (com a duração real) em vez de criar um fragmento silencioso, Transcribe explica honestamente quando um download de áudio é bloqueado, e o nó Vision agora envia exatamente a pergunta exibida na tela.",
+      "ja": "エラーがより明確に — Trimは、無音の切れ端を生成する代わりに、開始位置がクリップの終わりを過ぎている場合に（実際の長さとともに）知らせるようになりました。Transcribeはブロックされた音声ダウンロードを正直に説明し、Visionノードは画面に表示されている質問をそのまま送信するようになりました。"
     }
   },
   {
@@ -326,7 +326,7 @@
       "fr": "Draw avertit maintenant avant l'envoi si les images de référence connectées sont trop grandes (au lieu d'échouer avec une erreur confuse), et exécuter Draw dans une app exportée garde votre solde à jour.",
       "de": "Draw warnt jetzt, bevor gesendet wird, wenn verkabelte Referenzbilder zu groß sind (statt mit einer verwirrenden Fehlermeldung zu scheitern), und beim Ausführen von Draw in einer exportierten App bleibt dein Guthaben aktuell.",
       "pt": "Draw agora avisa antes de enviar se as imagens de referência conectadas forem muito grandes (em vez de falhar com um erro confuso), e executar Draw em um app exportado mantém seu saldo atualizado.",
-      "ja": "Drawは、接続された参照画像が大きすぎる場合に送信前に警告を表示するようになり（混乱するエラーで失敗する代わりに）、エクスポートされたアプリでDrawを実行すると残高が最新の状態に保たれます。"
+      "ja": "Drawは、接続された参照画像が大きすぎる場合に（分かりにくいエラーで失敗する代わりに）送信前に警告を表示するようになり、エクスポートされたアプリでDrawを実行すると残高が最新の状態に保たれます。"
     }
   },
   {
@@ -334,10 +334,10 @@
     "text": "Uploaded transparent PNGs keep their transparency (no more black background), and oversized audio/video now warns you at upload time instead of only when you press Run — in the editor and in exported apps.",
     "i18n": {
       "es": "Los PNG transparentes subidos conservan su transparencia (ya no más fondo negro), y los archivos de audio/video demasiado grandes ahora te advierten al momento de subirlos en lugar de solo cuando presionas Run, tanto en el editor como en las apps exportadas.",
-      "fr": "Les PNG transparents téléchargés conservent leur transparence (fini le fond noir), et les fichiers audio/vidéo trop volumineux vous avertissent lors du téléchargement plutôt que seulement quand vous appuyez sur Run — dans l'éditeur et les apps exportées.",
+      "fr": "Les PNG transparents importés conservent leur transparence (fini le fond noir), et les fichiers audio/vidéo trop volumineux vous avertissent dès l'import plutôt que seulement quand vous appuyez sur Run — dans l'éditeur et les apps exportées.",
       "de": "Hochgeladene transparente PNGs behalten ihre Transparenz (kein schwarzer Hintergrund mehr), und übergroße Audio-/Videodateien warnen dich jetzt beim Hochladen, statt erst wenn du Run drückst – sowohl im Editor als auch in exportierten Apps.",
-      "pt": "PNGs transparentes enviados mantêm sua transparência (nada de mais fundo preto), e áudios/vídeos muito grandes agora avisam no momento do upload em vez de só quando você aperta Run — no editor e em apps exportados.",
-      "ja": "アップロードされた透明PNGが透明性を保持するようになり（黒背景はもうありません）、サイズ超過の音声/動画は、Runを押したときだけでなく、アップロード時にも警告を表示するようになりました—エディター内でもエクスポートされたアプリ内でも。"
+      "pt": "PNGs transparentes enviados mantêm sua transparência (chega de fundo preto), e áudios/vídeos muito grandes agora avisam no momento do upload em vez de só quando você aperta Run — no editor e em apps exportados.",
+      "ja": "アップロードされた透明PNGが透過を保持するようになり（黒背景はもうありません）、サイズ超過の音声/動画では、Runを押したときだけでなくアップロード時にも警告が表示されるようになりました — エディター内でもエクスポートされたアプリ内でも。"
     }
   },
   {
@@ -378,32 +378,32 @@
     "text": "Edit node now trims reference images to what the chosen model actually accepts, so a model switch never sends extra images (and charges) the model can't use.",
     "i18n": {
       "es": "El nodo Edit ahora recorta las imágenes de referencia según lo que el modelo elegido realmente acepta, así que cambiar de modelo nunca enviará imágenes extra (ni cobrará) que el modelo no pueda usar.",
-      "fr": "Le nœud Edit réduit désormais les images de référence aux formats acceptés par le modèle choisi, pour éviter qu'un changement de modèle n'envoie des images inutilisables (et des frais inutiles).",
+      "fr": "Le nœud Edit limite désormais les images de référence à ce que le modèle choisi accepte réellement, pour qu'un changement de modèle n'envoie jamais d'images en trop (facturées en plus) que le modèle ne peut pas utiliser.",
       "de": "Der Bearbeiten-Knoten schneidet Referenzbilder jetzt auf das zu, was das gewählte Modell tatsächlich akzeptiert, sodass ein Modellwechsel nie zusätzliche Bilder (und Kosten) sendet, die das Modell nicht nutzen kann.",
-      "pt": "O nó Edit agora corta as imagens de referência para o que o modelo escolhido realmente aceita, então trocar de modelo nunca envia imagens extras (e cobranças) que o modelo não pode usar.",
-      "ja": "編集ノードが参照画像を選択したモデルが実際に受け入れる範囲にトリムするようになり、モデル切り替え時に使えない画像（と料金）が送信されることがなくなりました。"
+      "pt": "O nó Edit agora limita as imagens de referência ao que o modelo escolhido realmente aceita, então trocar de modelo nunca envia imagens extras que o modelo não pode usar (nem cobra por elas).",
+      "ja": "編集ノードが参照画像を、選択したモデルが実際に受け入れる範囲にトリムするようになり、モデル切り替え時に、モデルが使えない余分な画像が送信されて余計な料金が発生することがなくなりました。"
     }
   },
   {
     "date": "2026-07-02",
     "text": "Text→Video model picker no longer lists edit/extend-only models that can't run from a text prompt, and PixVerse v5.5/5.6 now honor your chosen aspect ratio.",
     "i18n": {
-      "es": "El selector de modelos de Texto→Video ya no muestra modelos que solo permiten editar/extender y no pueden ejecutarse desde un texto, y PixVerse v5.5/5.6 ahora respeta el aspecto que elijas.",
-      "fr": "Le sélecteur de modèles Text→Video n'affiche plus les modèles réservés à l'édition/extension qui ne peuvent pas fonctionner avec une invite textuelle, et PixVerse v5.5/5.6 respecte désormais le ratio d'aspect choisi.",
-      "de": "Im Text→Video-Modell-Auswahl werden keine Modelle mehr angezeigt, die nur bearbeiten/erweitern können und nicht mit einem Text-Prompt laufen, und PixVerse v5.5/5.6 respektiert jetzt dein gewähltes Seitenverhältnis.",
-      "pt": "O seletor de modelos Text→Video não lista mais modelos que só permitem editar/estender e que não podem ser executados a partir de um prompt de texto, e PixVerse v5.5/5.6 agora respeita o aspecto escolhido por você.",
-      "ja": "Text→Videoモデル選択画面では、テキストプロンプトから実行できない編集専用モデルが表示されなくなり、PixVerse v5.5/5.6が選択したアスペクト比を正しく反映するようになりました。"
+      "es": "El selector de modelos de Texto→Video ya no muestra modelos que solo permiten editar/extender y no pueden ejecutarse desde un texto, y PixVerse v5.5/5.6 ahora respetan la relación de aspecto que elijas.",
+      "fr": "Le sélecteur de modèles Text→Video n'affiche plus les modèles réservés à l'édition/extension qui ne peuvent pas fonctionner à partir d'un prompt texte, et PixVerse v5.5/5.6 respecte désormais le ratio d'aspect choisi.",
+      "de": "In der Text→Video-Modell-Auswahl werden keine Modelle mehr angezeigt, die nur bearbeiten/erweitern können und nicht mit einem Text-Prompt laufen, und PixVerse v5.5/5.6 respektieren jetzt dein gewähltes Seitenverhältnis.",
+      "pt": "O seletor de modelos Text→Video não lista mais modelos que só permitem editar/estender e que não podem ser executados a partir de um prompt de texto, e PixVerse v5.5/5.6 agora respeita a proporção escolhida por você.",
+      "ja": "Text→Videoモデル選択画面では、テキストプロンプトから実行できない編集・延長専用のモデルが表示されなくなり、PixVerse v5.5/5.6が選択したアスペクト比を正しく反映するようになりました。"
     }
   },
   {
     "date": "2026-07-02",
     "text": "Exported apps no longer waste a paid request when a model can't do JSON output or can't hear wired audio — the JSON format and audio are dropped for models that don't support them (a text-only model shows an \"audio ignored\" note) instead of billing you for empty output.",
     "i18n": {
-      "es": "Las apps exportadas ya no gastan una solicitud de pago cuando un modelo no puede generar salida JSON o no puede escuchar audio por cable: el formato JSON y el audio se omiten para modelos que no los soportan (un modelo solo de texto muestra una nota de \"audio ignorado\") en lugar de cobrarte por una salida vacía.",
-      "fr": "Les apps exportées ne gaspillent plus une requête payante quand un modèle ne peut pas produire de sortie JSON ou n'entend pas l'audio filaire — le format JSON et l'audio sont ignorés pour les modèles qui ne les supportent pas (un modèle texte uniquement affiche une note \"audio ignoré\") au lieu de vous facturer une sortie vide.",
-      "de": "Exportierte Apps verschwenden keine bezahlte Anfrage mehr, wenn ein Modell kein JSON-Output liefern kann oder kein kabelgebundenes Audio hört – JSON-Format und Audio werden bei nicht unterstützten Modellen weggelassen (ein Text-only-Modell zeigt eine \"Audio ignoriert\"-Notiz), statt dich für leere Ergebnisse zu belasten.",
-      "pt": "Apps exportados não desperdiçam mais uma solicitação paga quando um modelo não consegue gerar saída em JSON ou não consegue ouvir áudio com fio — o formato JSON e o áudio são ignorados para modelos que não os suportam (um modelo só de texto mostra uma nota \"áudio ignorado\") em vez de cobrar por uma saída vazia.",
-      "ja": "エクスポートされたアプリは、モデルがJSON出力に対応していない場合や有線オーディオを認識できない場合に、有料リクエストを無駄にしなくなりました。対応していない場合はJSON形式やオーディオが除外され、テキスト専用モデルでは「オーディオ無視」のメモが表示されるようになり、空の出力で課金されることがなくなります。"
+      "es": "Las apps exportadas ya no gastan una solicitud de pago cuando un modelo no puede generar salida JSON o no puede escuchar el audio conectado: el formato JSON y el audio se omiten para modelos que no los soportan (un modelo solo de texto muestra una nota de \"audio ignorado\") en lugar de cobrarte por una salida vacía.",
+      "fr": "Les apps exportées ne gaspillent plus une requête payante quand un modèle ne peut pas produire de sortie JSON ou n'entend pas l'audio branché en entrée — le format JSON et l'audio sont ignorés pour les modèles qui ne les supportent pas (un modèle texte uniquement affiche une note \"audio ignoré\") au lieu de vous facturer une sortie vide.",
+      "de": "Exportierte Apps verschwenden keine bezahlte Anfrage mehr, wenn ein Modell kein JSON-Output liefern kann oder angeschlossenes Audio nicht hören kann – JSON-Format und Audio werden bei nicht unterstützten Modellen weggelassen (ein Text-only-Modell zeigt eine \"Audio ignoriert\"-Notiz), statt dir leere Ergebnisse zu berechnen.",
+      "pt": "Apps exportados não desperdiçam mais uma solicitação paga quando um modelo não consegue gerar saída em JSON ou não consegue ouvir o áudio conectado — o formato JSON e o áudio são ignorados para modelos que não os suportam (um modelo só de texto mostra uma nota \"áudio ignorado\") em vez de cobrar por uma saída vazia.",
+      "ja": "エクスポートされたアプリは、モデルがJSON出力に対応していない場合や配線された音声を認識できない場合に、有料リクエストを無駄にしなくなりました。対応していない場合はJSON形式やオーディオが除外され、テキスト専用モデルでは「オーディオ無視」のメモが表示されるようになり、空の出力で課金されることがなくなります。"
     }
   },
   {
@@ -413,7 +413,7 @@
       "es": "La estimación de costo por ejecución para música ahora refleja la duración que configures: una canción de 5 minutos muestra su precio real, no una suposición plana de 30 segundos, y las apps exportadas ya no envían configuraciones sobrantes cuando cambias un nodo de música a otro modelo.",
       "fr": "L'estimation du coût d'exécution pour la musique reflète désormais la durée que vous avez définie - une chanson de 5 minutes affiche son vrai prix, pas une estimation fixe de 30 secondes - et les apps exportées n'envoient plus de paramètres résiduels quand vous changez un nœud musical pour un autre modèle.",
       "de": "Die Kostenabschätzung für Musik berücksichtigt jetzt die von dir eingestellte Länge – ein 5-Minuten-Song zeigt seinen echten Preis statt einer pauschalen 30-Sekunden-Schätzung – und exportierte Apps senden keine übrig gebliebenen Einstellungen mehr, wenn du einen Musik-Knoten auf ein anderes Modell umstellst.",
-      "pt": "A estimativa de custo para música agora reflete a duração que você definiu — uma música de 5 minutos mostra o preço real, não um palpite fixo de 30 segundos — e apps exportados não enviam mais configurações sobrando quando você troca um nó de música para outro modelo.",
+      "pt": "A estimativa de custo para música agora reflete a duração que você definiu — uma música de 5 minutos mostra o preço real, não um palpite fixo de 30 segundos — e apps exportados não enviam mais configurações que sobraram quando você troca um nó de música para outro modelo.",
       "ja": "音楽の実行コストの見積もりが設定した長さに基づくようになりました。例えば5分の曲は実際の価格が表示され、30秒の固定推定ではなくなります。また、エクスポートされたアプリでは、音楽ノードを別のモデルに切り替えた際に残った設定が送信されなくなりました。"
     }
   },
@@ -435,7 +435,7 @@
       "es": "Los nodos de video Sora y WAN ahora respetan la duración y orientación que eliges (antes usaban silenciosamente el valor predeterminado del modelo).",
       "fr": "Les nœuds vidéo Sora et WAN respectent désormais la durée et l'orientation que vous choisissez (ils utilisaient silencieusement les paramètres par défaut du modèle auparavant).",
       "de": "Sora- und WAN-Videoknoten berücksichtigen jetzt tatsächlich die Länge und Ausrichtung, die du auswählst (vorher wurde stillschweigend die Modellvorgabe verwendet).",
-      "pt": "Os nós de vídeo Sora e WAN agora respeitam de verdade o comprimento e a orientação que você escolhe (antes eles usavam silenciosamente o padrão do modelo).",
+      "pt": "Os nós de vídeo Sora e WAN agora respeitam de verdade a duração e a orientação que você escolhe (antes eles usavam silenciosamente o padrão do modelo).",
       "ja": "SoraとWANのビデオノードが、選択した長さと向きを正しく反映するようになりました（以前はモデルのデフォルトでこっそりレンダリングされていました）。"
     }
   },
@@ -443,11 +443,11 @@
     "date": "2026-07-02",
     "text": "Exported apps now honor the length and aspect ratio you set on a Video-edit node — extend/restyle clips render at the duration you asked for, not the model's default.",
     "i18n": {
-      "es": "Las apps exportadas ahora respetan la duración y el aspecto que configures en un nodo Video-edit — los clips extendidos o rediseñados se renderizan con la duración que pediste, no con el valor predeterminado del modelo.",
+      "es": "Las apps exportadas ahora respetan la duración y la relación de aspecto que configures en un nodo Video-edit — los clips extendidos o rediseñados se renderizan con la duración que pediste, no con el valor predeterminado del modelo.",
       "fr": "Les applications exportées respectent maintenant la durée et le ratio d'aspect que vous définissez sur un nœud Video-edit — les clips étendus/restylés sont rendus à la durée demandée, et non à celle par défaut du modèle.",
       "de": "Exportierte Apps berücksichtigen jetzt die Länge und das Seitenverhältnis, die du im Video-edit-Knoten festgelegt hast – verlängerte/umgestylte Clips werden mit der von dir gewünschten Dauer gerendert, nicht mit der Modellvorgabe.",
-      "pt": "Os apps exportados agora respeitam o comprimento e a proporção que você definiu em um nó Video-edit — clipes estendidos/restilizados são renderizados na duração que você pediu, não no padrão do modelo.",
-      "ja": "エクスポートされたアプリがVideo-editノードで設定した長さとアスペクト比を正しく反映するようになりました—クリップの延長やスタイル変更がモデルのデフォルトではなく、指定した期間でレンダリングされます。"
+      "pt": "Os apps exportados agora respeitam a duração e a proporção que você definiu em um nó Video-edit — clipes estendidos/restilizados são renderizados na duração que você pediu, não no padrão do modelo.",
+      "ja": "エクスポートされたアプリがVideo-editノードで設定した長さとアスペクト比を正しく反映するようになりました — クリップの延長やスタイル変更が、モデルのデフォルトではなく指定した長さでレンダリングされます。"
     }
   },
   {
@@ -456,7 +456,7 @@
     "i18n": {
       "es": "Las apps Video → Frames ahora muestran y descargan cada fotograma extraído, no solo el primero.",
       "fr": "Les applications Vidéo → Frames affichent et téléchargent désormais chaque image extraite, pas seulement la première.",
-      "de": "Video → Frames-Apps zeigen und laden jetzt jedes extrahierte Frame herunter, nicht nur das erste.",
+      "de": "Video → Frames-Apps zeigen jetzt jeden extrahierten Frame an und laden ihn herunter, nicht nur den ersten.",
       "pt": "Os apps Video → Frames agora mostram e baixam todos os frames extraídos, não apenas o primeiro.",
       "ja": "Video → Framesアプリで、抽出されたすべてのフレームが表示され、ダウンロードできるようになりました（以前は最初のフレームだけでした）。"
     }
@@ -468,7 +468,7 @@
       "es": "Nuevo nodo 🎨 Draw — un modelo omni de Gemini que razona y luego dibuja: texto → imagen, o conecta imágenes para editarlas y componerlas en un solo paso. Está en el grupo Image.",
       "fr": "Nouveau nœud 🎨 Draw — un modèle omni de Gemini qui raisonne puis dessine : texte → image, ou branchez des images pour les éditer et les composer en une seule étape. À trouver dans le groupe Image.",
       "de": "Neuer 🎨 Draw-Node — ein Gemini-Omni-Modell, das erst denkt und dann zeichnet: Text → Bild, oder verbinde Bilder, um sie in einem Schritt zu bearbeiten und zu kombinieren. Zu finden in der Gruppe Image.",
-      "pt": "Novo node 🎨 Draw — um modelo omni do Gemini que raciocina e então desenha: texto → imagem, ou conecte imagens para editá-las e compô-las em um só passo. Encontre no grupo Image.",
+      "pt": "Novo node 🎨 Draw — um modelo omni do Gemini que raciocina e então desenha: texto → imagem, ou conecte imagens para editá-las e compô-las em um só passo. Está no grupo Image.",
       "ja": "新しい🎨 Drawノード — 推論してから描くGeminiのomniモデル：テキスト→画像、または画像をつないで1ステップで編集・合成できます。Imageグループにあります。"
     }
   },
@@ -487,7 +487,7 @@
     "date": "2026-07-02",
     "text": "New 🔘 Choice node — add a dropdown your app users pick from (e.g. a style: watercolor / neon / claymation)",
     "i18n": {
-      "es": "Nuevo nodo 🔘 Choice — agrega un menú desplegable para que los usuarios de tu app elijan (por ejemplo, un estilo: acuarela / neón / stop motion).",
+      "es": "Nuevo nodo 🔘 Choice — agrega un menú desplegable para que los usuarios de tu app elijan (por ejemplo, un estilo: acuarela / neón / plastilina).",
       "fr": "Nouveau nœud 🔘 Choice — ajoutez un menu déroulant pour que les utilisateurs de votre app puissent choisir (par exemple un style : aquarelle / néon / animation en pâte à modeler).",
       "de": "Neuer 🔘 Auswahl-Knoten – füge ein Dropdown-Menü hinzu, aus dem deine App-Nutzer wählen können (z. B. ein Stil: Aquarell / Neon / Knetanimation).",
       "pt": "Novo 🔘 Choice node — insira um menu suspenso para os usuários do seu app escolherem (ex.: um estilo: aquarela / neon / claymation).",
@@ -520,22 +520,22 @@
     "date": "2026-07-02",
     "text": "The price pill in the corner is now a Run button — click it to run your workflow.",
     "i18n": {
-      "es": "La pastilla de precio en la esquina ahora es un botón Run — haz clic para ejecutar tu flujo de trabajo.",
-      "fr": "Le bouton de prix dans le coin est maintenant un bouton Run — cliquez dessus pour lancer votre workflow.",
-      "de": "Die Preisanzeige in der Ecke ist jetzt ein Run-Button – klick darauf, um deinen Workflow auszuführen.",
-      "pt": "O botão de preço no canto agora é um botão Run — clique nele para executar seu fluxo de trabalho.",
-      "ja": "コーナーの価格ピルがRunボタンに変更されました—クリックしてワークフローを実行できます。"
+      "es": "La pastilla de precio en la esquina ahora es un botón Ejecutar — haz clic para ejecutar tu flujo de trabajo.",
+      "fr": "La pastille de prix dans le coin est maintenant un bouton Exécuter — cliquez dessus pour lancer votre workflow.",
+      "de": "Die Preisanzeige in der Ecke ist jetzt ein Ausführen-Button – klick darauf, um deinen Workflow auszuführen.",
+      "pt": "O botão de preço no canto agora é um botão Executar — clique nele para rodar seu fluxo de trabalho.",
+      "ja": "隅の価格表示が「実行」ボタンになりました — クリックしてワークフローを実行できます。"
     }
   },
   {
     "date": "2026-07-02",
     "text": "Not signed in? Press ▶ Run anyway — nanoodle now plays a sample of the starter workflow so you can see it work, then sign in to run it for real.",
     "i18n": {
-      "es": "¿No has iniciado sesión? Pulsa ▶ Run anyway — nanoodle ahora ejecuta una muestra del flujo de trabajo inicial para que veas cómo funciona, luego inicia sesión para ejecutarlo de verdad.",
-      "fr": "Pas connecté ? Appuyez sur ▶ Run quand même — nanoodle exécute maintenant un exemple du workflow de démarrage pour que vous puissiez voir comment ça fonctionne, puis connectez-vous pour le lancer réellement.",
-      "de": "Nicht angemeldet? Drück ▶ Run trotzdem — nanoodle zeigt dir jetzt eine Vorschau des Starter-Workflows, damit du siehst, wie es funktioniert. Melde dich danach an, um es richtig auszuführen.",
-      "pt": "Não está conectado? Pressione ▶ Run mesmo assim — o nanoodle agora executa uma amostra do fluxo inicial para você ver como funciona, depois faça login para rodar de verdade.",
-      "ja": "サインインしてない？▶ Run を押せば、nanoodleがスターターワークフローのサンプルを実行して動作を確認できるよ。その後、サインインして本番で使ってみてね。"
+      "es": "¿No has iniciado sesión? Pulsa ▶ Ejecutar de todos modos — nanoodle ahora reproduce una muestra del flujo de trabajo inicial para que veas cómo funciona, y luego inicia sesión para ejecutarlo de verdad.",
+      "fr": "Pas connecté ? Appuyez quand même sur ▶ Exécuter — nanoodle exécute maintenant un exemple du workflow de démarrage pour que vous puissiez voir comment ça fonctionne, puis connectez-vous pour le lancer réellement.",
+      "de": "Nicht angemeldet? Drück ▶ Ausführen trotzdem — nanoodle zeigt dir jetzt eine Vorschau des Starter-Workflows, damit du siehst, wie es funktioniert. Melde dich danach an, um es richtig auszuführen.",
+      "pt": "Não está conectado? Pressione ▶ Executar mesmo assim — o nanoodle agora executa uma amostra do fluxo inicial para você ver como funciona, depois faça login para rodar de verdade.",
+      "ja": "サインインしていませんか？ ▶ 実行を押すと、nanoodleがスターターワークフローのサンプルを再生して動作を確認できます。その後、サインインして実際に実行してください。"
     }
   },
   {
@@ -543,7 +543,7 @@
     "text": "signing in is clearer — one \"Sign in with NanoGPT\" button, with paste-key and account creation under its ▾ menu",
     "i18n": {
       "es": "iniciar sesión es más claro: un único botón \"Sign in with NanoGPT\", con opciones para pegar la clave y crear cuenta en su menú ▾",
-      "fr": "la connexion est plus claire — un seul bouton \"Sign in with NanoGPT\", avec les options coller-clé et créer un compte dans son menu ▾",
+      "fr": "la connexion est plus claire — un seul bouton \"Sign in with NanoGPT\", avec les options \"coller une clé\" et \"créer un compte\" dans son menu ▾",
       "de": "Anmelden ist jetzt übersichtlicher – ein einziger \"Sign in with NanoGPT\"-Button, mit Schlüssel-Einfügen und Kontoerstellung im ▾-Menü darunter.",
       "pt": "entrar ficou mais simples — um único botão \"Sign in with NanoGPT\", com opções de colar chave e criar conta no menu ▾",
       "ja": "サインインがより分かりやすくなりました — 「Sign in with NanoGPT」ボタン1つで、キーの貼り付けやアカウント作成はその▾メニュー内にあります。"
@@ -586,11 +586,11 @@
     "date": "2026-07-01",
     "text": "New 📚 Examples gallery — load a ready-made text→image, video, song, or vision→speech workflow in one click.",
     "i18n": {
-      "es": "Nueva galería 📚 Examples — carga un flujo de trabajo prediseñado de texto→imagen, video, canción o visión→voz con un solo clic.",
-      "fr": "Nouvelle galerie 📚 Examples — chargez un workflow prêt à l'emploi texte→image, vidéo, chanson ou vision→parole en un clic.",
-      "de": "Neue 📚 Examples-Galerie — lade einen fertigen Text→Bild-, Video-, Song- oder Vision→Sprache-Workflow mit einem Klick.",
-      "pt": "Nova galeria 📚 Examples — carregue um fluxo pronto de texto→imagem, vídeo, música ou visão→voz com um clique.",
-      "ja": "新しい 📚 Examples ギャラリー — text→image、video、song、vision→speechのワークフローをワンクリックで読み込めます。"
+      "es": "Nueva galería 📚 Ejemplos — carga un flujo de trabajo prediseñado de texto→imagen, video, canción o visión→voz con un solo clic.",
+      "fr": "Nouvelle galerie 📚 Exemples — chargez un workflow prêt à l'emploi texte→image, vidéo, chanson ou vision→parole en un clic.",
+      "de": "Neue 📚 Beispiele-Galerie — lade einen fertigen Text→Bild-, Video-, Song- oder Vision→Sprache-Workflow mit einem Klick.",
+      "pt": "Nova galeria 📚 Exemplos — carregue um fluxo pronto de texto→imagem, vídeo, música ou visão→voz com um clique.",
+      "ja": "新しい 📚 サンプル ギャラリー — text→image、video、song、vision→speechのワークフローをワンクリックで読み込めます。"
     }
   },
   {
@@ -608,11 +608,11 @@
     "date": "2026-07-01",
     "text": "Create app now saves your app to My apps right away, and reopening the builder always picks up your latest workflow edits.",
     "i18n": {
-      "es": "Create app ahora guarda tu app en My apps de inmediato, y al reabrir el generador siempre toma tus últimas ediciones del flujo.",
-      "fr": "Create app enregistre désormais votre app dans My apps aussitôt, et rouvrir le builder reprend toujours vos dernières modifications du workflow.",
-      "de": "Create app speichert deine App jetzt sofort in My apps, und beim erneuten Öffnen des Builders werden immer deine neuesten Workflow-Änderungen übernommen.",
-      "pt": "Create app agora salva seu app em My apps na hora, e reabrir o builder sempre pega suas edições mais recentes do fluxo.",
-      "ja": "Create appがアプリをMy appsにすぐ保存するようになり、ビルダーを開き直すと常に最新のワークフロー編集が反映されます。"
+      "es": "Crear app ahora guarda tu app en Mis apps de inmediato, y al reabrir el generador siempre toma tus últimas ediciones del flujo.",
+      "fr": "Créer une app enregistre désormais votre app immédiatement dans Mes apps, et rouvrir le builder reprend toujours vos dernières modifications du workflow.",
+      "de": "\"App erstellen\" speichert deine App jetzt sofort in \"Meine Apps\", und beim erneuten Öffnen des Builders werden immer deine neuesten Workflow-Änderungen übernommen.",
+      "pt": "Criar app agora salva seu app em Meus apps na hora, e reabrir o builder sempre pega suas edições mais recentes do fluxo.",
+      "ja": "アプリ作成でアプリがすぐにマイアプリへ保存されるようになり、ビルダーを開き直すと常に最新のワークフロー編集が反映されます。"
     }
   },
   {
@@ -630,11 +630,11 @@
     "date": "2026-07-01",
     "text": "After your first successful run, nanoodle now offers to turn the workflow into a shareable app — and the ✨ Create app button stands out and stays visible on phones.",
     "i18n": {
-      "es": "Tras tu primera ejecución exitosa, nanoodle ahora te ofrece convertir el flujo en una app para compartir — y el botón ✨ Create app resalta y permanece visible en el teléfono.",
-      "fr": "Après votre premier run réussi, nanoodle vous propose de transformer le workflow en une app partageable — et le bouton ✨ Create app ressort et reste visible sur téléphone.",
-      "de": "Nach deinem ersten erfolgreichen Run bietet nanoodle jetzt an, den Workflow in eine teilbare App zu verwandeln — und der ✨ Create app-Button sticht hervor und bleibt auf dem Smartphone sichtbar.",
-      "pt": "Depois da sua primeira execução bem-sucedida, o nanoodle agora se oferece para transformar o fluxo em um app compartilhável — e o botão ✨ Create app se destaca e continua visível no celular.",
-      "ja": "初めての実行が成功すると、nanoodleがそのワークフローを共有可能なアプリに変換するよう提案します — ✨ Create appボタンは目立つデザインになり、スマホでも常に表示されます。"
+      "es": "Tras tu primera ejecución exitosa, nanoodle ahora te ofrece convertir el flujo en una app para compartir — y el botón ✨ Crear app resalta y permanece visible en el teléfono.",
+      "fr": "Après votre premier run réussi, nanoodle vous propose de transformer le workflow en une app partageable — et le bouton ✨ Créer une app ressort et reste visible sur téléphone.",
+      "de": "Nach deinem ersten erfolgreichen Run bietet nanoodle jetzt an, den Workflow in eine teilbare App zu verwandeln — und der ✨ \"App erstellen\"-Button sticht hervor und bleibt auf dem Smartphone sichtbar.",
+      "pt": "Depois da sua primeira execução bem-sucedida, o nanoodle agora se oferece para transformar o fluxo em um app compartilhável — e o botão ✨ Criar app se destaca e continua visível no celular.",
+      "ja": "初めての実行が成功すると、nanoodleがそのワークフローを共有可能なアプリに変換するよう提案します — ✨ アプリ作成ボタンは目立つデザインになり、スマホでも常に表示されます。"
     }
   },
   {
@@ -652,18 +652,18 @@
     "date": "2026-07-01",
     "text": "Signed out? The Customize Apply button now takes you to sign-in — and keeps your typed goal — instead of doing nothing.",
     "i18n": {
-      "es": "¿Sin sesión iniciada? El botón Customize Apply ahora te lleva al inicio de sesión — y conserva el objetivo que escribiste — en lugar de no hacer nada.",
-      "fr": "Déconnecté ? Le bouton Apply de la personnalisation vous mène désormais à la connexion — en conservant l'objectif que vous avez saisi — au lieu de ne rien faire.",
+      "es": "¿Sin sesión iniciada? El botón Apply de Customize ahora te lleva al inicio de sesión — y conserva el objetivo que escribiste — en lugar de no hacer nada.",
+      "fr": "Déconnecté ? Le bouton Apply de Customize vous mène désormais à la connexion — en conservant l'objectif que vous avez saisi — au lieu de ne rien faire.",
       "de": "Abgemeldet? Der Customize-Apply-Button führt dich jetzt zur Anmeldung — und behält dein eingegebenes Ziel bei — statt nichts zu tun.",
       "pt": "Sem estar logado? O botão Customize Apply agora leva você ao login — e mantém o objetivo que você digitou — em vez de não fazer nada.",
-      "ja": "サインアウト中でしたか？ Customize Applyボタンは何もしない代わりに、入力した目標を保持したままサインインへ案内します。"
+      "ja": "サインアウト中ですか？ Customize Applyボタンが、何もしない代わりに、入力した目標を保持したままサインインへ案内するようになりました。"
     }
   },
   {
     "date": "2026-07-01",
     "text": "Mobile: the run-cost chip no longer overlaps the Cookoff badge, and the first-run tip wraps cleanly.",
     "i18n": {
-      "es": "Móvil: el chip de coste de ejecución ya no se superpone a la insignia del Cookoff, y el consejo de primera ejecución se ajusta con limpieza.",
+      "es": "Móvil: el chip de coste de ejecución ya no se superpone a la insignia del Cookoff, y el consejo de primera ejecución se ajusta correctamente.",
       "fr": "Mobile : la puce du coût de run ne chevauche plus le badge Cookoff, et l'astuce du premier run se répartit proprement sur plusieurs lignes.",
       "de": "Mobil: der Run-Kosten-Chip überlappt nicht mehr das Cookoff-Badge, und der Tipp zum ersten Run bricht sauber um.",
       "pt": "Mobile: o chip de custo da execução não sobrepõe mais o selo do Cookoff, e a dica de primeira execução quebra a linha direito.",
@@ -676,7 +676,7 @@
     "i18n": {
       "es": "Un nuevo aviso único te enseña a arrastrar entre puertos ● para conectar, o soltar un cable en el lienzo vacío para agregar un nodo al instante.",
       "fr": "Un nouvel indice ponctuel vous apprend à faire glisser entre les ports ● pour connecter, ou à déposer un fil sur le canvas vide pour ajouter rapidement un nœud.",
-      "de": "Neuer einmaliger Hinweis zeigt dir, dass du zwischen ● Ports ziehst, um sie zu verbinden, oder eine Verbindung auf leerer Fläche ablegst, um schnell einen Node hinzuzufügen.",
+      "de": "Neuer einmaliger Hinweis zeigt dir, wie du zwischen ● Ports ziehst, um sie zu verbinden, oder eine Verbindung auf leerer Fläche ablegst, um schnell einen Node hinzuzufügen.",
       "pt": "Nova dica única ensina a arrastar entre as portas ● para conectar, ou soltar um fio no canvas vazio para adicionar um node rapidamente.",
       "ja": "● ポート間をドラッグして接続する方法や、空のキャンバスに配線をドロップしてノードをすばやく追加する方法を教える、一度きりのヒントを追加しました。"
     }
@@ -686,7 +686,7 @@
     "text": "Heads-up before a run your balance can't cover, and clear \"out of balance — top up at nano-gpt.com\" errors instead of raw 402s.",
     "i18n": {
       "es": "Aviso antes de una ejecución que tu saldo no puede cubrir, y errores claros de \"sin saldo — recarga en nano-gpt.com\" en lugar de 402 crudos.",
-      "fr": "Avertissement avant un run que votre solde ne peut couvrir, et des erreurs claires « solde épuisé — rechargez sur nano-gpt.com » au lieu de bruts 402.",
+      "fr": "Avertissement avant un run que votre solde ne peut couvrir, et des erreurs claires « solde épuisé — rechargez sur nano-gpt.com » au lieu de 402 bruts.",
       "de": "Warnung, bevor ein Run dein Guthaben übersteigt, und klare \"kein Guthaben mehr — aufladen auf nano-gpt.com\"-Fehler statt roher 402er.",
       "pt": "Aviso antes de uma execução que seu saldo não cobre, e erros claros de \"saldo esgotado — recarregue em nano-gpt.com\" em vez de 402s crus.",
       "ja": "残高で賄えない実行の前に警告し、生の402ではなく「out of balance — top up at nano-gpt.com」という明確なエラーを表示します。"
@@ -699,7 +699,7 @@
       "es": "Las apps compartidas y exportadas ahora reciben a los visitantes sin sesión con una nota breve y honesta — esto ejecuta IA con tu propia clave de nano-gpt, la clave permanece en tu navegador, y cada ejecución muestra su coste.",
       "fr": "Les apps partagées et exportées accueillent désormais les visiteurs déconnectés par une note brève et honnête — l'IA tourne sur votre propre clé nano-gpt, la clé reste dans votre navigateur, et chaque run affiche son coût.",
       "de": "Geteilte und exportierte Apps begrüßen abgemeldete Besucher jetzt mit einem kurzen, ehrlichen Hinweis — hier läuft KI über deinen eigenen nano-gpt-Schlüssel, der Schlüssel bleibt in deinem Browser, und jeder Run zeigt, was er gekostet hat.",
-      "pt": "Apps compartilhados e exportados agora recebem visitantes deslogados com uma nota curta e honesta — isto roda IA na sua própria chave nano-gpt, a chave fica no seu navegador, e cada execução mostra quanto custou.",
+      "pt": "Apps compartilhados e exportados agora recebem visitantes deslogados com uma nota curta e honesta — isto roda IA com a sua própria chave nano-gpt, a chave fica no seu navegador, e cada execução mostra quanto custou.",
       "ja": "共有・エクスポートしたアプリが、サインアウト中の訪問者に短く正直な案内を表示するようになりました — これはあなた自身のnano-gptキーでAIを実行し、キーはブラウザ内に留まり、各実行のコストが表示されます。"
     }
   },
@@ -707,10 +707,10 @@
     "date": "2026-07-01",
     "text": "New to nano-gpt? The sign-in panel now offers a friendly \"create an account\" link — pay-per-use, no subscription needed, key stays in your browser.",
     "i18n": {
-      "es": "¿Nuevo en nano-gpt? El panel de inicio de sesión ahora ofrece un enlace amable para \"crear una cuenta\" — pago por uso, sin suscripción, la clave permanece en tu navegador.",
+      "es": "¿Nuevo en nano-gpt? El panel de inicio de sesión ahora ofrece un enlace amigable para \"crear una cuenta\" — pago por uso, sin suscripción, la clave permanece en tu navegador.",
       "fr": "Nouveau sur nano-gpt ? Le panneau de connexion propose désormais un lien convivial « créer un compte » — paiement à l'usage, aucun abonnement nécessaire, la clé reste dans votre navigateur.",
       "de": "Neu bei nano-gpt? Das Anmeldefenster bietet jetzt einen freundlichen \"Konto erstellen\"-Link — Zahlung pro Nutzung, kein Abo nötig, Schlüssel bleibt in deinem Browser.",
-      "pt": "Novo no nano-gpt? O painel de login agora oferece um link amigável de \"criar uma conta\" — paga-se por uso, sem assinatura, e a chave fica no seu navegador.",
+      "pt": "Novo no nano-gpt? O painel de login agora oferece um link amigável de \"criar uma conta\" — pagamento por uso, sem assinatura, e a chave fica no seu navegador.",
       "ja": "nano-gptは初めてですか？ サインインパネルに親切な「create an account」リンクが追加されました — 従量課金でサブスク不要、キーはブラウザ内に留まります。"
     }
   },
@@ -719,9 +719,9 @@
     "text": "Described changes now scroll the new nodes into view so you see what was added.",
     "i18n": {
       "es": "Los cambios descritos ahora desplazan los nuevos nodos a la vista para que veas lo que se agregó.",
-      "fr": "Les changements décrits font désormais défiler les nouveaux nœuds pour les afficher immédiatement.",
+      "fr": "Les changements décrits font désormais défiler la vue jusqu'aux nouveaux nœuds pour que vous voyiez ce qui a été ajouté.",
       "de": "Beschriebene Änderungen scrollen die neuen Nodes jetzt ins Sichtfeld, damit du siehst, was hinzugefügt wurde.",
-      "pt": "Alterações descritas agora rolam os novos nós para a visualização, permitindo que você veja o que foi adicionado.",
+      "pt": "Alterações descritas agora rolam a tela até os novos nós, para você ver o que foi adicionado.",
       "ja": "変更内容を説明すると、新しいノードが表示されるようにスクロールされ、追加されたものが確認できます。"
     }
   },
@@ -740,8 +740,8 @@
     "date": "2026-07-01",
     "text": "Combine is fixed — clips now join instantly and exactly, with audio locked to picture: no more freezing partway, drifting out of sync, dropped frames at seams, or over-long output. Matching formats stitch losslessly.",
     "i18n": {
-      "es": "Combine está arreglado — los clips ahora se unen al instante y con exactitud, con el audio sincronizado a la imagen: se acabaron los congelamientos a medias, la pérdida de sincronía, los fotogramas perdidos en las uniones y la salida demasiado larga. Los formatos coincidentes se cosen sin pérdida.",
-      "fr": "Combine est réparé — les clips se rejoignent désormais instantanément et à l'exact, l'audio verrouillé sur l'image : fini les gels en cours de route, la désynchronisation, les images perdues aux jointures ou la sortie trop longue. Les formats identiques s'assemblent sans perte.",
+      "es": "Combine está arreglado — los clips ahora se unen al instante y con exactitud, con el audio sincronizado a la imagen: se acabaron los congelamientos a medias, la pérdida de sincronía, los fotogramas perdidos en las uniones y la salida demasiado larga. Los formatos coincidentes se empalman sin pérdida.",
+      "fr": "Combine est réparé — les clips se rejoignent désormais instantanément et avec précision, l'audio verrouillé sur l'image : fini les gels en cours de route, la désynchronisation, les images perdues aux jointures ou la sortie trop longue. Les formats identiques s'assemblent sans perte.",
       "de": "Combine ist repariert — Clips werden jetzt sofort und exakt zusammengefügt, mit Ton fest ans Bild gekoppelt: kein Einfrieren mittendrin mehr, kein Auseinanderlaufen der Synchronität, keine ausgelassenen Frames an den Nahtstellen, keine zu lange Ausgabe. Passende Formate werden verlustfrei zusammengesetzt.",
       "pt": "Combine está corrigido — os clipes agora se juntam na hora e com precisão, com o áudio travado na imagem: chega de travar no meio, sair de sincronia, perder quadros nas emendas ou gerar saída longa demais. Formatos compatíveis são costurados sem perdas.",
       "ja": "Combineを修正しました — クリップが瞬時かつ正確に結合され、音声は映像にロックされます：途中で固まったり、同期がずれたり、継ぎ目でフレームが落ちたり、出力が長くなりすぎることはもうありません。フォーマットが一致するものはロスレスで連結されます。"
@@ -784,7 +784,7 @@
     "date": "2026-06-30",
     "text": "New Comment node — drop a colourful sticky note to label your workflow (pick a colour, bold, and size). Notes ride along in shared workflows and exported apps, showing as read-only captions above the inputs.",
     "i18n": {
-      "es": "Nuevo nodo Comment — añade una nota adhesiva colorida para etiquetar tu flujo de trabajo (elige color, negrita y tamaño). Las notas se mantienen en flujos compartidos y apps exportadas, mostrando como subtítulos de solo lectura sobre las entradas.",
+      "es": "Nuevo nodo Comment — añade una nota adhesiva colorida para etiquetar tu flujo de trabajo (elige color, negrita y tamaño). Las notas se mantienen en flujos compartidos y apps exportadas, y se muestran como rótulos de solo lectura sobre las entradas.",
       "fr": "Nouveau nœud Comment — ajoutez un post-it coloré pour annoter votre workflow (choisissez une couleur, du gras et une taille). Les notes restent dans les workflows partagés et les apps exportées, apparaissant comme des légendes en lecture seule au-dessus des entrées.",
       "de": "Neuer Kommentar-Knoten – füge eine bunte Haftnotiz hinzu, um deinen Workflow zu beschriften (Farbe, Fett und Größe wählbar). Notizen bleiben in geteilten Workflows und exportierten Apps erhalten und erscheinen als schreibgeschützte Beschriftungen über den Eingaben.",
       "pt": "Novo Comment node — adicione um post-it colorido para rotular seu fluxo de trabalho (escolha uma cor, negrito e tamanho). Notas acompanham fluxos compartilhados e apps exportados, aparecendo como legendas somente leitura acima dos inputs.",
@@ -806,11 +806,11 @@
     "date": "2026-06-30",
     "text": "Rename an app from the builder — click its title, type a new name, press Enter. It sticks across reloads and in \"My apps\".",
     "i18n": {
-      "es": "Renombra una app desde el generador — haz clic en su título, escribe un nombre nuevo, pulsa Enter. Se mantiene entre recargas y en \"My apps\".",
-      "fr": "Renommez une app depuis le builder — cliquez sur son titre, saisissez un nouveau nom, appuyez sur Entrée. Il persiste après rechargement et dans « My apps ».",
-      "de": "Benenne eine App aus dem Builder um — klicke ihren Titel, tippe einen neuen Namen, drücke Enter. Er bleibt über Neuladen hinweg und in \"My apps\" erhalten.",
-      "pt": "Renomeie um app pelo builder — clique no título, digite um novo nome, pressione Enter. Ele permanece após recarregar e em \"My apps\".",
-      "ja": "ビルダーからアプリをリネーム — タイトルをクリックし、新しい名前を入力してEnterを押します。リロード後も「My apps」内でも維持されます。"
+      "es": "Renombra una app desde el generador — haz clic en su título, escribe un nombre nuevo, pulsa Enter. Se mantiene entre recargas y en \"Mis apps\".",
+      "fr": "Renommez une app depuis le builder — cliquez sur son titre, saisissez un nouveau nom, appuyez sur Entrée. Il persiste après rechargement et dans « Mes apps ».",
+      "de": "Benenne eine App aus dem Builder um — klicke auf ihren Titel, tippe einen neuen Namen, drücke Enter. Er bleibt über Neuladen hinweg und in \"Meine Apps\" erhalten.",
+      "pt": "Renomeie um app pelo builder — clique no título, digite um novo nome, pressione Enter. Ele permanece após recarregar e em \"Meus apps\".",
+      "ja": "ビルダーからアプリをリネーム — タイトルをクリックし、新しい名前を入力してEnterを押します。リロード後も「マイアプリ」内でも維持されます。"
     }
   },
   {
@@ -828,11 +828,11 @@
     "date": "2026-06-30",
     "text": "Clicking Run while signed out now offers an inline choice — sign in or paste your NanoGPT key — instead of redirecting to login.",
     "i18n": {
-      "es": "Hacer clic en Run sin sesión iniciada ahora ofrece una opción en línea — inicia sesión o pega tu clave de NanoGPT — en lugar de redirigirte al login.",
-      "fr": "Cliquer sur Run en étant déconnecté propose désormais un choix intégré — se connecter ou coller votre clé NanoGPT — au lieu de rediriger vers la connexion.",
+      "es": "Hacer clic en Ejecutar sin sesión iniciada ahora ofrece una opción en línea — inicia sesión o pega tu clave de NanoGPT — en lugar de redirigirte al login.",
+      "fr": "Cliquer sur Exécuter en étant déconnecté propose désormais un choix intégré — se connecter ou coller votre clé NanoGPT — au lieu de rediriger vers la connexion.",
       "de": "Ein Klick auf Run im abgemeldeten Zustand bietet jetzt eine Wahl direkt an — anmelden oder deinen NanoGPT-Schlüssel einfügen — statt zur Anmeldung umzuleiten.",
-      "pt": "Clicar em Run enquanto deslogado agora oferece uma escolha embutida — fazer login ou colar sua chave NanoGPT — em vez de redirecionar para o login.",
-      "ja": "サインアウト中にRunをクリックすると、ログイン画面へリダイレクトする代わりに、その場でサインインするかNanoGPTキーを貼り付けるかを選べるようになりました。"
+      "pt": "Clicar em Executar sem estar logado agora oferece uma escolha ali mesmo — fazer login ou colar sua chave NanoGPT — em vez de redirecionar para o login.",
+      "ja": "サインアウト中に実行をクリックすると、ログイン画面へリダイレクトする代わりに、その場でサインインするかNanoGPTキーを貼り付けるかを選べるようになりました。"
     }
   },
   {
@@ -872,11 +872,11 @@
     "date": "2026-06-30",
     "text": "New visitors get a one-time \"press ▶ Run, or ＋ Add node\" hint and a 🖼️ Gallery button to browse & remix examples.",
     "i18n": {
-      "es": "Los nuevos visitantes reciben un aviso único \"pulsa ▶ Run, o ＋ Add node\" y un botón 🖼️ Gallery para explorar y remezclar ejemplos.",
-      "fr": "Les nouveaux visiteurs reçoivent un indice ponctuel « appuyez sur ▶ Run, ou ＋ Add node » et un bouton 🖼️ Gallery pour parcourir et remixer des exemples.",
-      "de": "Neue Besucher bekommen einen einmaligen Hinweis \"drücke ▶ Run, oder ＋ Add node\" und einen 🖼️ Gallery-Button, um Beispiele zu durchstöbern & zu remixen.",
-      "pt": "Novos visitantes recebem uma dica única de \"pressione ▶ Run, ou ＋ Add node\" e um botão 🖼️ Gallery para navegar e remixar exemplos.",
-      "ja": "新しい訪問者には一度きりの「▶ Runを押すか、＋ Add node」ヒントと、例を閲覧・リミックスできる 🖼️ Galleryボタンが表示されます。"
+      "es": "Los nuevos visitantes reciben un aviso único \"pulsa ▶ Ejecutar, o ＋ Add node\" y un botón 🖼️ Gallery para explorar y remezclar ejemplos.",
+      "fr": "Les nouveaux visiteurs reçoivent un indice ponctuel « appuyez sur ▶ Exécuter, ou ＋ Add node » et un bouton 🖼️ Gallery pour parcourir et remixer des exemples.",
+      "de": "Neue Besucher bekommen einen einmaligen Hinweis \"drücke ▶ Ausführen oder ＋ Add node\" und einen 🖼️ Gallery-Button, um Beispiele zu durchstöbern & zu remixen.",
+      "pt": "Novos visitantes recebem uma dica única de \"pressione ▶ Executar, ou ＋ Add node\" e um botão 🖼️ Gallery para navegar e remixar exemplos.",
+      "ja": "新しい訪問者には一度きりの「▶ 実行を押すか、＋ Add node」ヒントと、例を閲覧・リミックスできる 🖼️ Galleryボタンが表示されます。"
     }
   },
   {
@@ -960,7 +960,7 @@
     "date": "2026-06-29",
     "text": "New 💬 Describe changes — edit your workflow in plain words and it updates the canvas instantly (undo in one click).",
     "i18n": {
-      "es": "Nuevo 💬 Describe changes — edita tu flujo con palabras normales y actualiza el lienzo al instante (deshaz con un clic).",
+      "es": "Nuevo 💬 Describe changes — edita tu flujo con palabras sencillas y el lienzo se actualiza al instante (deshaz con un clic).",
       "fr": "Nouveau 💬 Describe changes — modifiez votre workflow en langage courant et le canvas se met à jour instantanément (annulation en un clic).",
       "de": "Neu 💬 Describe changes — bearbeite deinen Workflow in einfachen Worten, und die Fläche wird sofort aktualisiert (Rückgängig mit einem Klick).",
       "pt": "Novo 💬 Describe changes — edite seu fluxo com palavras comuns e ele atualiza o canvas na hora (desfaça em um clique).",
@@ -983,7 +983,7 @@
     "text": "New 🏆 Submit button — grab your Cookoff entry link, see the prizes, and post to Discord or r/nanocurrency in one place.",
     "i18n": {
       "es": "Nuevo botón 🏆 Submit — obtén tu enlace de participación del Cookoff, mira los premios y publica en Discord o r/nanocurrency, todo en un solo lugar.",
-      "fr": "Nouveau bouton 🏆 Submit — récupérez votre lien de participation au Cookoff, consultez les prix, et publiez sur Discord ou r/nanocurrency au même endroit.",
+      "fr": "Nouveau bouton 🏆 Submit — récupérez votre lien de participation au Cookoff, découvrez les récompenses, et publiez sur Discord ou r/nanocurrency au même endroit.",
       "de": "Neuer 🏆 Submit-Button — hol dir deinen Cookoff-Beitragslink, sieh die Preise und poste auf Discord oder r/nanocurrency an einem Ort.",
       "pt": "Novo botão 🏆 Submit — pegue o link da sua inscrição no Cookoff, veja os prêmios e publique no Discord ou r/nanocurrency num só lugar.",
       "ja": "新しい 🏆 Submitボタン — Cookoffのエントリーリンクを取得し、賞品を確認し、Discordやr/nanocurrencyへ一箇所から投稿できます。"
@@ -993,7 +993,7 @@
     "date": "2026-06-29",
     "text": "Fixed the 🎙️ Transcribe node — speech-to-text was failing every run; it returns text again.",
     "i18n": {
-      "es": "Arreglado el nodo 🎙️ Transcribe — el habla a texto fallaba en cada ejecución; vuelve a devolver texto.",
+      "es": "Arreglado el nodo 🎙️ Transcribe — la conversión de voz a texto fallaba en cada ejecución; vuelve a devolver texto.",
       "fr": "Corrigé le nœud 🎙️ Transcribe — la reconnaissance vocale échouait à chaque run ; elle renvoie de nouveau du texte.",
       "de": "Den 🎙️ Transcribe-Node repariert — Sprache-zu-Text scheiterte bei jedem Run; er liefert wieder Text.",
       "pt": "Corrigido o node 🎙️ Transcribe — a conversão de fala em texto falhava em toda execução; ele volta a retornar texto.",
@@ -1081,7 +1081,7 @@
     "date": "2026-06-29",
     "text": "Avatar / lipsync now works with a 🗣️ Speech node's audio — fixed a \"Failed to fetch\" when turning TTS into a talking video.",
     "i18n": {
-      "es": "Avatar / lipsync ahora funciona con el audio de un nodo 🗣️ Speech — arreglado un \"Failed to fetch\" al convertir TTS en un video hablante.",
+      "es": "Avatar / lipsync ahora funciona con el audio de un nodo 🗣️ Speech — arreglado un \"Failed to fetch\" al convertir TTS en un video que habla.",
       "fr": "L'avatar / lipsync fonctionne désormais avec l'audio d'un nœud 🗣️ Speech — corrigé un « Failed to fetch » lors de la transformation d'un TTS en vidéo parlante.",
       "de": "Avatar / Lipsync funktioniert jetzt mit dem Audio eines 🗣️ Speech-Nodes — ein \"Failed to fetch\" beim Verwandeln von TTS in ein sprechendes Video wurde behoben.",
       "pt": "Avatar / lipsync agora funciona com o áudio de um node 🗣️ Speech — corrigido um \"Failed to fetch\" ao transformar TTS em um vídeo falante.",
@@ -1118,7 +1118,7 @@
       "fr": "Partager une app signale quand vous avez modifié un modèle ou un prompt — un avertissement indiquant que le lien copie l'app, pas votre session en cours.",
       "de": "Beim Teilen einer App wird jetzt angezeigt, wenn du ein Modell oder einen Prompt geändert hast — ein Hinweis, dass der Link die App kopiert, nicht deine aktuelle Sitzung.",
       "pt": "Compartilhar um app avisa quando você mexeu num modelo ou prompt — um alerta de que o link copia o app, não sua sessão atual.",
-      "ja": "アプリの共有時に、モデルやプロンプトを調整したかどうかを知らせます — リンクは現在のセッションではなくアプリをコピーする、という注意喚起です。"
+      "ja": "アプリの共有時に、モデルやプロンプトを調整していた場合はその旨を知らせます — リンクは現在のセッションではなくアプリをコピーする、という注意喚起です。"
     }
   },
   {
@@ -1126,7 +1126,7 @@
     "text": "Add-node menu is now searchable — type to filter (↑↓/Enter), with your recent nodes and a \"Start here\" list pinned up top.",
     "i18n": {
       "es": "El menú de agregar nodo ahora se puede buscar — escribe para filtrar (↑↓/Enter), con tus nodos recientes y una lista \"Start here\" fijada arriba.",
-      "fr": "Le menu d'ajout de nœud est désormais consultable — tapez pour filtrer (↑↓/Entrée), avec vos nœuds récents et une liste « Start here » épinglés en haut.",
+      "fr": "Le menu d'ajout de nœud dispose désormais d'une recherche — tapez pour filtrer (↑↓/Entrée), avec vos nœuds récents et une liste « Start here » épinglés en haut.",
       "de": "Das Add-node-Menü ist jetzt durchsuchbar — tippe zum Filtern (↑↓/Enter), mit deinen zuletzt genutzten Nodes und einer \"Start here\"-Liste oben angeheftet.",
       "pt": "O menu de adicionar node agora é pesquisável — digite para filtrar (↑↓/Enter), com seus nodes recentes e uma lista \"Start here\" fixados no topo.",
       "ja": "ノード追加メニューが検索可能に — 入力して絞り込め（↑↓/Enter）、最近使ったノードと「Start here」リストが上部に固定されます。"
@@ -1136,10 +1136,10 @@
     "date": "2026-06-28",
     "text": "New ✂️ Trim node to cut audio to a start + length — and lipsync now takes long songs, auto-trimming to the avatar model's limit.",
     "i18n": {
-      "es": "Nuevo nodo ✂️ Trim para recortar audio a un inicio + duración — y lipsync ahora acepta canciones largas, recortándolas solo al límite del modelo de avatar.",
+      "es": "Nuevo nodo ✂️ Trim para recortar audio a un inicio + duración — y lipsync ahora acepta canciones largas, recortándolas automáticamente al límite del modelo de avatar.",
       "fr": "Nouveau nœud ✂️ Trim pour couper l'audio à un début + une durée — et le lipsync accepte désormais les chansons longues, en les rognant automatiquement à la limite du modèle d'avatar.",
       "de": "Neuer ✂️ Trim-Node, um Audio auf Start + Länge zu schneiden — und Lipsync nimmt jetzt lange Songs an und trimmt automatisch auf das Limit des Avatar-Modells.",
-      "pt": "Novo node ✂️ Trim para cortar áudio a um início + duração — e o lipsync agora aceita músicas longas, cortando automaticamente até o limite do modelo de avatar.",
+      "pt": "Novo node ✂️ Trim para cortar áudio definindo início + duração — e o lipsync agora aceita músicas longas, cortando automaticamente até o limite do modelo de avatar.",
       "ja": "開始位置＋長さで音声を切り出す新しい ✂️ Trimノード — リップシンクも長いソングを受け取り、アバターモデルの上限に自動トリミングします。"
     }
   },
@@ -1158,11 +1158,11 @@
     "date": "2026-06-28",
     "text": "Closing the ✨ Create app window no longer loses your app — reopen and pick up where you left off.",
     "i18n": {
-      "es": "Cerrar la ventana ✨ Create app ya no pierde tu app — reábrela y continúa donde lo dejaste.",
+      "es": "Cerrar la ventana ✨ Crear app ya no pierde tu app — reábrela y continúa donde lo dejaste.",
       "fr": "Fermer la fenêtre ✨ Create app ne perd plus votre app — rouvrez et reprenez là où vous vous étiez arrêté.",
-      "de": "Das Schließen des ✨ Create app-Fensters verliert deine App nicht mehr — öffne es erneut und mach da weiter, wo du aufgehört hast.",
+      "de": "Das Schließen des ✨ \"App erstellen\"-Fensters verliert deine App nicht mehr — öffne es erneut und mach da weiter, wo du aufgehört hast.",
       "pt": "Fechar a janela ✨ Create app não perde mais seu app — reabra e continue de onde parou.",
-      "ja": "✨ Create appウィンドウを閉じてもアプリが失われなくなりました — 開き直せば続きから再開できます。"
+      "ja": "✨ アプリ作成ウィンドウを閉じてもアプリが失われなくなりました — 開き直せば続きから再開できます。"
     }
   },
   {
@@ -1191,11 +1191,11 @@
     "date": "2026-06-27",
     "text": "New 📣 Updates button — a running changelog of what's new, right in the editor.",
     "i18n": {
-      "es": "Nuevo botón 📣 Updates — un registro de cambios continuo de las novedades, dentro del propio editor.",
-      "fr": "Nouveau bouton 📣 Updates — un changelog en continu des nouveautés, directement dans l'éditeur.",
-      "de": "Neuer 📣 Updates-Button — ein laufendes Changelog mit Neuerungen, direkt im Editor.",
-      "pt": "Novo botão 📣 Updates — um changelog contínuo do que há de novo, direto no editor.",
-      "ja": "新しい 📣 Updatesボタン — 何が新しいかを追える変更履歴を、エディタ内で直接表示します。"
+      "es": "Nuevo botón 📣 Novedades — un registro de cambios con todo lo nuevo, dentro del propio editor.",
+      "fr": "Nouveau bouton 📣 Mises à jour — un changelog en continu des nouveautés, directement dans l'éditeur.",
+      "de": "Neuer 📣 Neuigkeiten-Button — ein laufendes Changelog mit Neuerungen, direkt im Editor.",
+      "pt": "Novo botão 📣 Atualizações — um changelog contínuo do que há de novo, direto no editor.",
+      "ja": "新しい 📣 アップデートボタン — 何が新しいかを追える変更履歴を、エディター内で直接表示します。"
     }
   },
   {
@@ -1228,7 +1228,7 @@
       "fr": "Inpaint : sélecteur élargi à 17 modèles d'édition vérifiés qui respectent le masque.",
       "de": "Inpaint: die Auswahl auf 17 verifizierte, maskentreue Edit-Modelle erweitert.",
       "pt": "Inpaint: ampliamos o seletor para 17 modelos de edição verificados que respeitam a máscara.",
-      "ja": "Inpaint：マスクを尊重すると検証済みの17の編集モデルまでピッカーを拡大しました。"
+      "ja": "Inpaint：マスクを正しく反映すると検証済みの編集モデル17種にピッカーを拡大しました。"
     }
   },
   {

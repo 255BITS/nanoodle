@@ -37,7 +37,20 @@ const key = flag("--key", "-k") || process.env.NANOGPT_API_KEY || "";
 const model = flag("--model", "-m") || process.env.NANOGPT_MODEL || "zai-org/glm-5.2:thinking";
 
 // don't-translate protected tokens — mirrors the localizer brief used to seed the backlog.
-const KEEP = "emoji; brand/product names (nanoodle, nano-gpt, NanoGPT, Nano, Cookoff, Noodle Cookoff, LoRA, HuggingFace, Flux, FLUX.2, Z-Image, LTX, TinyURL, da.gd, Veo 3, Kling, Seedance, Nano-Banana, Seedream, Mureka, Discord, Reddit, r/nanocurrency, X, Facebook); keyboard keys (F, Z, Y, Ctrl/Cmd/⌘); clickable UI button labels (Run, Fit, Gallery, Create app, My apps, Updates, Submit, Trim, Image, Edit, Inpaint, Video, LLM, Speech, Transcribe, Combine, Describe changes); $ prices; model ids; URLs";
+// NOTE: labels the editor UI localizes (Run, My apps, Create app, Updates, Examples) are
+// deliberately NOT in this list — see UI_LABELS below; the changelog should show what the
+// user's localized UI actually shows. "My nanoodle app" is a literal string in the product.
+const KEEP = "emoji; brand/product names (nanoodle, nano-gpt, NanoGPT, Nano, Cookoff, Noodle Cookoff, LoRA, HuggingFace, Flux, FLUX.2, Z-Image, LTX, TinyURL, da.gd, Veo 3, Kling, Seedance, Nano-Banana, Seedream, Mureka, Discord, Reddit, r/nanocurrency, X, Facebook); the literal default app name \"My nanoodle app\"; keyboard keys (F, Z, Y, Ctrl/Cmd/⌘); English-only UI button/node labels (Fit, Gallery, Submit, Trim, Image, Edit, Inpaint, Video, LLM, Speech, Transcribe, Combine, Describe changes, Customize, Save file); $ prices; model ids; URLs";
+
+// Labels the editor UI localizes (index.html I18N dict) — the translation must use these
+// exact strings so the changelog matches the buttons the reader actually sees.
+const UI_LABELS = {
+  es: { Run: "Ejecutar", "My apps": "Mis apps", "Create app": "Crear app", Updates: "Novedades", Examples: "Ejemplos" },
+  fr: { Run: "Exécuter", "My apps": "Mes apps", "Create app": "Créer une app", Updates: "Mises à jour", Examples: "Exemples" },
+  de: { Run: "Ausführen", "My apps": "Meine Apps", "Create app": "App erstellen", Updates: "Neuigkeiten", Examples: "Beispiele" },
+  pt: { Run: "Executar", "My apps": "Meus apps", "Create app": "Criar app", Updates: "Atualizações", Examples: "Exemplos" },
+  ja: { Run: "実行", "My apps": "マイアプリ", "Create app": "アプリ作成", Updates: "アップデート", Examples: "サンプル" },
+};
 
 const unesc = s => String(s).replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
 const oneLine = s => unesc(s).replace(/[\r\n]+/g, " ").trim();
@@ -75,6 +88,8 @@ async function translateBatch(lang, indices) {
     `Translate each changelog line into natural, fluent, idiomatic ${langName} as a product changelog would read (concise, user-facing). ` +
     `Address the reader informally where the language allows (German du, Spanish tú, Portuguese você; French vous is fine) — match a friendly indie-app tone. ` +
     `Keep each ONE line (no newlines). Do NOT translate: ${KEEP}. Preserve meaning exactly; add or drop nothing. ` +
+    `When a line names one of these localized editor buttons, use the app's own ${langName} label verbatim: ` +
+    Object.entries(UI_LABELS[lang]).map(([en, loc]) => `"${en}" → "${loc}"`).join(", ") + `. ` +
     `Return ONLY a JSON object mapping each input index (string key) to its ${langName} translation.`;
   const user = JSON.stringify(items);
   const r = await fetch(CHAT_ENDPOINT, {
