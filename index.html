@@ -9196,9 +9196,15 @@ $("signout").onclick = ()=> setKey(null);
       return ((typeof o==="function" ? o(node) : o) || []).map(p=> p.name); };
     const textFieldPorts = type=>{
       if(type==="text" || type==="choice" || NODE_TYPES[type].note) return [];   // pure sources / notes take no wirable text override (mirrors addFieldPorts)
-      let html=""; try{ html = NODE_TYPES[type].body({ type, fields:{} }) || ""; }catch(_){ return []; }
-      const out=[], re=/<textarea\b[^>]*\bdata-(?:f|pf)\s*=\s*\x22([^\x22]+)\x22/g; let m;   // \x22 = the attr quote — a literal " here would confuse check-describe-apply's brace matcher
+      const out=[];
+      let html=""; try{ html = NODE_TYPES[type].body({ type, fields:{} }) || ""; }catch(_){ /* body() may lean on a live node; still add the param-derived ports below */ }
+      const re=/<textarea\b[^>]*\bdata-(?:f|pf)\s*=\s*\x22([^\x22]+)\x22/g; let m;   // \x22 = the attr quote — a literal " here would confuse check-describe-apply's brace matcher
       while((m=re.exec(html))) if(m[1]!=="extraJson") out.push(m[1]);   // extraJson is advanced-only, never a wire target
+      // Audio nodes inject their param textareas (lyrics / negative_prompt / instructions) into the
+      // empty data-params slot AFTER body() runs (refreshAudioParams → addFieldPorts), so body()'s
+      // static HTML never lists them — read those wirable text params straight from AUDIO_PARAMS, or
+      // a legit wire into music.lyrics / tts.instructions gets false-rejected as a phantom port.
+      for(const p of (AUDIO_PARAMS[type]||[])) if(p.type==="textarea" && !out.includes(p.id)) out.push(p.id);
       return out;
     };
     const inPortOk = (type, port)=>{

@@ -101,6 +101,13 @@ function buildModule(src) {
       tts:{ modelKind:true, outputs:[{name:"audio",type:"audio"}], body:()=> P("prompt") },
       transcribe:{ modelKind:true, audioInput:"audio_input", outputs:[{name:"text",type:"text"}], body:()=> "" },
     };
+    // Audio nodes render these param textareas into the empty data-params slot AFTER body() runs, so
+    // validate()'s port check reads them from AUDIO_PARAMS (mirrors the real table's shape — textarea
+    // params become wirable text ports; number/select/boolean ones never do).
+    const AUDIO_PARAMS = {
+      music: [ { id:"lyrics", type:"textarea" }, { id:"negative_prompt", type:"textarea" }, { id:"seed", type:"number" } ],
+      tts:   [ { id:"instructions", type:"textarea" }, { id:"speed", type:"number" } ],
+    };
     function defModelFor(type){ return "stub-default-model"; }
     // real dimDefs returns [{ f, options:[[value,label],…], def }]; stub the shape,
     // not the loop under test (sanitizeFields snaps against whatever table this yields).
@@ -275,6 +282,28 @@ function runInvariants(mod) {
       F.push(`PORT EXISTS: a real dynamic image slot (n2.image2) was wrongly rejected (${validate(dyn).errs.join("; ")})`);
   }
 
+  // 7. AUDIO FIELD PORTS — an audio node's param textareas (music.lyrics, tts.instructions) are wired
+  //    by addFieldPorts once refreshAudioParams injects them into the data-params slot, but they never
+  //    show up in body()'s STATIC html. validate must read them from AUDIO_PARAMS or it false-rejects
+  //    a valid plan and aborts the whole apply (the PR #238 blocking finding).
+  {
+    const lyr = { nodes: [{ id: "n1", type: "text", fields: {} }, { id: "n2", type: "music", fields: {} }],
+      links: [{ from: "n1.text", to: "n2.lyrics" }] };
+    if (!validate(lyr).ok)
+      F.push(`AUDIO FIELD PORTS: a wire into music.lyrics was wrongly rejected (${validate(lyr).errs.join("; ")}) — a legit copilot plan would abort`);
+
+    const ins = { nodes: [{ id: "n1", type: "text", fields: {} }, { id: "n2", type: "tts", fields: {} }],
+      links: [{ from: "n1.text", to: "n2.instructions" }] };
+    if (!validate(ins).ok)
+      F.push(`AUDIO FIELD PORTS: a wire into tts.instructions was wrongly rejected (${validate(ins).errs.join("; ")})`);
+
+    // still bites a genuinely bogus audio port — the fix widens the port set, it doesn't accept-all.
+    const bogus = { nodes: [{ id: "n1", type: "text", fields: {} }, { id: "n2", type: "music", fields: {} }],
+      links: [{ from: "n1.text", to: "n2.chorus" }] };   // music has no "chorus" field port
+    if (validate(bogus).ok)
+      F.push("AUDIO FIELD PORTS: a wire into a non-existent audio port (music.chorus) was accepted — the widened set lost its teeth");
+  }
+
   return F;
 }
 
@@ -299,6 +328,11 @@ function selfTest() {
       // stop rejecting a wire to a port the target type doesn't have (audit L3)
       from: "if(toN && NODE_TYPES[toN.type] && !inPortOk(toN.type, tp))",
       to:   "if(false && toN && NODE_TYPES[toN.type] && !inPortOk(toN.type, tp))" },
+    { name: "audio-field-port", need: /AUDIO FIELD PORTS/,
+      // stop pulling audio param textareas (lyrics/instructions) into the wirable port set — the
+      // PR #238 regression that false-rejected a valid wire into music.lyrics / tts.instructions
+      from: 'for(const p of (AUDIO_PARAMS[type]||[])) if(p.type==="textarea" && !out.includes(p.id)) out.push(p.id);',
+      to:   'for(const p of []) if(p.type==="textarea" && !out.includes(p.id)) out.push(p.id);' },
     { name: "deletion-respected", need: /DELETION RESPECTED/,
       // the pre-04520f1 regression: merge ALL old fields under the planner's, resurrecting
       // a field the planner deliberately omitted (audit M4)
