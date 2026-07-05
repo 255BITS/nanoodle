@@ -191,16 +191,16 @@ const acy = topoOrder(new Set(["a", "b", "c"]));
 ok(acy.cyclic.length === 0 && acy.order.length === 3 && acy.order.indexOf("a") < acy.order.indexOf("b") && acy.order.indexOf("b") < acy.order.indexOf("c"),
    `cycle-safety: an acyclic chain must fully order a→b→c with no cyclic offenders (got order=${JSON.stringify(acy.order)}, cyclic=${JSON.stringify(acy.cyclic)})`);
 
-// ---- LOOP-REFUSAL (PR #231) — uncomment once fix/wire-loop-guard lands on main:
-// // A wire that closes a directed loop (b→a already wired; now a→b) must be REFUSED:
-// // no link added, no undo snapshot, and a toast shown.
-// ctx.graph.nodes = nodes("a", "b");
-// reset([{ id: "lb", from: { node: "b", port: "out" }, to: { node: "a", port: "in" } }]);
-// const refused = connect("a", "out", "b", "in");
-// ok(refused === false, "loop-refusal: connect() must return false for a loop-making wire");
-// ok(!ctx.graph.links.some((l) => l.from.node === "a" && l.to.node === "b"), "loop-refusal: the loop wire must NOT be added");
-// ok(spy.pushUndo === 0, "loop-refusal: a refused wire must not push an undo snapshot");
-// ok(spy.toast === 1, "loop-refusal: the user must be told why the wire was refused");
+// ---- LOOP-REFUSAL (PR #231, live on main):
+// A wire that closes a directed loop (b→a already wired; now a→b) must be REFUSED:
+// no link added, no undo snapshot, and a toast shown.
+ctx.graph.nodes = nodes("a", "b");
+reset([{ id: "lb", from: { node: "b", port: "out" }, to: { node: "a", port: "in" } }]);
+const refused = connect("a", "out", "b", "in");
+ok(refused === false, "loop-refusal: connect() must return false for a loop-making wire");
+ok(!ctx.graph.links.some((l) => l.from.node === "a" && l.to.node === "b"), "loop-refusal: the loop wire must NOT be added");
+ok(spy.pushUndo === 0, "loop-refusal: a refused wire must not push an undo snapshot");
+ok(spy.toast === 1, "loop-refusal: the user must be told why the wire was refused");
 
 if (failures.length) {
   process.stderr.write("✗ connect() / topoOrder wire rules regressed:\n\n- " + failures.join("\n- ") + "\n");
