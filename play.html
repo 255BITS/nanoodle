@@ -5505,6 +5505,32 @@ function hidePaceNotice(){ const n = $("pacenotice"); if(n) n.hidden = true; }
 // Continue = the viewer accepts this app's paid requests: lift the meter for the rest of its session.
 { const g = $("pacenotice-go"); if(g) g.addEventListener("click", ()=>{ PACE.lifted = true; PACE.held = false; hidePaceNotice(); }); }
 
+// ----- imported-app spend consent (per-app arming on the first real Run gesture) -----
+// Pacing (above) bounds a runaway loop, but it still lets a shared app fire its FIRST cap-worth of paid
+// calls the instant it loads — a silent balance drain with no user interaction. So a spend-capable
+// ("charge") bridge call from an IMPORTED, not-yet-armed app is REFUSED unless a genuine user gesture is
+// backing it. A real click on the app's ▶ Run control (inside the sandboxed iframe) propagates transient
+// user activation up to us here — verified: a sandboxed child's click sets the parent's
+// navigator.userActivation. The first charge call made under that live activation ARMS the app and we
+// persist `armed` on its library record, so every later session of the SAME app stays armed and runs
+// unprompted. Own builds, the editor preview and exported/standalone apps are never `imported`, so this
+// never gates them. Kept as one small block so the offline check can extract and pin it.
+// CONSENT_GATE_START
+function consentAllowsCharge(hasGesture){
+  if(!curImported || curArmed) return true;   // own/preview/exported app, or already viewer-approved → never gated
+  if(!hasGesture) return false;                // imported + unarmed + no real gesture → refuse (drive-by spend on load)
+  armImportedApp();                            // a real Run gesture arms this app for good
+  return true;
+}
+// A genuine, recent user gesture backing the current bridge call? A real click inside the sandboxed app
+// propagates transient activation to us. If the API is unavailable (a very old engine) we don't brick a
+// legit viewer — the token-bucket pacing above still bounds any runaway loop.
+function bridgeHasGesture(){ const ua = navigator.userActivation; return ua ? ua.isActive : true; }
+// Flip locked→armed for the open imported app and persist it (plain JSON on the app record, no signature)
+// so a reload — and every later session of this app — stays armed. No-op once armed / for own apps.
+function armImportedApp(){ if(!curImported || curArmed) return; curArmed = true; writeState(); }
+// CONSENT_GATE_END
+
 // ----- parent <- iframe bridge -----
 addEventListener("message", async (e) => {
   if(e.source !== $("appframe").contentWindow) return;
@@ -5521,6 +5547,10 @@ addEventListener("message", async (e) => {
   // https only, so a shared app can't bounce the user to a javascript:/data: URL.
   if(d && d.type === "__download__"){
     if(typeof d.url !== "string" || !/^https:\/\//i.test(d.url)) return;
+    // No drive-by downloads: a real save always sits behind a click, so require a recent user gesture
+    // (a genuine click in the sandboxed app propagates activation up to us). This blocks an app that
+    // tries to auto-download on load; a legit ⭳ click always carries the gesture, so it's unaffected.
+    if(!bridgeHasGesture()) return;
     const name = (typeof d.name === "string" && d.name ? d.name : "download").replace(/[^\w.\-]+/g, "_").slice(0, 80);
     try{
       const b = await (await fetch(d.url)).blob();
@@ -5554,9 +5584,17 @@ addEventListener("message", async (e) => {
       const isCatalog = kind === "catalog";
       const k = getKey(); if(!k && !isCatalog) return reply({ error:"sign in to run this app" });
       // Meter only spend-initiating calls, and only for imported apps (own/preview apps run unmetered).
-      // Polling and catalog reads always pass. A held call spends nothing — the app's runtime just sees a
-      // failed request until the viewer resumes it via the notice.
-      if(kind === "charge" && !paceChargeCall()) return reply({ error:"paused: this app is making an unusual number of paid requests" });
+      // Polling and catalog reads always pass, and pass BEFORE either check below, so a job keeps polling
+      // and the model list keeps loading even for an unarmed app.
+      if(kind === "charge"){
+        // 1) CONSENT: an imported app can't initiate spend until a real Run gesture arms it (drive-by
+        // spend on load is refused). The app's runtime surfaces this reply as a failed request.
+        if(!consentAllowsCharge(bridgeHasGesture()))
+          return reply({ error:"blocked: click ▶ Run in this shared app to allow it to make paid requests" });
+        // 2) PACING: even an armed app's paid calls run through the token bucket. A held call spends
+        // nothing — the runtime just sees a failed request until the viewer resumes it via the notice.
+        if(!paceChargeCall()) return reply({ error:"paused: this app is making an unusual number of paid requests" });
+      }
       const headers = Object.assign({}, d.headers, k ? { Authorization:"Bearer "+k, "x-api-key":k } : {});
       const r = await fetch(u.href, { method:d.method||"GET", headers, body:(d.body!=null?d.body:undefined) });
       const body = await r.arrayBuffer();
@@ -6024,6 +6062,9 @@ let CUR_ID = null;          // library id of the open app, or null for a draft
 let curImported = false;    // open app came in via a share link (#a=)
 let curRanOnce = false;     // a recipient's shared app has had its first successful run (or editor round-trip)
                             // — until then Export + Customize stay hidden so Run is the only call to action
+let curArmed = false;       // viewer has consented (via a real Run gesture) to THIS imported app initiating
+                            // spend through the bridge — persisted as `armed` so later sessions stay armed.
+                            // Distinct from curRanOnce (a UX/chrome-unlock beat): this is the spend gate.
 let FROM_EDITOR = false;    // open app derives from the host editor's canvas. Only THEN may a
                             // commit post __appsaved__ — binding the editor to an app whose
                             // graph was never on the canvas (e.g. one merely browsed in the
@@ -6046,7 +6087,7 @@ function newId(){ return "app_" + Date.now().toString(36) + Math.random().toStri
 
 // snapshot the open app as a library entry
 function curEntry(){
-  return { id:CUR_ID, title:titleFromFiles(APP_STATE.files), imported:curImported, ranOnce:curRanOnce,
+  return { id:CUR_ID, title:titleFromFiles(APP_STATE.files), imported:curImported, ranOnce:curRanOnce, armed:curArmed,
            graph:APP_STATE.graph, files:APP_STATE.files, uiSig:APP_STATE.uiSig, lang:APP_STATE.lang||"",
            versions:APP_STATE.versions, curVer:APP_STATE.curVer, updated:Date.now() };
 }
@@ -6089,13 +6130,15 @@ function stashResume(){
 }
 
 // install a freshly-loaded {graph, files} into the builder (used by every load path)
-function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig, fromEditor, lang, ranOnce }){
+function installApp({ graph, files, versions, curVer, fresh, id, imported, uiSig, fromEditor, lang, ranOnce, armed }){
   if($("portbar")){ $("portbar").hidden = true; setPortMode(false); }   // any (re)load clears a stale "port?" offer
   { const cs = $("cust-status"); if(cs) cs.innerHTML = ""; }   // ...and a prior customize's "✓ Applied"/"Error" line — it described a different app
   CUR_ID = id || null;
   FROM_EDITOR = !!fromEditor;   // set BEFORE the commit below — it gates the __appsaved__ post
   curImported = !!imported;
   curRanOnce = !!ranOnce;   // absent on legacy/imported records → false (locked); recomputed per app on every (re)load
+  curArmed = !!armed;       // spend consent: absent on a FRESH import → false (locked until a real Run gesture); a
+                            // previously-armed app carries armed:true, so a reload/switch stays armed. Own apps: unused.
   document.body.classList.toggle("recipient", curImported);   // non-owner recipient → hide owner-only Export on mobile
   // A share-link visitor has no idea this app is built on a visual node workflow, so "Edit
   // workflow" reads as jargon and hides the biggest aha — this thing was snapped together from
@@ -6169,7 +6212,7 @@ function updateAppWorkflow(appId, newGraph, fromEditor){
   // their graph's signature (best-effort: assume the UI matched when it was saved).
   const uiSig = app.uiSig != null ? app.uiSig : ioSignature(oldGraph);
   // open the existing app, on the NEW graph, keeping its UI / versions / identity / uiSig
-  installApp({ graph:newGraph, files:app.files, versions:app.versions, curVer:app.curVer, id:app.id, imported:app.imported, uiSig, fromEditor, ranOnce:app.ranOnce });
+  installApp({ graph:newGraph, files:app.files, versions:app.versions, curVer:app.curVer, id:app.id, imported:app.imported, uiSig, fromEditor, ranOnce:app.ranOnce, armed:app.armed });
   // A visitor who round-tripped through the editor is already deeply engaged — unlock the chrome
   // (silently: the port/kept-UI toast below is this path's own beat, and a forced-open portbar
   // needs Customize visible). No-op unless this is a locked imported app.
@@ -6287,7 +6330,7 @@ function toggleAppsMenu(){ $("appsmenu").hidden ? openAppsMenu() : closeAppsMenu
 function openApp(id){
   const a = loadApps().find(x=>x.id===id); if(!a) return;
   closeAppsMenu();
-  installApp({ graph:a.graph, files:a.files, versions:a.versions, curVer:a.curVer, id:a.id, imported:a.imported, uiSig:a.uiSig, lang:a.lang, ranOnce:a.ranOnce });
+  installApp({ graph:a.graph, files:a.files, versions:a.versions, curVer:a.curVer, id:a.id, imported:a.imported, uiSig:a.uiSig, lang:a.lang, ranOnce:a.ranOnce, armed:a.armed });
 }
 function deleteApp(id){
   saveApps(loadApps().filter(a=>a.id!==id));
