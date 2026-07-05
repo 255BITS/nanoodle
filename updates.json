@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-04",
+    "text": "Extract/Trim now output 16 kHz audio, so Transcribe handles ~2 min per run instead of ~1."
+  },
+  {
+    "date": "2026-07-04",
     "text": "Music node no longer bills for extra songs it couldn't deliver — the \"Number of songs\" field is capped at 1."
   },
   {
