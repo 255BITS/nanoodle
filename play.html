@@ -1408,7 +1408,8 @@ window.NoodleApp = (function () {
     // models always return 4 regardless of n — multi callers surface them all instead of discarding 3.
     async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra, opts){
       opts = opts || {};
-      const body = { model, prompt, size, n: opts.n||1, response_format:"b64_json" };
+      const body = { model, size, n: opts.n||1, response_format:"b64_json" };
+      if(prompt) body.prompt = prompt;                     // omit when blank — upscalers run with no instruction; every other path guarantees a non-empty prompt before reaching here
       if(imageDataUrl) body.imageDataUrl = imageDataUrl;   // present → image edit (img2img)
       if(maskDataUrl)  body.maskDataUrl  = maskDataUrl;    // present → inpaint; WHITE areas = the region to repaint
       if(extra) Object.assign(body, extra);                // LoRA (and any future per-model image params)
@@ -2499,7 +2500,8 @@ function mp4ParamsMatch(bufs){
           if(imgs.length > _cap){ var _drop = imgs.length - _cap; imgs = imgs.slice(0, _cap); if(onProgress) onProgress("dropped " + _drop + " image(s) over this model's limit"); }
         }catch(e){}
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
-        if(!prompt) throw new Error("no edit instruction");
+        // Upscalers just enlarge — they need no instruction. Every other edit model requires one.
+        if(!prompt && !/upscal/i.test(n.fields.model||"")) throw new Error("no edit instruction");
         if(imgs.reduce(function(s,u){ return s + (u?u.length:0); }, 0) > MEDIA_INLINE_MAX)
           throw new Error("reference images too large (~4 MB combined limit) — use fewer or smaller images");
         const src = imgs.length>1 ? imgs : imgs[0];   // array → multi-image composite; string → single edit (unchanged)
