@@ -660,8 +660,8 @@ function mountLangPickerB(){
 // One-time migration: retire xiaomi/mimo-v2.5-pro-ultraspeed as a stored Customize pick.
 // nano-gpt started 503ing it, so returning users had a dead model pinned in localStorage from
 // when it was the default. Drop the stale pick so it falls through to the live DEFAULT_MODEL.
-// ngpt_apply_model is gone too: the apply phase now runs on the user's chosen model instead
-// of a separate hardwired one.
+// ngpt_apply_model is gone too: the mechanical diff-apply phase now rides FALLBACK_MODEL
+// (fast + reliable) instead of carrying its own dead pin.
 try{ if(localStorage.getItem("ngpt_app_model") === "xiaomi/mimo-v2.5-pro-ultraspeed") localStorage.removeItem("ngpt_app_model"); }catch(_){}
 try{ localStorage.removeItem("ngpt_apply_model"); }catch(_){}
 
@@ -5995,7 +5995,10 @@ async function runDiffPass(goal, opts){
     const applyLlm = streamingCallLlm(opts.applyLabel || "Applying changes");
     const before = { "index.html": APP_STATE.files["index.html"], "app.css": APP_STATE.files["app.css"] };
     const updated = await smartapply(diff, before, {
-      apiKey:key, model:MODEL,   // apply runs on the same model the user picked to write the diff
+      // Applying a diff is mechanical whole-file rewriting — the fast, reliable FALLBACK_MODEL
+      // beats the user's (possibly slow thinking) pick here, and only runs at all when the
+      // deterministic patcher couldn't apply a hunk cleanly.
+      apiKey:key, model:FALLBACK_MODEL,
       callLlmForApply: (p,o,d,m,o2) => callLlmForApply(p,o,d,m,{ ...o2, callLlm:applyLlm }),
     });
 
