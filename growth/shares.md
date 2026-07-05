@@ -16,6 +16,7 @@ Columns: date · venue · angle used · result (upvotes, comments, signups, what
 | Jul 3 | X / Twitter ($XNO cashtag) | 🍳 Cookoff-first thread + 26s cat demo (text→image→animated cat); planned replies = nanoodle "like ComfyUI but simpler" + NanoGPT/OAuth-PKCE value prop. Video = flicker-free recut (clean cat clip spliced over screen-capture, 24fps CFR) | posted ✓ — bad timing (Jul 3→4 US holiday), expect slow accrual over the Jul 12 deadline runway |
 | Jul 3 | r/nanotrade (subreddit) | cross-post of the same Cookoff cat demo | posted ✓ |
 | Jul 4 | — (skipped) | deliberate skip: US holiday, family time | n/a — do NOT auto-propose a venue for Jul 4 |
+| Jul 5 | AlternativeTo | "ComfyUI without the install — runs in your browser, exports a single .html you own" — list as ComfyUI alternative, BYO-key / no-analytics / no-server trust hook; disclose as maker | drafted — pending human post |
 
 > Jul 4: Tweet is outperforming the dead-zone expectation — ~a dozen likes + several retweets within a day, and the planned value-prop replies (nanoodle "like ComfyUI but simpler" + NanoGPT/OAuth-PKCE) are confirmed posted. Re-bump moved up: ride the live engagement Jul 5 rather than waiting to Jul 6. Closed draft PR #214 (proposed r/StableDiffusion, which the plan of record vetoes — it was created before this plan landed on main).
 
