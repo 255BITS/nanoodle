@@ -5212,6 +5212,7 @@ function buildNodeEl(n){
     <i class="rgrip" title="drag to resize"></i>`;
   world.appendChild(el);
   n.el = el;
+  fitRO?.observe(el);   // content growth (image result, ghost teaser) re-judges ⊡ — see syncFitBtn
   translateTree(el);   // localize header title, labels, placeholders (skips model id, user fields, results)
 
   // field bindings
@@ -6491,6 +6492,11 @@ function fitUseful(){
   return scale < f*0.5;   // <0.5 keeps it hidden right after a hintPad() boot-fit (pad caps at 45% of the viewport) while still catching a genuinely lost zoom-out
 }
 function syncFitBtn(){ const el=$("fit"); if(el) el.disabled = !fitUseful(); }
+// A node's box can also change OUTSIDE applyWorld/redraw — an image result landing, a textarea
+// stretch, the demo ghost growing the output node after the boot fit (on a slow network that
+// growth is the LAST thing to happen, so nothing else re-judges ⊡). One shared observer over
+// every node card catches those; buildNodeEl enrolls each new card.
+const fitRO = typeof ResizeObserver!=="undefined" ? new ResizeObserver(()=>syncFitBtn()) : null;
 // Bring a specific set of nodes into view (used after a described change adds nodes that flow
 // off the right edge on a busy canvas). Centers on just those nodes, only zooming OUT if they
 // don't fit; no-ops when they're already fully visible so we never yank a settled camera.
