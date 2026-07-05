@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-04",
+    "text": "Image→Video now points you at Text→Video for character/subject reference images when the picked model supports them."
+  },
+  {
+    "date": "2026-07-04",
     "text": "Soundtrack error now suggests a fix that actually works"
   },
   {
