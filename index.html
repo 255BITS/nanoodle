@@ -1463,6 +1463,7 @@ const I18N = {
     "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"audio ignorado — este modelo es solo de texto. Elige un modelo con entrada de audio (por ejemplo, un Gemini).",
     "dropped {n} reference image(s) over this model's limit of {max}":"se descartaron {n} imagen(es) de referencia por encima del límite de {max} de este modelo",
     "can’t delete while running — Stop first":"no se puede eliminar mientras se ejecuta — detén primero",
+    "can’t change the workflow while running — Stop first":"no se puede cambiar el flujo de trabajo mientras se ejecuta — detén primero",
     "couldn’t read that file":"no se pudo leer ese archivo",
     "stopping…":"deteniendo…",
     "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"no se pudo autoguardar — un clip de audio/vídeo subido podría ser demasiado grande para el almacenamiento local",
@@ -1884,6 +1885,7 @@ const I18N = {
     "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"audio ignoré — ce modèle est uniquement textuel. Choisissez un modèle avec entrée audio (par ex. un Gemini).",
     "dropped {n} reference image(s) over this model's limit of {max}":"{n} image(s) de référence ignorée(s) — au-delà de la limite de {max} de ce modèle",
     "can’t delete while running — Stop first":"impossible de supprimer pendant l'exécution — arrêtez d'abord",
+    "can’t change the workflow while running — Stop first":"impossible de modifier le flux de travail pendant l'exécution — arrêtez d'abord",
     "couldn’t read that file":"impossible de lire ce fichier",
     "stopping…":"arrêt…",
     "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"échec de l'enregistrement automatique — un clip audio/vidéo importé est peut-être trop volumineux pour le stockage local",
@@ -2305,6 +2307,7 @@ const I18N = {
     "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"Audio ignoriert — dieses Modell ist reiner Text. Wähle ein Modell mit Audio-Eingabe (z. B. ein Gemini).",
     "dropped {n} reference image(s) over this model's limit of {max}":"{n} Referenzbild(er) verworfen — über dem Limit von {max} dieses Modells",
     "can’t delete while running — Stop first":"kann nicht löschen, während es läuft — zuerst stoppen",
+    "can’t change the workflow while running — Stop first":"Arbeitsablauf kann während der Ausführung nicht geändert werden — zuerst stoppen",
     "couldn’t read that file":"diese Datei konnte nicht gelesen werden",
     "stopping…":"wird gestoppt…",
     "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"automatisches Speichern fehlgeschlagen — ein hochgeladener Audio-/Videoclip ist möglicherweise zu groß für den lokalen Speicher",
@@ -2726,6 +2729,7 @@ const I18N = {
     "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"áudio ignorado — este modelo é somente texto. Escolha um modelo com entrada de áudio (por exemplo, um Gemini).",
     "dropped {n} reference image(s) over this model's limit of {max}":"{n} imagem(ns) de referência descartada(s) — acima do limite de {max} deste modelo",
     "can’t delete while running — Stop first":"não é possível excluir durante a execução — pare primeiro",
+    "can’t change the workflow while running — Stop first":"não é possível alterar o fluxo de trabalho durante a execução — pare primeiro",
     "couldn’t read that file":"não foi possível ler esse arquivo",
     "stopping…":"parando…",
     "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"não foi possível salvar automaticamente — um clipe de áudio/vídeo enviado pode ser grande demais para o armazenamento local",
@@ -3147,6 +3151,7 @@ const I18N = {
     "audio ignored — this model is text-only. Pick an audio-input model (e.g. a Gemini).":"音声は無視されました — このモデルはテキスト専用です。音声入力に対応したモデル（Geminiなど）を選んでください。",
     "dropped {n} reference image(s) over this model's limit of {max}":"参照画像を{n}枚破棄しました — このモデルの上限は{max}枚です",
     "can’t delete while running — Stop first":"実行中は削除できません — 先に停止してください",
+    "can’t change the workflow while running — Stop first":"実行中はワークフローを変更できません — 先に停止してください",
     "couldn’t read that file":"そのファイルを読み込めませんでした",
     "stopping…":"停止中…",
     "couldn’t autosave — an uploaded audio/video clip may be too large for local storage":"自動保存に失敗しました — アップロードした音声/動画クリップがローカルストレージには大きすぎる可能性があります",
@@ -3466,6 +3471,11 @@ async function fetchCatalog(kind){
   try{ raw = (await (await fetch(`${NANOGPT}${cfg.url}`,{headers})).json()).data || []; }
   catch{ return null; }        // offline / error — caller keeps whatever it already had (cache or empty)
   const list = raw.map(cfg.norm).filter(m=>m.id);
+  // A 200 whose body lacks a usable model array (malformed / half-deployed proxy) normalizes to
+  // []. Treat that exactly like the offline path (return null) so the caller keeps whatever it had
+  // and NEVER persists an empty catalog — a cached [] would poison every future session until it
+  // self-heals. Only a genuinely non-empty list is worth caching.
+  if(!list.length) return null;
   // newest first by created; on ties keep the API's native order (curated newest-first) via stable sort —
   // audio models all share one created timestamp, so this is what actually orders music/speech by recency
   list.sort((a,b)=> (b.created||0)-(a.created||0));
@@ -8086,7 +8096,8 @@ function serializeGraph(){
   };
 }
 // A graph for handing off to others: uploaded media inputs are the sharer's own
-// data, so blank them out of share links and downloaded files. (Local autosave keeps them.)
+// data, so blank them out of share links and exported apps. (Local autosave AND the
+// 💾 Save-file backup keep them — a backup that drops your own photos is worthless.)
 const UPLOAD_FIELD = { upload:"image", aupload:"audio", vupload:"video" };
 function shareableGraph(graph){          // no arg → the canvas; pass a stored app's graph to blank that instead
   const g = graph || serializeGraph();
@@ -8111,6 +8122,12 @@ function stripInjectedMedia(n){
     if(n.fields[k] && !SAFE_MEDIA_RE.test(n.fields[k])) n.fields[k] = "";
 }
 function applyGraphData(d){
+  // Carry generated results + seed-skip signatures across the rebuild. serializeGraph() never
+  // persists n.out/n._sig, so without this an undo/redo/version-jump/example-load would wipe every
+  // paid result and force a full re-run. Keyed by id AND type — same node identity — so a model/type
+  // swap under a reused id can't inherit a stale output. The engine's signature staleness still
+  // decides re-runs (and PR #229's retry-reuse reads exactly these fields), so carrying them is safe.
+  const prevById = new Map(graph.nodes.map(n=>[n.id+" "+n.type, n]));
   world.innerHTML=""; selected=null;
   graph = { nodes:[], links:[] };
   if(d.view){ panX=d.view.panX??panX; panY=d.view.panY??panY; scale=d.view.scale??scale; applyWorld(); }
@@ -8118,7 +8135,10 @@ function applyGraphData(d){
   for(const sn of (d.nodes||[])){
     const type = ALIAS[sn.type] || sn.type;
     if(!NODE_TYPES[type]) continue;               // skip unknown node types gracefully
-    const n={ ...sn, type, out:{}, el:null }; stripInjectedMedia(n); graph.nodes.push(n); buildNodeEl(n);
+    const n={ ...sn, type, out:{}, el:null }; stripInjectedMedia(n);
+    const prev = prevById.get(n.id+" "+type);   // same id AND type → carry its result + seed signature so this apply doesn't force a paid re-run
+    if(prev && prev.out && Object.keys(prev.out).length){ n.out = prev.out; if(prev._sig!=null) n._sig = prev._sig; }
+    graph.nodes.push(n); buildNodeEl(n);
   }
   // keep only links whose endpoints survived
   const ids = new Set(graph.nodes.map(n=>n.id));
@@ -8134,6 +8154,8 @@ function applyGraphData(d){
   lid = Math.max(num(d.lid), 0, ...graph.links.map(l=>num(l.id))) + 1;
   graph.nodes.forEach(n=>{ recompactImageLinks(n); refreshImageInputs(n); recompactVideoLinks(n); refreshVideoInputs(n); });   // links loaded → compact + grow image/clip ports
   redraw(); refreshPortFills(); refreshAllPrices();
+  // repaint carried-over results into their (freshly built) node bodies — buildNodeEl starts blank
+  graph.nodes.forEach(n=>{ if(n.out && Object.keys(n.out).length){ showResult(n); setStatus(n, "done"); } });
 }
 
 const RESUME_KEY = "noodle_resume";  // sessionStorage: the graph, stashed across an OAuth full-page redirect
@@ -8168,6 +8190,7 @@ function pushUndo(){              // call BEFORE a structural mutation — recor
 }
 function _restore(from, to){
   if(!from.length) return;
+  if(runningNodes.size){ flash("can’t change the workflow while running — Stop first"); return; }   // an undo/redo mid-run replaces the graph out from under in-flight (already-charged) nodes — their results would write into detached objects and vanish (mirrors the per-node delete guard)
   to.push(_snap());
   undoMuted = true;
   try{ applyGraphData(JSON.parse(from.pop())); } finally { undoMuted = false; }
@@ -8195,7 +8218,10 @@ async function loadDefault(){   // noodle-graph.json shipped alongside the page 
   return true;
 }
 function saveFile(){
-  const blob = new Blob([JSON.stringify(shareableGraph(), null, 2)], {type:"application/json"});
+  // FULL fidelity: this is the user's own local backup, not a hand-off — serializeGraph()
+  // keeps their uploaded photos/audio/video + inpaint masks so 📂 Load restores everything.
+  // (Share links / exported apps still go through shareableGraph() to blank that private media.)
+  const blob = new Blob([JSON.stringify(serializeGraph(), null, 2)], {type:"application/json"});
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob); a.download = "noodle-graph.json"; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
@@ -8256,7 +8282,8 @@ async function copyText(t){
 async function buildShareUrl(target){
   if(target==="app" && pendingAppId){
     try{
-      const app = (JSON.parse(localStorage.getItem("noodle_apps") || "[]") || []).find(a=> a && a.id===pendingAppId);
+      const apps = JSON.parse(localStorage.getItem("noodle_apps") || "[]");
+      const app = (Array.isArray(apps) ? apps : []).find(a=> a && a.id===pendingAppId);
       if(app && app.graph && app.files && app.files["index.html"]){
         // It ships the app AS SAVED: canvas edits not yet pushed via ✨ Update won't be in
         // the link, so flag the divergence (play.html's doShare toasts the same case).
@@ -8311,19 +8338,27 @@ async function shareUrl(){
 let curShareUrl = "";    // the link the popover currently reflects (long, or a shortened one)
 let curLongShareUrl = ""; // the FULL long link the popover was opened with — what shortening always acts on
                           // (the editor keeps its own URL clean, so location.hash is empty/stale by shorten time)
-function setShareUrl(u){
-  curShareUrl = u;
-  $("sm-url").value = u;
+// Build the share-to-<service> intent URLs for a given link. Factored out so the social
+// buttons can rebuild them against a freshly-shortened link at click time (see below).
+function socLinks(u){
   const text = "Built this workflow with nanoodle — open it to remix (bring your own key, runs in your browser):";
   const eu = encodeURIComponent(u), et = encodeURIComponent(text), ti = encodeURIComponent("A nanoodle workflow");
-  const soc = {
+  return {
     x:        `https://twitter.com/intent/tweet?text=${et}&url=${eu}`,
     reddit:   `https://www.reddit.com/submit?url=${eu}&title=${ti}`,
     facebook: `https://www.facebook.com/sharer/sharer.php?u=${eu}`,
     email:    `mailto:?subject=${ti}&body=${et}%0A%0A${eu}`,
   };
+}
+function setShareUrl(u){
+  curShareUrl = u;
+  $("sm-url").value = u;
+  const soc = socLinks(u);
   document.querySelectorAll("#sharemenu .sm-social a").forEach(a => a.href = soc[a.dataset.soc]);
 }
+// twitter/reddit/facebook reject or truncate multi-KB URLs — a raw #g= link kills the share at
+// the exact moment someone tries to spread the workflow. Above this length, auto-shorten first.
+const SOCIAL_SHORTEN_MAX = 2000;
 function openShareMenu(url){ curLongShareUrl = url; setShareUrl(url); $("sharemenu").hidden = false; $("shareback").hidden = false; }
 function closeShareMenu(){ $("sharemenu").hidden = true; $("shareback").hidden = true; }
 // Set when this editor session is editing the workflow of an existing app (carried in
@@ -8415,6 +8450,25 @@ document.querySelectorAll("#sharemenu .sm-svc button").forEach(btn => btn.onclic
   }finally{ btn.textContent = o; others.forEach(b=> b.disabled = false); }
 });
 document.querySelectorAll('#sharemenu .sm-social a[data-soc="email"]').forEach(a=> a.onclick = ()=> closeShareMenu());
+// x/reddit/facebook: when the link the popover reflects is still long (a raw #g= workflow link),
+// auto-shorten it before opening the intent — the social sites reject/truncate multi-KB URLs. The
+// window is opened SYNCHRONOUSLY on click (so the async shorten doesn't trip the popup blocker),
+// then pointed at the short intent once da.gd resolves. On shortener failure we fall back to the
+// long intent (unchanged behavior) rather than block the share. If the link was already shortened
+// (manual ✂ button), curShareUrl is short, so the anchor just opens normally.
+document.querySelectorAll('#sharemenu .sm-social a:not([data-soc="email"])').forEach(a=> a.onclick = (e)=>{
+  if(curShareUrl.length <= SOCIAL_SHORTEN_MAX){ closeShareMenu(); return; }   // short enough → let the anchor open
+  e.preventDefault();
+  const soc = a.dataset.soc, win = window.open("about:blank", "_blank");
+  if(win){ try{ win.opener = null; }catch(_){} }
+  const go = (href)=>{
+    if(win){ win.location.replace(href); return; }
+    const t = document.createElement("a"); t.href = href; t.target = "_blank"; t.rel = "noopener";   // popup blocked: best-effort new tab
+    document.body.appendChild(t); t.click(); t.remove();
+  };
+  shortenWith("dagd", curLongShareUrl).then(short => go(socLinks(short)[soc])).catch(()=> go(a.href));
+  closeShareMenu();
+});
 document.addEventListener("keydown", (e)=>{ if(e.key==="Escape" && !$("sharemenu").hidden){ e.stopPropagation(); closeShareMenu(); } }, true);
 // Turn this workflow into a standalone app (play.html). Hand off the graph via the
 // existing #g= packing; stash a localStorage copy as a belt-and-suspenders fallback.
@@ -8792,6 +8846,7 @@ function openExamples(){
 function closeExamples(){ $("examplesmodal").hidden=true; }
 function loadExample(i){
   const ex=EXAMPLES[i]; if(!ex) return;
+  if(runningNodes.size){ flash("can’t change the workflow while running — Stop first"); return; }   // replacing the graph mid-run would strand in-flight (already-charged) results (mirrors the per-node delete guard)
   closeExamples();
   pushUndo();                                    // BEFORE the mutation — ↺ Undo restores the prior graph
   setPendingApp(null);                           // an example is a fresh workflow, not an app edit (mirrors loadFile)
@@ -9180,17 +9235,53 @@ $("signout").onclick = ()=> setKey(null);
   // ---- validation: known types, unique ids, resolvable links, feed-forward (no cycles) ----
   function validate(simple){
     const errs = []; const ids = new Set();
+    const byId = {};
     for(const n of simple.nodes||[]){
       if(!n.id){ errs.push("a node is missing an id"); continue; }
       if(ids.has(n.id)) errs.push(`duplicate node id ${n.id}`);
-      ids.add(n.id);
+      ids.add(n.id); byId[n.id] = n;
       if(!NODE_TYPES[n.type]) errs.push(`unknown node type “${n.type}”`);
     }
+    // A node's REAL port set, derived the SAME way the editor builds ports — so we reject a wire the
+    // planner aimed at a port that doesn't exist (which serializes to a phantom wire: it renders as
+    // connected but the run engine finds no such input/output and carries nothing). Output ports come
+    // from the node's OWN outputs (frame ports depend on its `frames`); input ports are the static
+    // ports + the dynamic image/clip/audio/end-frame/ref slots + every wirable <textarea> field port.
+    const outPortNames = node=>{ const o = NODE_TYPES[node.type].outputs;
+      return ((typeof o==="function" ? o(node) : o) || []).map(p=> p.name); };
+    const textFieldPorts = type=>{
+      if(type==="text" || type==="choice" || NODE_TYPES[type].note) return [];   // pure sources / notes take no wirable text override (mirrors addFieldPorts)
+      const out=[];
+      let html=""; try{ html = NODE_TYPES[type].body({ type, fields:{} }) || ""; }catch(_){ /* body() may lean on a live node; still add the param-derived ports below */ }
+      const re=/<textarea\b[^>]*\bdata-(?:f|pf)\s*=\s*\x22([^\x22]+)\x22/g; let m;   // \x22 = the attr quote — a literal " here would confuse check-describe-apply's brace matcher
+      while((m=re.exec(html))) if(m[1]!=="extraJson") out.push(m[1]);   // extraJson is advanced-only, never a wire target
+      // Audio nodes inject their param textareas (lyrics / negative_prompt / instructions) into the
+      // empty data-params slot AFTER body() runs (refreshAudioParams → addFieldPorts), so body()'s
+      // static HTML never lists them — read those wirable text params straight from AUDIO_PARAMS, or
+      // a legit wire into music.lyrics / tts.instructions gets false-rejected as a phantom port.
+      for(const p of (AUDIO_PARAMS[type]||[])) if(p.type==="textarea" && !out.includes(p.id)) out.push(p.id);
+      return out;
+    };
+    const inPortOk = (type, port)=>{
+      const t = NODE_TYPES[type];
+      if((t.inputs||[]).some(p=> p.name===port)) return true;
+      if(t.imageInputs && (typeof t.imageInputs==="string" ? IMG_PORT_RE : EDIT_IMG_RE).test(port)) return true;
+      if(t.videoInputs && VID_PORT_RE.test(port)) return true;
+      if(t.audioInput && port==="audio") return true;
+      if(t.endFrame  && port==="endframe") return true;
+      if(t.refInputs && REF_PORT_RE.test(port)) return true;
+      return textFieldPorts(type).includes(port);
+    };
     for(const l of simple.links||[]){
       const [f, fp] = String(l.from).split("."); const [t, tp] = String(l.to).split(".");
       if(!ids.has(f)) errs.push(`a wire starts from a missing node (${f})`);
       if(!ids.has(t)) errs.push(`a wire ends at a missing node (${t})`);
-      if(!fp || !tp) errs.push(`a wire is missing its port — name each end as nodeId.port (e.g. n1.image)`);
+      if(!fp || !tp){ errs.push(`a wire is missing its port — name each end as nodeId.port (e.g. n1.image)`); continue; }
+      const fromN = byId[f], toN = byId[t];   // both ends resolved above; only port-check a node whose type we know
+      if(fromN && NODE_TYPES[fromN.type] && !outPortNames(fromN).includes(fp))
+        errs.push(`a wire starts at a port “${f}.${fp}” that a ${fromN.type} node doesn't have`);
+      if(toN && NODE_TYPES[toN.type] && !inPortOk(toN.type, tp))
+        errs.push(`a wire ends at a port “${t}.${tp}” that a ${toN.type} node doesn't have`);
     }
     const adj = {}; (simple.links||[]).forEach(l=>{ const f=String(l.from).split(".")[0], t=String(l.to).split(".")[0]; (adj[f]||(adj[f]=[])).push(t); });
     const color = {}; let cyclic = false;
@@ -9339,6 +9430,7 @@ RULES for the diff:
   window.resetDescribeVersions = ()=>{ versions.length = 0; curVer = -1; renderVersions(); setStatus(""); };
   function selectVersion(i){
     const v = versions[i]; if(!v || i===curVer || busy) return;
+    if(runningNodes.size){ flash("can’t change the workflow while running — Stop first"); return; }   // a version jump mid-run replaces the graph under in-flight (already-charged) nodes — strand-proof, like the per-node delete guard
     // Canvas edits made by hand since the current version aren't a snapshot — applyGraphData
     // below would replace the live graph and drop them. Don't interrupt to ask: just capture
     // them as a version first, so jumping away always keeps your work and parks it in the strip
