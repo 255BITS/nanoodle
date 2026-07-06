@@ -1531,7 +1531,8 @@ const I18N = {
     "Inputs":"Entradas",
     "Other":"Otros",
     "instruction (optional)":"instrucción (opcional)",
-    "prompt (optional)":"prompt (opcional)",
+    "direction (optional)":"dirección (opcional)",
+    "the spoken words come from the audio input — this guides movement and mood":"las palabras habladas vienen de la entrada de audio — esto guía el movimiento y el tono",
     "language":"idioma",
     "auto detects it — or type a language code like en or ja":"auto lo detecta — o escribe un código de idioma como es o en",
     "restyle as claymation · extend the clip · upscale to 4K…":"reestiliza como plastilina · extiende el clip · escala a 4K…",
@@ -1972,7 +1973,8 @@ const I18N = {
     "Inputs":"Entrées",
     "Other":"Autre",
     "instruction (optional)":"instruction (facultatif)",
-    "prompt (optional)":"prompt (facultatif)",
+    "direction (optional)":"direction (facultatif)",
+    "the spoken words come from the audio input — this guides movement and mood":"les paroles viennent de l’entrée audio — ceci guide le mouvement et l’ambiance",
     "language":"langue",
     "auto detects it — or type a language code like en or ja":"auto la détecte — ou saisissez un code de langue comme fr ou en",
     "restyle as claymation · extend the clip · upscale to 4K…":"style pâte à modeler · prolonger le clip · passer en 4K…",
@@ -2413,7 +2415,8 @@ const I18N = {
     "Inputs":"Eingaben",
     "Other":"Sonstiges",
     "instruction (optional)":"Anweisung (optional)",
-    "prompt (optional)":"Prompt (optional)",
+    "direction (optional)":"Regie (optional)",
+    "the spoken words come from the audio input — this guides movement and mood":"Der gesprochene Text kommt vom Audio-Eingang — dies steuert Bewegung und Stimmung",
     "language":"Sprache",
     "auto detects it — or type a language code like en or ja":"auto erkennt sie — oder gib einen Sprachcode wie de oder en ein",
     "restyle as claymation · extend the clip · upscale to 4K…":"im Knetfilm-Stil · Clip verlängern · auf 4K hochskalieren…",
@@ -2854,7 +2857,8 @@ const I18N = {
     "Inputs":"Entradas",
     "Other":"Outros",
     "instruction (optional)":"instrução (opcional)",
-    "prompt (optional)":"prompt (opcional)",
+    "direction (optional)":"direção (opcional)",
+    "the spoken words come from the audio input — this guides movement and mood":"as palavras faladas vêm da entrada de áudio — isto orienta o movimento e o tom",
     "language":"idioma",
     "auto detects it — or type a language code like en or ja":"auto detecta — ou digite um código de idioma como pt ou en",
     "restyle as claymation · extend the clip · upscale to 4K…":"reestilizar como massinha · estender o clipe · ampliar para 4K…",
@@ -3295,7 +3299,8 @@ const I18N = {
     "Inputs":"入力",
     "Other":"その他",
     "instruction (optional)":"指示(任意)",
-    "prompt (optional)":"プロンプト(任意)",
+    "direction (optional)":"演出(任意)",
+    "the spoken words come from the audio input — this guides movement and mood":"話す内容は音声入力から — ここでは動きや雰囲気を指定します",
     "language":"言語",
     "auto detects it — or type a language code like en or ja":"auto なら自動検出 — ja や en などの言語コードも入力できます",
     "restyle as claymation · extend the clip · upscale to 4K…":"クレイアニメ風に変換 · クリップを延長 · 4Kに高画質化…",
@@ -5135,7 +5140,8 @@ const NODE_TYPES = {
     body:(n)=>`
       ${modelFieldHTML(n)}
       <div data-dims></div>
-      <div><label>prompt (optional)</label><textarea data-f="prompt" placeholder="subtle head movement, warm lighting…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div><label>direction (optional)</label><textarea data-f="prompt" placeholder="subtle head movement, warm lighting…">${esc(n.fields.prompt||"")}</textarea>
+      <div class="fhint">the spoken words come from the audio input — this guides movement and mood</div></div>
       <div data-modelopts></div>`,
     async run(n, inp, ctx){
       if(!inp.image) throw new Error("no image — wire an image into the image port");
