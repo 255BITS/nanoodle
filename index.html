@@ -1431,6 +1431,8 @@ const I18N = {
     "system (optional)":"sistema (opcional)",
     "prompt":"prompt",
     "separator":"separador",
+    "no separator":"sin separador",
+    "Goes between a and b — a space by default; type \\n for a new line.":"Va entre a y b — un espacio por defecto; escribe \\n para un salto de línea.",
     "size":"tamaño",
     "edit instruction":"instrucción de edición",
     "question":"pregunta",
@@ -1889,6 +1891,8 @@ const I18N = {
     "system (optional)":"système (facultatif)",
     "prompt":"prompt",
     "separator":"séparateur",
+    "no separator":"sans séparateur",
+    "Goes between a and b — a space by default; type \\n for a new line.":"S'insère entre a et b — un espace par défaut ; tapez \\n pour un saut de ligne.",
     "size":"taille",
     "edit instruction":"instruction de modification",
     "question":"question",
@@ -2347,6 +2351,8 @@ const I18N = {
     "system (optional)":"System (optional)",
     "prompt":"Prompt",
     "separator":"Trennzeichen",
+    "no separator":"kein Trennzeichen",
+    "Goes between a and b — a space by default; type \\n for a new line.":"Steht zwischen a und b — standardmäßig ein Leerzeichen; \\n eingeben für einen Zeilenumbruch.",
     "size":"Größe",
     "edit instruction":"Bearbeitungsanweisung",
     "question":"Frage",
@@ -2805,6 +2811,8 @@ const I18N = {
     "system (optional)":"sistema (opcional)",
     "prompt":"prompt",
     "separator":"separador",
+    "no separator":"sem separador",
+    "Goes between a and b — a space by default; type \\n for a new line.":"Fica entre a e b — um espaço por padrão; digite \\n para uma nova linha.",
     "size":"tamanho",
     "edit instruction":"instrução de edição",
     "question":"pergunta",
@@ -3263,6 +3271,8 @@ const I18N = {
     "system (optional)":"システム (任意)",
     "prompt":"プロンプト",
     "separator":"区切り文字",
+    "no separator":"区切りなし",
+    "Goes between a and b — a space by default; type \\n for a new line.":"a と b の間に入ります — 既定は半角スペース。改行にするには \\n と入力。",
     "size":"サイズ",
     "edit instruction":"編集指示",
     "question":"質問",
@@ -4813,11 +4823,12 @@ const NODE_TYPES = {
   },
 
   join: {
-    em:"🔗", title:"Join", desc:"Glue two texts together", group:"Text",
+    em:"🔗", title:"Join", desc:"Glue two texts together", group:"Text", kw:"concat concatenate merge combine append separator newline",
     inputs:[{name:"a", type:"text"},{name:"b", type:"text"}],
     outputs:[{name:"text", type:"text"}], preview:"text",
     body:(n)=>`<div><label>separator</label>
-      <input data-f="sep" value="${esc(n.fields.sep ?? " ")}" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem"/></div>`,
+      <input data-f="sep" value="${esc(n.fields.sep ?? " ")}" placeholder="no separator" style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem"/>
+      <div class="fhint">Goes between a and b — a space by default; type \\n for a new line.</div></div>`,
     async run(n, inp){
       const sep = (n.fields.sep ?? " ").replace(/\\n/g,"\n");
       return { text: [inp.a, inp.b].filter(v=>v!=null && v!=="").join(sep) };
