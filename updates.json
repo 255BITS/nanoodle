@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-07-06",
+    "text": "Every node just got a copy pass — clearer hints and placeholders, prompt fields moved up top, and the Add menu now finds nodes by what you want to do (try “remove”, “cut”, “caption”, or “mp3”). The Image node also accepts drag-and-drop.",
+    "i18n": {
+      "fr": "Chaque nœud vient de passer par une révision des textes — des indices et placeholders plus clairs, les champs de prompt déplacés en haut, et le menu Ajouter trouve désormais les nœuds selon ce que vous voulez faire (essayez « remove », « cut », « caption » ou « mp3 »). Le nœud Image accepte aussi le glisser-déposer.",
+      "de": "Alle Knoten haben einen Copy-Pass bekommen – klarere Hinweise und Platzhalter, Prompt-Felder nach oben verschoben, und das Hinzufügen-Menü findet jetzt Knoten nach dem, was du tun willst (probier mal „remove“, „cut“, „caption“ oder „mp3“). Der Image-Knoten akzeptiert jetzt auch Drag-and-drop.",
+      "pt": "Cada nó passou por uma revisão de texto — dicas e placeholders mais claros, campos de prompt movidos para o topo, e o menu Adicionar agora encontra nós pelo que você quer fazer (tente “remove”, “cut”, “caption” ou “mp3”). O nó Image também aceita arrastar e soltar.",
+      "ja": "すべてのノードでテキストを見直しました。ヒントとプレースホルダーがより明確になり、プロンプトフィールドが上部に移動しました。さらに、追加メニューでやりたいことからノードを検索できるようになりました（「remove」「cut」「caption」「mp3」で試してみてください）。Imageノードではドラッグ＆ドロップにも対応しました。",
+      "es": "Cada nodo acaba de pasar por una revisión de textos: pistas y placeholders más claros, campos de prompt arriba del todo, y el menú Añadir ahora encuentra nodos según lo que quieres hacer (prueba \"remove\", \"cut\", \"caption\" o \"mp3\"). El nodo Image también acepta arrastrar y soltar."
+    }
+  },
+  {
     "date": "2026-07-05",
     "text": "Music and speech models now list newest versions first in the model picker",
     "i18n": {
