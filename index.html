@@ -1433,6 +1433,12 @@ const I18N = {
     "system (optional)":"sistema (opcional)",
     "prompt":"prompt",
     "separator":"separador",
+    "options":"opciones",
+    "· one per line":"· una por línea",
+    "selection":"selección",
+    "· the default pick":"· la opción predeterminada",
+    "— add options above —":"— añade opciones arriba —",
+    "watercolor\noil painting\npixel art":"acuarela\npintura al óleo\npixel art",
     "no separator":"sin separador",
     "Goes between a and b — a space by default; type \\n for a new line.":"Va entre a y b — un espacio por defecto; escribe \\n para un salto de línea.",
     "size":"tamaño",
@@ -1895,6 +1901,12 @@ const I18N = {
     "system (optional)":"système (facultatif)",
     "prompt":"prompt",
     "separator":"séparateur",
+    "options":"options",
+    "· one per line":"· une par ligne",
+    "selection":"sélection",
+    "· the default pick":"· le choix par défaut",
+    "— add options above —":"— ajoutez des options ci-dessus —",
+    "watercolor\noil painting\npixel art":"aquarelle\npeinture à l'huile\npixel art",
     "no separator":"sans séparateur",
     "Goes between a and b — a space by default; type \\n for a new line.":"S'insère entre a et b — un espace par défaut ; tapez \\n pour un saut de ligne.",
     "size":"taille",
@@ -2357,6 +2369,12 @@ const I18N = {
     "system (optional)":"System (optional)",
     "prompt":"Prompt",
     "separator":"Trennzeichen",
+    "options":"Optionen",
+    "· one per line":"· eine pro Zeile",
+    "selection":"Auswahl",
+    "· the default pick":"· die Standardauswahl",
+    "— add options above —":"— oben Optionen hinzufügen —",
+    "watercolor\noil painting\npixel art":"Aquarell\nÖlgemälde\nPixel-Art",
     "no separator":"kein Trennzeichen",
     "Goes between a and b — a space by default; type \\n for a new line.":"Steht zwischen a und b — standardmäßig ein Leerzeichen; \\n eingeben für einen Zeilenumbruch.",
     "size":"Größe",
@@ -2819,6 +2837,12 @@ const I18N = {
     "system (optional)":"sistema (opcional)",
     "prompt":"prompt",
     "separator":"separador",
+    "options":"opções",
+    "· one per line":"· uma por linha",
+    "selection":"seleção",
+    "· the default pick":"· a escolha padrão",
+    "— add options above —":"— adicione opções acima —",
+    "watercolor\noil painting\npixel art":"aquarela\npintura a óleo\npixel art",
     "no separator":"sem separador",
     "Goes between a and b — a space by default; type \\n for a new line.":"Fica entre a e b — um espaço por padrão; digite \\n para uma nova linha.",
     "size":"tamanho",
@@ -3281,6 +3305,12 @@ const I18N = {
     "system (optional)":"システム (任意)",
     "prompt":"プロンプト",
     "separator":"区切り文字",
+    "options":"選択肢",
+    "· one per line":"· 1行に1つ",
+    "selection":"選択",
+    "· the default pick":"· 既定の選択",
+    "— add options above —":"— 上に選択肢を追加 —",
+    "watercolor\noil painting\npixel art":"水彩\n油絵\nピクセルアート",
     "no separator":"区切りなし",
     "Goes between a and b — a space by default; type \\n for a new line.":"a と b の間に入ります — 既定は半角スペース。改行にするには \\n と入力。",
     "size":"サイズ",
@@ -4826,11 +4856,11 @@ const NODE_TYPES = {
       const cur = opts.indexOf(n.fields.selected)>=0 ? n.fields.selected : (opts[0]||"");
       const optHTML = opts.length
         ? opts.map(o=>`<option value="${esc(o)}"${o===cur?" selected":""}>${esc(o)}</option>`).join("")
-        : `<option value="">— add options above —</option>`;
+        : `<option value="">${esc(t("— add options above —"))}</option>`;
       return `
       <div><label>options <span class="dim">· one per line</span></label>
-        <textarea data-f="options" style="min-height:60px">${esc(n.fields.options||"")}</textarea></div>
-      <div><label>selection</label>
+        <textarea data-f="options" placeholder="${esc(t("watercolor\noil painting\npixel art"))}" style="min-height:60px">${esc(n.fields.options||"")}</textarea></div>
+      <div><label>selection <span class="dim">· the default pick</span></label>
         <select data-f="selected" data-choicesel data-no-i18n style="width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:.45rem;padding:.35rem .5rem">${optHTML}</select></div>`;
     },
     mount:(n)=>{
@@ -4843,7 +4873,7 @@ const NODE_TYPES = {
         const cur = opts.indexOf(n.fields.selected)>=0 ? n.fields.selected : (opts[0]||"");
         sel.innerHTML = opts.length
           ? opts.map(o=>`<option value="${esc(o)}"${o===cur?" selected":""}>${esc(o)}</option>`).join("")
-          : `<option value="">— add options above —</option>`;
+          : `<option value="">${esc(t("— add options above —"))}</option>`;
         n.fields.selected = cur; sel.value = cur; save();
       });
     },
