@@ -1486,7 +1486,7 @@ const I18N = {
     "Webcam":"Cámara",
     "Capture":"Capturar",
     "Cancel":"Cancelar",
-    "no image yet":"aún sin imagen",
+    "no image yet — drop one here":"aún sin imagen — suelta una aquí",
     "running…":"ejecutando…",
     "error":"error",
     "generating audio…":"generando audio…",
@@ -1947,7 +1947,7 @@ const I18N = {
     "Webcam":"Webcam",
     "Capture":"Capturer",
     "Cancel":"Annuler",
-    "no image yet":"aucune image",
+    "no image yet — drop one here":"aucune image — déposez-en une ici",
     "running…":"exécution…",
     "error":"erreur",
     "generating audio…":"génération de l’audio…",
@@ -2408,7 +2408,7 @@ const I18N = {
     "Webcam":"Webcam",
     "Capture":"Aufnehmen",
     "Cancel":"Abbrechen",
-    "no image yet":"noch kein Bild",
+    "no image yet — drop one here":"noch kein Bild — eins hier ablegen",
     "running…":"läuft…",
     "error":"Fehler",
     "generating audio…":"Audio wird erzeugt…",
@@ -2869,7 +2869,7 @@ const I18N = {
     "Webcam":"Webcam",
     "Capture":"Capturar",
     "Cancel":"Cancelar",
-    "no image yet":"nenhuma imagem ainda",
+    "no image yet — drop one here":"nenhuma imagem ainda — solte uma aqui",
     "running…":"executando…",
     "error":"erro",
     "generating audio…":"gerando áudio…",
@@ -3330,7 +3330,7 @@ const I18N = {
     "Webcam":"ウェブカメラ",
     "Capture":"撮影",
     "Cancel":"キャンセル",
-    "no image yet":"画像なし",
+    "no image yet — drop one here":"画像なし — ここに画像をドロップ",
     "running…":"実行中…",
     "error":"エラー",
     "generating audio…":"音声を生成中…",
@@ -4748,9 +4748,10 @@ const NODE_TYPES = {
 
   upload: {
     em:"📷", title:"Image input", desc:"Upload or capture an image", group:"Inputs",
+    kw:"photo picture camera webcam capture file drop png jpg selfie",
     inputs:[], outputs:[{name:"image", type:"image"}], preview:"none",
     body:(n)=>`
-      <div class="uprev" data-uprev>${n.fields.image ? `<img src="${esc(n.fields.image)}" alt="image"/>` : `<span class="dim">no image yet</span>`}</div>
+      <div class="uprev" data-uprev>${n.fields.image ? `<img src="${esc(n.fields.image)}" alt="image"/>` : `<span class="dim">no image yet — drop one here</span>`}</div>
       <div class="two">
         <button class="ubtn" data-up="file">⬆ <span>Upload</span></button>
         <button class="ubtn" data-up="cam">📷 <span>Webcam</span></button>
@@ -5868,6 +5869,7 @@ function mountUpload(n){
       const act = b.dataset.up;
       if(act==="file") fileInput.click();
       else if(act==="cam"){
+        stopCam();                                           // re-click while open: release the old stream first
         try{ stream = await navigator.mediaDevices.getUserMedia({video:true}); video.srcObject=stream; cambox.hidden=false; }
         catch(err){ flash(t("webcam unavailable")+": "+err.message); }
       }
@@ -5876,6 +5878,14 @@ function mountUpload(n){
     };
   });
   fileInput.addEventListener("change", ()=>{ const f=fileInput.files?.[0]; if(f) fileToDataURL(f, setImage); fileInput.value=""; });
+  // Drag-and-drop onto the preview box — the gesture a first-time user tries before finding the button.
+  // Without preventDefault the browser would navigate the whole tab to the dropped file.
+  prev.addEventListener("dragover", (e)=> e.preventDefault());
+  prev.addEventListener("drop", (e)=>{
+    e.preventDefault(); e.stopPropagation();
+    const f = [...(e.dataTransfer?.files||[])].find(f=> /^image\//.test(f.type));
+    if(f) fileToDataURL(f, setImage);
+  });
 }
 
 // Inpaint node: a source image (uploaded/captured inline, OR wired in) with a mask over it (brushed
