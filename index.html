@@ -4697,8 +4697,8 @@ const NODE_TYPES = {
     outputs:[{name:"image", type:"image"}], preview:"image",
     body:(n)=>`
       ${modelFieldHTML(n)}
-      <div data-dims></div>
       <div><label>prompt</label><textarea data-f="prompt" placeholder="a red panda astronaut…">${esc(n.fields.prompt||"")}</textarea></div>
+      <div data-dims></div>
       <div><label>seed <span class="dim lblhint">· blank = random, fix to repeat (re-run won't regenerate)</span></label><input type="number" data-f="seed" placeholder="random" value="${esc(n.fields.seed??"")}"/></div>
       <div data-loraparams></div>`,
     async run(n, inp, ctx){
