@@ -1295,7 +1295,7 @@ const I18N = {
     "or":"o",
     "or post it to":"o publícalo en",
     "output format":"formato de salida",
-    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"genera WAV mono, ajustado para incrustar — útil antes de Avatar / sincronización labial cuando un clip es demasiado largo.",
+    "outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.":"genera WAV mono, lo bastante pequeño para enviarlo a los modelos — útil antes de 🎭 Avatar / sincronización labial cuando un clip es demasiado largo.",
     "video → mono WAV — wire into 🎙️ Transcribe to get text. Transcribe fits about 2 min per run, so set a length for a longer video. AI-generated videos are silent — use an uploaded video with sound.":"vídeo → WAV mono — conéctalo a 🎙️ Transcribe para obtener texto. Transcribe admite unos 2 min por ejecución, así que define una duración para un vídeo más largo. Los vídeos generados por IA no tienen sonido — usa un vídeo subido con audio.",
     "whole clip":"clip completo",
     "paste your link":"pega tu enlace",
@@ -1769,7 +1769,7 @@ const I18N = {
     "or":"ou",
     "or post it to":"ou publiez-le sur",
     "output format":"format de sortie",
-    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"produit un WAV mono, dimensionné pour l’intégration — pratique avant Avatar / synchro labiale quand un clip est trop long.",
+    "outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.":"produit un WAV mono, assez petit pour être envoyé aux modèles — pratique avant 🎭 Avatar / synchro labiale quand un clip est trop long.",
     "video → mono WAV — wire into 🎙️ Transcribe to get text. Transcribe fits about 2 min per run, so set a length for a longer video. AI-generated videos are silent — use an uploaded video with sound.":"vidéo → WAV mono — reliez à 🎙️ Transcribe pour obtenir du texte. Transcribe traite environ 2 min par exécution, définissez donc une durée pour une vidéo plus longue. Les vidéos générées par IA sont muettes — utilisez une vidéo importée avec du son.",
     "whole clip":"clip entier",
     "paste your link":"collez votre lien",
@@ -2233,7 +2233,7 @@ const I18N = {
     "or":"oder",
     "or post it to":"oder poste es auf",
     "output format":"Ausgabeformat",
-    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"gibt Mono-WAV aus, auf Inline-Größe reduziert — praktisch vor Avatar / Lippensynchro, wenn ein Clip zu lang ist.",
+    "outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.":"gibt Mono-WAV aus, klein genug zum Senden an Modelle — praktisch vor 🎭 Avatar / Lippensynchro, wenn ein Clip zu lang ist.",
     "video → mono WAV — wire into 🎙️ Transcribe to get text. Transcribe fits about 2 min per run, so set a length for a longer video. AI-generated videos are silent — use an uploaded video with sound.":"Video → Mono-WAV — verbinde mit 🎙️ Transcribe, um Text zu erhalten. Transcribe verarbeitet etwa 2 Min. pro Lauf — gib also für ein längeres Video eine Länge an. KI-generierte Videos sind stumm — nutze ein hochgeladenes Video mit Ton.",
     "whole clip":"ganzer Clip",
     "paste your link":"füge deinen Link ein",
@@ -2701,7 +2701,7 @@ const I18N = {
     "or":"ou",
     "or post it to":"ou poste em",
     "output format":"formato de saída",
-    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"gera WAV mono, dimensionado para inline — útil antes de Avatar / sincronia labial quando um clipe é muito longo.",
+    "outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.":"gera WAV mono, pequeno o suficiente para enviar aos modelos — útil antes de 🎭 Avatar / sincronia labial quando um clipe é muito longo.",
     "video → mono WAV — wire into 🎙️ Transcribe to get text. Transcribe fits about 2 min per run, so set a length for a longer video. AI-generated videos are silent — use an uploaded video with sound.":"vídeo → WAV mono — ligue a 🎙️ Transcribe para obter texto. O Transcribe processa cerca de 2 min por execução, então defina uma duração para um vídeo mais longo. Vídeos gerados por IA não têm som — use um vídeo enviado com áudio.",
     "whole clip":"clipe inteiro",
     "paste your link":"cole seu link",
@@ -3166,7 +3166,7 @@ const I18N = {
     "or":"または",
     "or post it to":"または次に投稿:",
     "output format":"出力形式",
-    "outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.":"モノラルWAVを出力し、インライン用にサイズ調整 — クリップが長すぎる場合、アバター / リップシンクの前に便利。",
+    "outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.":"モノラルWAVを出力し、モデルに送れる小ささに — クリップが長すぎる場合、🎭 アバター / リップシンクの前に便利。",
     "video → mono WAV — wire into 🎙️ Transcribe to get text. Transcribe fits about 2 min per run, so set a length for a longer video. AI-generated videos are silent — use an uploaded video with sound.":"動画 → モノラルWAV — 🎙️ Transcribe につなぐとテキストになります。Transcribe は1回で約2分まで扱えるので、長い動画では長さを指定してください。AI生成の動画は無音です — 音声付きのアップロード動画を使ってください。",
     "whole clip":"クリップ全体",
     "paste your link":"リンクを貼り付け",
@@ -5379,7 +5379,7 @@ const NODE_TYPES = {
   },
 
   trim: {
-    em:"✂️", title:"Trim audio", desc:"Cut audio to a start + length", group:"Audio",
+    em:"✂️", title:"Trim audio", desc:"Cut audio to a start + length", group:"Audio", kw:"cut shorten clip section snippet crop excerpt",
     inputs:[{name:"audio", type:"audio"}],
     outputs:[{name:"audio", type:"audio"}], preview:"audio",
     body:(n)=>`
@@ -5387,7 +5387,7 @@ const NODE_TYPES = {
         <div><label>start (sec)</label><input type="number" step="0.1" min="0" data-f="start" value="${esc(n.fields.start ?? 0)}"/></div>
         <div><label>length (sec)</label><input type="number" step="0.1" min="0.1" data-f="length" value="${esc(n.fields.length ?? 30)}"/></div>
       </div>
-      <div style="opacity:.6;font-size:.8em;margin-top:.3rem">outputs mono WAV, sized to inline — handy before Avatar / lipsync when a clip is too long.</div>`,
+      <div style="opacity:.6;font-size:.8em;margin-top:.3rem">outputs mono WAV, small enough to send to models — handy before 🎭 Avatar / lipsync when a clip is too long.</div>`,
     async run(n, inp){
       if(!inp.audio) throw new Error("no audio — wire an audio clip into the audio port");
       const start = parseFloat(n.fields.start) || 0;
