@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-06",
+    "text": "Moving or resizing nodes now counts as a change — the ✨ button flips back to \"Update <app>\" and saves your new arrangement into the app.",
+    "i18n": {
+      "es": "Mover o redimensionar nodos ahora cuenta como un cambio — el botón ✨ vuelve a \"Actualizar <app>\" y guarda tu nueva disposición en la app.",
+      "fr": "Déplacer ou redimensionner des nœuds compte désormais comme une modification — le bouton ✨ revient à « Mettre à jour <app> » et enregistre votre nouvelle disposition dans l'app.",
+      "de": "Das Verschieben oder Ändern der Größe von Knoten zählt nun als Änderung — der ✨-Button wechselt zurück zu \"Aktualisieren <app>\" und speichert deine neue Anordnung in der App.",
+      "pt": "Mover ou redimensionar nós agora conta como uma alteração — o botão ✨ volta para \"Atualizar <app>\" e salva seu novo arranjo no app.",
+      "ja": "ノードの移動やリサイズが変更としてカウントされるようになりました — ✨ボタンが「<app>をアップデート」に戻り、新しい配置がアプリに保存されます。"
+    }
+  },
+  {
+    "date": "2026-07-06",
     "text": "Every node just got a copy pass — clearer hints and placeholders, prompt fields moved up top, and the Add menu now finds nodes by what you want to do (try “remove”, “cut”, “caption”, or “mp3”). The Image node also accepts drag-and-drop.",
     "i18n": {
       "fr": "Chaque nœud vient de passer par une révision des textes — des indices et placeholders plus clairs, les champs de prompt déplacés en haut, et le menu Ajouter trouve désormais les nœuds selon ce que vous voulez faire (essayez « remove », « cut », « caption » ou « mp3 »). Le nœud Image accepte aussi le glisser-déposer.",
