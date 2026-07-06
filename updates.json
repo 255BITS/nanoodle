@@ -1,6 +1,10 @@
 [
   {
     "date": "2026-07-05",
+    "text": "Older results now save in one tap — every image, video, and track on the \"Earlier results\" shelf has its own ⭳ download button."
+  },
+  {
+    "date": "2026-07-05",
     "text": "New 🎛 Remix audio node — hand it a track (uploaded, or chained from 🎵 Music) plus a style prompt to make a cover or extend the song",
     "i18n": {
       "es": "Nuevo nodo 🎛 Remix de audio — pásale una pista (subida o encadenada desde 🎵 Music) más un prompt de estilo para hacer una versión cover o extender la canción",
