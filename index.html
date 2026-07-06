@@ -551,7 +551,8 @@
   .body textarea.wired{ opacity:.72; border-style:dashed; cursor:not-allowed; color:var(--muted) }
   /* a wired field collapses to a one-line chip naming its source (the textarea is hidden) */
   .body textarea[hidden]{ display:none }
-  .body .wire-chip{ display:inline-flex; align-items:center; font-size:.72rem; color:var(--dim);
+  /* inline-block, NOT flex: flex drops the whitespace between "⚡ from" and the <b> ("fromLLM") and breaks single-line ellipsis */
+  .body .wire-chip{ display:inline-block; font-size:.72rem; color:var(--dim);
                     background:var(--panel2); border:1px solid var(--line); border-radius:.4rem;
                     padding:.18rem .5rem; margin-top:.1rem; max-width:100%; box-sizing:border-box;
                     white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
@@ -3930,8 +3931,7 @@ function audioFields(kind, it){
     const f = { ...p, jsonKey:p.id };
     if(p.appliesTo==="cat:voices")   f.options = it.voices;
     if(p.appliesTo==="cat:duration" || p.appliesTo==="cat:secduration"){ f.min = it.params.min_duration; f.max = it.params.max_duration; }
-    if(p.appliesTo==="cat:gencount"){ f.jsonKey = it.params.generation_count_parameter || p.id; f.min=1; f.max=1;   // capped at 1: the endpoint surfaces a single track, so requesting (and paying for) more would silently drop the extras
-      f.hint = "One song per run — nanoodle keeps a single track, so extra songs would be billed but dropped."; }
+    if(p.appliesTo==="cat:gencount") continue;   // nanoodle surfaces a single track and collectAudioParams clamps the count to 1 (= default → never sent), so a "(1–1)" input is a dead control — don't render it
     out.push(f);
   }
   return out;
