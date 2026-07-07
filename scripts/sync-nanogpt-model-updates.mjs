@@ -1,0 +1,244 @@
+#!/usr/bin/env node
+// Watch NanoGPT's public changelog (https://nano-gpt.com/updates) for new CHAT/LLM
+// model announcements and mirror them into nanoodle's own 📣 updates.json — because
+// nanoodle's LLM node pulls its model list straight from NanoGPT's catalog, so a
+// model NanoGPT adds is a model nanoodle users can use *today*, and they should
+// hear about it without us shipping a code change.
+//
+// Scope is deliberately narrow: only entries whose announcement links to
+//   https://nano-gpt.com/conversation?model=<slug>
+// (NanoGPT's chat-model conversation page). Image/video/audio models link to
+// /media?mode=... instead and are out of scope here — those already get their own
+// growth passes (see the audio/NSFW-toggle work). Community-app posts (World Forge,
+// LettuceAI, etc.) and infra notices (billing modes, deposits) carry no model link
+// at all, so they're naturally skipped too.
+//
+// The updates page is a Next.js client-rendered app (no server HTML, no RSS) — the
+// entries only exist after client JS runs. We render it with a real headless
+// browser (--dump-dom) rather than reverse-engineer whatever internal API it
+// calls, since that's far more likely to survive NanoGPT's next deploy.
+//
+// State: scripts/nanogpt-model-updates-seen.json tracks every (date, slug) we've
+// already turned into a nanoodle changelog line, so reruns never double-add. On
+// the very first run (no state file yet) we walk newest-first from the top of the
+// page down through — and including — BOOTSTRAP_FLOOR_SLUG, then stop; anything
+// older than that floor is assumed already known/irrelevant. Every run after that
+// just walks until it hits an already-seen entry.
+//
+// Usage (safe to run repeatedly / on a cron):
+//   node scripts/sync-nanogpt-model-updates.mjs                 # dry-run if nothing new; else writes+commits
+//   node scripts/sync-nanogpt-model-updates.mjs --dry-run       # never writes/commits, just reports
+//   node scripts/sync-nanogpt-model-updates.mjs --no-translate  # skip the i18n backfill (no API spend)
+//   node scripts/sync-nanogpt-model-updates.mjs --no-commit     # write updates.json but don't touch git
+//
+// Translation spends NanoGPT credits (see scripts/translate-updates.mjs) — set
+// NANOGPT_API_KEY in the environment for that step, or pass --no-translate.
+// This script never pushes; that's a separate, human-approved step.
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const SEEN_FILE = join(root, "scripts", "nanogpt-model-updates-seen.json");
+const UPDATES_URL = "https://nano-gpt.com/updates";
+
+// The model slug the user pointed at as the starting boundary: "this one, and
+// everything newer than it, should get a nanoodle changelog entry." Only used
+// to bound the very first run, before any state file exists.
+const BOOTSTRAP_FLOOR_SLUG = "tencent/hy3";
+
+const argv = process.argv.slice(2);
+const dryRun = argv.includes("--dry-run");
+const noTranslate = argv.includes("--no-translate");
+const noCommit = argv.includes("--no-commit");
+
+const MONTHS = {
+  January: "01", February: "02", March: "03", April: "04", May: "05", June: "06",
+  July: "07", August: "08", September: "09", October: "10", November: "11", December: "12",
+};
+
+function log(msg) { console.log(`[sync-nanogpt-model-updates] ${msg}`); }
+
+// --- 1. Render the updates page with a real headless browser ----------------
+// Candidate binaries, in preference order. Anything supporting --dump-dom works.
+const BROWSERS = [
+  "google-chrome", "google-chrome-stable", "chromium-browser", "chromium",
+  "/opt/microsoft/msedge/msedge", "microsoft-edge",
+];
+
+function findBrowser() {
+  for (const bin of BROWSERS) {
+    try {
+      execFileSync(bin, ["--version"], { stdio: ["ignore", "ignore", "ignore"] });
+      return bin;
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+function renderUpdatesPage() {
+  const bin = findBrowser();
+  if (!bin) {
+    throw new Error(
+      "No headless browser found (tried: " + BROWSERS.join(", ") + "). " +
+      "The NanoGPT updates page is client-rendered — a real browser is required to see entries."
+    );
+  }
+  log(`rendering ${UPDATES_URL} via ${bin} …`);
+  const html = execFileSync(bin, [
+    "--headless", "--disable-gpu", "--no-sandbox",
+    "--virtual-time-budget=15000", "--dump-dom", UPDATES_URL,
+  ], { maxBuffer: 20 * 1024 * 1024, timeout: 45000, encoding: "utf8" });
+  if (!html || html.length < 1000) throw new Error("rendered page came back empty/too small — site may have changed");
+  return html;
+}
+
+// --- 2. Parse out chat-model announcement entries ----------------------------
+// Anchored on Mantine's own (library) class names / data-attributes, NOT on the
+// app's per-deploy content-hashed wrapper classes (those change every build).
+function stripTags(s) { return s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").trim(); }
+
+function enclosingParagraphText(html, nearIndex) {
+  const pOpen = html.lastIndexOf("<p", nearIndex);
+  const pClose = html.indexOf("</p>", nearIndex);
+  if (pOpen === -1 || pClose === -1) return null;
+  const gt = html.indexOf(">", pOpen);
+  if (gt === -1 || gt > pClose) return null;
+  return stripTags(html.slice(gt + 1, pClose));
+}
+
+function parseDate(raw) {
+  const m = raw && raw.match(/(\w+)\s+(\d+),\s+(\d+)/);
+  if (!m) return null;
+  const mon = MONTHS[m[1]];
+  if (!mon) return null;
+  return `${m[3]}-${mon}-${String(m[2]).padStart(2, "0")}`;
+}
+
+function extractEntries(html) {
+  const linkRe = /<a href="https:\/\/nano-gpt\.com\/conversation\?model=([^"]+)"[^>]*>([^<]*)<\/a>/g;
+  const entries = [];
+  let m;
+  while ((m = linkRe.exec(html))) {
+    const slug = decodeURIComponent(m[1].replace(/&amp;/g, "&"));
+    const idx = m.index;
+    const lgPos = html.lastIndexOf('data-size="lg"', idx);
+    const title = lgPos !== -1 ? enclosingParagraphText(html, lgPos) : null;
+    const description = enclosingParagraphText(html, idx); // the <p data-size="sm"> containing the link
+    const xsPos = html.indexOf('data-size="xs"', idx);
+    const dateRaw = xsPos !== -1 ? enclosingParagraphText(html, xsPos) : null;
+    const date = parseDate(dateRaw);
+    if (!slug || !title || !date) continue; // couldn't confidently parse this card — skip, don't guess
+    entries.push({ slug, title: stripTags(m[2]) || title, description, date });
+  }
+  return entries; // page order = newest first
+}
+
+// --- 3. Compose a nanoodle-facing changelog line from NanoGPT's announcement --
+function toChangelogText(entry) {
+  // NanoGPT's copy reads like "<Model> is now available! <details…>" or
+  // "<Model> is available again. <details…>" — keep just the details clause.
+  let detail = (entry.description || "").replace(/^[^!.]*(?:is now available!|is available again\.)\s*/i, "").trim();
+  // Smooth "<Title> — It is a …" into "<Title> — a …" — the title already named
+  // the subject, so the pronoun just repeats it awkwardly after the em dash.
+  detail = detail.replace(/^It(?:'s| is)\s+/, "");
+  if (detail.length > 220) detail = detail.slice(0, 217).replace(/\s+\S*$/, "") + "…";
+  const text = detail
+    ? `New LLM model: ${entry.title} — ${detail}`
+    : `New LLM model: ${entry.title} is now available for the LLM node.`;
+  return text.replace(/\s+/g, " ").trim();
+}
+
+// --- 4. State (seen set) ------------------------------------------------------
+function loadSeen() {
+  if (!existsSync(SEEN_FILE)) return { seen: [] };
+  try {
+    const data = JSON.parse(readFileSync(SEEN_FILE, "utf8"));
+    return { seen: Array.isArray(data.seen) ? data.seen : [] };
+  } catch {
+    log(`WARNING: ${SEEN_FILE} is corrupt — treating as empty (first-run bootstrap rules apply)`);
+    return { seen: [] };
+  }
+}
+
+function saveSeen(seenSet, keptKeys) {
+  // Newest-known first; cap growth — we only ever need enough history to find
+  // the walk-stop point, not a full permanent audit log (git history has that).
+  const merged = [...keptKeys, ...seenSet].slice(0, 300);
+  writeFileSync(SEEN_FILE, JSON.stringify({
+    _comment: "Tracks NanoGPT /updates chat-model entries (date|slug) already folded into ../updates.json. " +
+      "See scripts/sync-nanogpt-model-updates.mjs. Do not hand-edit unless backfilling/correcting history.",
+    seen: merged,
+  }, null, 2) + "\n");
+}
+
+// --- main ---------------------------------------------------------------------
+const html = renderUpdatesPage();
+const entries = extractEntries(html);
+log(`found ${entries.length} chat-model (conversation?model=) announcement(s) in the rendered page`);
+if (!entries.length) {
+  log("nothing to do — either NanoGPT posted none recently, or the page markup changed (parser may need an update).");
+  process.exit(0);
+}
+
+const { seen } = loadSeen();
+const seenSet = new Set(seen);
+const isBootstrap = seen.length === 0;
+
+const pending = []; // newest-first, same order as `entries`
+for (const entry of entries) {
+  const key = `${entry.date}|${entry.slug}`;
+  if (seenSet.has(key)) break; // reached a previously-processed point — stop walking
+  pending.push({ ...entry, key });
+  if (isBootstrap && entry.slug === BOOTSTRAP_FLOOR_SLUG) break; // first run: stop at the given floor, inclusive
+}
+
+if (!pending.length) {
+  log("no new chat models since the last check. Nothing to do.");
+  process.exit(0);
+}
+
+log(`${pending.length} new entr${pending.length === 1 ? "y" : "ies"} to add: ${pending.map(p => p.title).join(", ")}`);
+
+if (dryRun) {
+  for (const p of pending) log(`  [dry-run] ${p.date} — ${toChangelogText(p)}`);
+  process.exit(0);
+}
+
+// Oldest-of-the-batch first, so the final prepends leave the newest on top.
+for (const entry of [...pending].reverse()) {
+  const text = toChangelogText(entry);
+  execFileSync("node", [join(root, "scripts", "add-update.mjs"), entry.date, text], { stdio: "inherit" });
+}
+
+saveSeen(seen, pending.map(p => p.key));
+log(`wrote ${pending.length} entr${pending.length === 1 ? "y" : "ies"} to updates.json and updated ${SEEN_FILE}`);
+
+// --- 5. Validate -------------------------------------------------------------
+execFileSync("node", [join(root, "scripts", "check-updates.mjs")], { stdio: "inherit" });
+
+// --- 6. Translate (spends credits) -------------------------------------------
+if (!noTranslate) {
+  if (!process.env.NANOGPT_API_KEY) {
+    log("NANOGPT_API_KEY not set — skipping translation (entries ship English-only for now). Run scripts/translate-updates.mjs by hand later.");
+  } else {
+    log("backfilling translations …");
+    execFileSync("node", [join(root, "scripts", "translate-updates.mjs")], { stdio: "inherit" });
+  }
+} else {
+  log("--no-translate: skipping i18n backfill.");
+}
+
+// --- 7. Commit (never push) ---------------------------------------------------
+if (noCommit) {
+  log("--no-commit: leaving changes uncommitted.");
+  process.exit(0);
+}
+
+const NOODLE_SKIP_UPDATE_HOOK = { ...process.env, NOODLE_SKIP_UPDATE_HOOK: "1" }; // our own commit already carries updates.json — don't let post-commit re-fire
+execFileSync("git", ["add", "updates.json", SEEN_FILE], { cwd: root, stdio: "inherit" });
+const summary = pending.map(p => p.title).join(", ");
+const message = `chore(updates): NanoGPT LLM model sync — ${summary}\n\nAuto-generated by scripts/sync-nanogpt-model-updates.mjs from https://nano-gpt.com/updates.`;
+execFileSync("git", ["commit", "-m", message], { cwd: root, stdio: "inherit", env: NOODLE_SKIP_UPDATE_HOOK });
+log("committed. Not pushed — push is a separate, human-approved step.");
