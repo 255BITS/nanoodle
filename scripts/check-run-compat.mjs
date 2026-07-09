@@ -421,6 +421,34 @@ const SCENARIOS = [
     },
   },
   {
+    // vframes' frame count is SHAPE-affecting: run() emits frame1..frameN and downstream links
+    // read fixed frameK ports. An app SETTING (or an old app's persisted value) below the highest
+    // wired port used to starve that consumer MID-RUN — after upstream paid steps already charged.
+    // The engine must clamp frames up to the wired floor (wiredFramesFloor in play.html). The real
+    // extractor needs a browser <video> decode, so stub it with one that emits frame1..frameN from
+    // the count the ENGINE hands it — proving the clamp happens before run(), in runGraph itself.
+    name: "vframes: engine clamps a lowered frames setting up to the highest wired frame port",
+    prep(app) {
+      const orig = app.NODE_TYPES.vframes.run;
+      app.NODE_TYPES.vframes.run = async (n) => {
+        const out = {};
+        const count = Math.max(1, parseInt(n.fields.frames, 10) || 1);
+        for (let i = 1; i <= count; i++) out["frame" + i] = IMG + i;
+        return out;
+      };
+      return () => { app.NODE_TYPES.vframes.run = orig; };
+    },
+    data: { nodes: [node("s1", "vupload", { video: "https://example/clip.mp4" }),
+                    node("f1", "vframes", { frames: "1" }),   // persisted setting lowered below the wired port
+                    node("e1", "edit", { model: "x", prompt: "restyle the third frame" })],
+            links: [link("s1", "video", "f1", "video"), link("f1", "frame3", "e1", "image")] },
+    check(app, g, fail) {
+      const b = imgCalls()[0]?.body;
+      if (!b) return fail("the frame3 consumer never ran — the engine did not clamp frames up to the wired port");
+      if (b.imageDataUrl !== IMG + "3") fail(`the edit step must receive frame3, got ${JSON.stringify(b.imageDataUrl).slice(0, 40)}`);
+    },
+  },
+  {
     name: "LLM controls: show-thinking prepends the message.reasoning trace",
     data: { nodes: [node("m1", "llm", { model: "x", prompt: "hi", showThinking: true })], links: [] },
     check(app, g, fail) {
@@ -458,12 +486,16 @@ if (app) {
     calls.length = 0;
     const fails0 = failures.length;
     const fail = (m) => failures.push(`"${s.name}": ${m}`);
+    let undo = null;
     try {
+      undo = s.prep ? s.prep(app) : null;   // optional engine tweak (e.g. stub a browser-only node); returns a restore fn
       const g = app.materialize(s.data);
       await app.runGraph(g, {});
       s.check(app, g, fail);
     } catch (e) {
       fail("threw: " + (e && e.message || e));
+    } finally {
+      if (typeof undo === "function") undo();
     }
     if (failures.length === fails0) process.stdout.write(`  ✓ ${s.name}\n`);
   }

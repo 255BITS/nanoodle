@@ -1734,6 +1734,21 @@ window.NoodleApp = (function () {
   // frame extraction helpers (verbatim, index.html): a same-origin handle to paint to a
   // canvas, and a seek that resolves once the frame is decoded (timeout-guarded).
   const MAX_FRAMES = 12;
+  // Highest frameN output port wired OUT of a vframes node. fields.frames is SHAPE-affecting:
+  // run() emits frame1..frameN and downstream links read fixed frameK ports, so a frame count
+  // below the highest wired port starves those consumers MID-RUN — after upstream paid steps
+  // already generated (and charged). deriveSettings() raises the knob's floor to this value and
+  // runGraph() re-clamps defensively (an app saved before this guard can persist a bad value).
+  // Raising the count stays allowed — surplus frames are harmless.
+  function wiredFramesFloor(graph, nodeId){
+    let floor = 1;
+    for(const l of (graph && graph.links) || []){
+      if(l.from.node!==nodeId) continue;
+      const m = /^frame(\d+)$/.exec(String(l.from.port));
+      if(m) floor = Math.max(floor, parseInt(m[1],10)||1);
+    }
+    return Math.min(floor, MAX_FRAMES);
+  }
   // in-browser video concatenation (the Combine node). Twin of index.html's pipeline: when every clip
   // is mp4 with matching codec params AND its bytes are fetchable, MP4CAT losslessly remuxes them into
   // ONE mp4 — no decode/re-encode, exact duration, and it dodges the MediaRecorder+audio-track path
@@ -3024,7 +3039,15 @@ function mp4ParamsMatch(bufs){
           const v = src && src.out ? src.out[l.from.port] : undefined;
           if(v!=null) fieldOverrides[l.to.port] = v;
         }
-        const rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
+        let rn = Object.keys(fieldOverrides).length ? { ...n, fields:{...n.fields, ...fieldOverrides} } : n;
+        // vframes: re-clamp the frame count up to the highest wired frameK port (wiredFramesFloor).
+        // The settings UI floors the knob too, but an app persisted BEFORE that guard can still
+        // carry frames below a wired port — without this, upstream paid steps run and charge, then
+        // the frameK consumer throws "no image input". Raising frames is never clamped (harmless).
+        if(n.type==="vframes"){
+          const floor = wiredFramesFloor(graph, id);
+          if(floor > (parseInt(rn.fields.frames,10)||1)) rn = { ...rn, fields:{ ...rn.fields, frames:floor } };
+        }
         // Deterministic skip: a seeded node with unchanged inputs reuses its prior output — no
         // second charge, no "running…" flash. Blank seed = random, so it always regenerates.
         const seeded = isSeeded(rn);
@@ -3257,8 +3280,12 @@ function mp4ParamsMatch(bufs){
       for(const s of specs){
         // a knob fed by a link is decided upstream → don't offer a control for it
         if(graph.links.some(l=> l.to.node===n.id && l.to.port===s.f)) continue;
+        // vframes' frame count is shape-affecting — never offer a floor below the highest wired
+        // frameK port, or lowering it starves that port's consumer mid-run (see wiredFramesFloor)
+        const min = (n.type==="vframes" && s.f==="frames")
+          ? Math.max(s.min||1, wiredFramesFloor(graph, n.id)) : s.min;
         out.push({ nodeId:n.id, field:s.f, label:s.label, kind:s.kind,
-                   options:s.options, def:s.def, min:s.min, max:s.max, step:s.step,
+                   options:s.options, def:s.def, min:min, max:s.max, step:s.step,
                    modelKind:(s.kind==="model" ? SETTING_MODEL_KIND[n.type] : null),
                    node:n, title:displayName(n), em:NODE_TYPES[n.type].em });
       }
@@ -4240,7 +4267,10 @@ function mp4ParamsMatch(bufs){
   // directly; this only governs what the funnel / steps sheet show.
   function vframesCard(n, badge){
     const out = n.out || {};
-    const count = Math.max(1, Math.min(MAX_FRAMES, parseInt(n.fields.frames,10)||1));
+    // same wired-floor clamp as runGraph: a floored run emits up to the wired frame count even
+    // when the stored setting is lower — don't hide frames the run actually produced (and wired out)
+    const wired = (STATE && STATE.graph) ? wiredFramesFloor(STATE.graph, n.id) : 1;
+    const count = Math.max(wired, Math.min(MAX_FRAMES, parseInt(n.fields.frames,10)||1));
     const frames = [];
     for(let i=0;i<count;i++){ const v = out["frame"+(i+1)]; if(v!=null) frames.push({ v:v, k:i+1 }); }
     if(!frames.length) return null;
