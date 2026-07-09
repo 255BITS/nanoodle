@@ -7440,8 +7440,9 @@ const LORA_EXAMPLES = {
 // re-submit. In-memory only; a transient runId has no business in a saved or shared graph.
 const PENDING_VIDEO = new Map();   // nodeId → {sig, runId} of an in-flight (timed-out) video job
 // Same idea for async music/TTS: submit returns runId + charges immediately, then we poll
-// /api/tts/status. A 5-min client timeout used to throw and drop the runId — re-run re-submitted
-// and double-charged. PENDING_AUDIO keeps the job so an unchanged re-run resumes the poll only.
+// /api/tts/status. Dropping the runId on ANY early exit (Stop's abort, the 5-min timeout) meant a
+// re-run re-submitted and double-charged. PENDING_AUDIO registers the job the moment it exists
+// (mirror PENDING_VIDEO) and deletes it only on completed/failed, so an unchanged re-run resumes.
 const PENDING_AUDIO = new Map();   // nodeId → {sig, job:{runId,cost,paymentSource,isApiRequest,model}}
 const CTX = {
   // opts.n = how many images to request (default 1). opts.multi=true returns ALL images as an
@@ -8380,10 +8381,14 @@ async function muxSoundtrack(videoUrl, audioUrl, loop, onProgress){
 }
 const sleep = (ms)=> new Promise(res=> setTimeout(res, ms));
 // async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed.
-// runKey + bodySig: on client timeout, stash the job in PENDING_AUDIO so a re-run resumes without re-charging.
+// runKey + bodySig: the job is stashed in PENDING_AUDIO so a re-run resumes without re-charging.
 async function pollAudio(model, j, onProgress, runKey, bodySig){
   const runId = j.runId || j.id;
   const job = { runId, model, cost:j.cost, paymentSource:j.paymentSource, isApiRequest:j.isApiRequest };
+  // Remember the job (with its request sig) the moment it exists, so EVERY early exit is recoverable
+  // (mirror PENDING_VIDEO). The charge already happened at submit: Stop's abort and the 5-min timeout
+  // must both leave this entry in place — only completed/failed below may delete it.
+  if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job });
   const qs = new URLSearchParams({ runId, model });
   if(j.cost!=null) qs.set("cost", j.cost);                 // these let the server auto-refund on failure
   if(j.paymentSource) qs.set("paymentSource", j.paymentSource);
@@ -8392,7 +8397,7 @@ async function pollAudio(model, j, onProgress, runKey, bodySig){
   const t0 = Date.now();
   while(Date.now()-t0 < 300000){
     await sleep(3000);
-    if(sig?.aborted) throw new DOMException("aborted","AbortError");
+    if(sig?.aborted) throw new DOMException("aborted","AbortError");   // Stop: leave the job in PENDING_AUDIO so a re-run resumes
     let s; try{ s = await (await fetch(`${NANOGPT}/api/tts/status?${qs}`, {headers:authHeaders(), signal:runSignal()})).json(); }
     catch(e){ if(e?.name==="AbortError") throw e; continue; }
     const st = String(s.status||"").toLowerCase();
@@ -8406,8 +8411,7 @@ async function pollAudio(model, j, onProgress, runKey, bodySig){
     }
     onProgress && onProgress(s.queuePosition, Date.now()-t0);
   }
-  // Keep the job so an unchanged re-run of this node polls the same runId (no second charge).
-  if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job });
+  // Timeout: the job stays in PENDING_AUDIO (registered above) so an unchanged re-run polls the same runId (no second charge).
   throw new Error(runKey
     ? "Still generating audio after 5 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished track (you won't be charged twice)."
     : "audio timed out (5 min)");
