@@ -337,6 +337,7 @@
     #bar .sep{ display:none; }
     #bar #sharehint{ display:none; }
     #auth-status{ display:none; }        /* the sign-in link / sign-out button carry the state; drop the status text */
+    #bal{ display:none; }                /* balance follows the status text into the ⋯ menu */
     .title-wrap{ max-width:14ch; }
     .cust-label{ display:none; }
     #goal{ min-width:140px; }
@@ -351,6 +352,7 @@
     body.bar-open #baractions{ display:flex; }
     #baractions .sep{ display:none; }
     #baractions #auth-status{ display:block; }   /* re-show status inside the menu (base rule hides it) */
+    #baractions #bal{ display:block; }           /* balance too — paintBal's inline none still wins when unknown */
     body.recipient #export{ display:none; }      /* a non-owner didn't build it — drop Export (Share+Edit stay) */
     #custtoggle{ display:flex; width:100%; justify-content:center; align-items:center; gap:.4rem;
                  background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-weight:700;
@@ -392,6 +394,7 @@
   <!-- auth status mirrors index.html: sign in / paste key / sign out, shared ngpt_key -->
   <div id="baractions">
   <span id="auth-status" class="status">checking…</span>
+  <span id="bal" class="status" style="display:none" data-no-i18n></span>
   <a id="signin" href="#" style="display:none">Sign in with NanoGPT</a>
   <button id="pastebtn" class="link" style="display:none">paste key</button>
   <button id="signout" class="link" style="display:none">sign out</button>
@@ -6157,6 +6160,8 @@ addEventListener("message", async (e) => {
       }
       const headers = Object.assign({}, d.headers, k ? { Authorization:"Bearer "+k, "x-api-key":k } : {});
       const r = await fetch(u.href, { method:d.method||"GET", headers, body:(d.body!=null?d.body:undefined) });
+      // Every generation carries NanoGPT's canonical post-charge balance — keep the bar chip live.
+      { const hb = parseFloat(r.headers.get("x-remaining-balance") || ""); if(!isNaN(hb)) noteBalance(hb); }
       const body = await r.arrayBuffer();
       const hdrs = {}; r.headers.forEach((v,kk)=> hdrs[kk.toLowerCase()]=v);
       reply({ ok:r.ok, status:r.status, headers:hdrs, body });   // ArrayBuffer → structured clone
@@ -6356,6 +6361,7 @@ function streamingCallLlm(phase){
         }
         throw new Error("LLM " + r.status + ": " + (await r.text().catch(()=>"")).slice(0,300));
       }
+      { const hb = parseFloat(r.headers.get("x-remaining-balance") || ""); if(!isNaN(hb)) noteBalance(hb); }   // customize spends too — headers land before the stream
       const reader = r.body.getReader(), dec = new TextDecoder();
       let buf="", content="", reasoning="", pricing=null, lastPaint=0, streamErr=null;
       for(;;){
@@ -7204,6 +7210,50 @@ async function handleRedirect(){
   if(!r.ok) throw new Error("token: "+(await r.text()));
   setKey((await r.json()).access_token);
 }
+// ----- balance chip (mirrors index.html's #cost "bal $X.XX") -----
+// Recipients top-load /play with the "what is this costing me?" question and used to get NO answer
+// until after their first paid run (the runtime's cost meter is count-gated). The parent owns the
+// key, so it owns the chip: seeded from the editor-shared cache (same origin, same BAL_CACHE_KEY),
+// refreshed best-effort from /api/check-balance at boot/sign-in, and kept live by noteBalance()
+// wherever a nano-gpt response passes through the parent (the __api__ bridge proxy + the customize
+// stream both carry x-remaining-balance). Cache is written back so the editor's chip stays fresh too.
+const BAL_CACHE_KEY = "ngpt_balance_usd";
+let BAL = null;
+function cacheBal(){
+  try{
+    if(BAL==null) localStorage.removeItem(BAL_CACHE_KEY);
+    else localStorage.setItem(BAL_CACHE_KEY, JSON.stringify({ usd:BAL, t:Date.now() }));
+  }catch(_){}
+}
+function paintBal(){
+  const el = $("bal"); if(!el) return;
+  const on = !!getKey() && BAL!=null;
+  el.style.display = on ? "" : "none";
+  if(on) el.innerHTML = 'bal $<b>' + BAL.toFixed(2) + '</b>';
+}
+function noteBalance(usd){ if(typeof usd==="number" && isFinite(usd)){ BAL = usd; cacheBal(); paintBal(); } }
+function restoreCachedBal(){
+  if(!getKey()) return;
+  try{
+    const j = JSON.parse(localStorage.getItem(BAL_CACHE_KEY)||"null");
+    if(j && typeof j.usd==="number" && isFinite(j.usd) && Date.now()-(j.t||0) < 7*24*60*60*1000){ BAL = j.usd; paintBal(); }
+  }catch(_){}
+}
+let _balPending = false;
+async function refreshBal(){
+  if(!getKey() || _balPending) return;
+  _balPending = true;
+  try{
+    const k = getKey();
+    const r = await fetch(NANOGPT + "/api/check-balance", { method:"POST",
+      headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" }, body:"{}" });
+    if(!r.ok) return;               // rejected key → no seed; key validity is probeKey's job, not ours
+                                    // (check-balance is CORS-enabled since ~2026-07: ACAO * on 200 AND 401 — live-probed 2026-07-05)
+    const usd = parseFloat((await r.json()).usd_balance);
+    if(!isNaN(usd)) noteBalance(usd);
+  }catch(_){}                       // best-effort: the first run's x-remaining-balance fills it in anyway
+  finally{ _balPending = false; }
+}
 function renderAuth(){
   const signed = !!getKey();
   $("auth-status").textContent = signed ? tB("signed in ✓") : tB("not signed in");
@@ -7214,6 +7264,7 @@ function renderAuth(){
   $("pastebtn").style.display = signed ? "none" : "";
   $("signout").style.display  = signed ? "" : "none";
   $("apply").disabled = false;   // signed-out clicks route through kickBuilderSignIn (same as Enter) — never a dead-end
+  paintBal();                    // chip rides the same signed-in visibility
 }
 // Hand-typed/copied keys arrive with mobile-keyboard dashes, NBSP or zero-width junk — ONE
 // non-ISO-8859-1 char makes fetch() itself throw before the network. Mirrors index.html.
@@ -7257,6 +7308,7 @@ let _signedInReflected = false;
 function finishSignIn(){
   renderAuth(); pushAuthToApp();
   if(getKey()){ if($("keyless-hint")) $("cust-status").innerHTML = "";   // the "sign in…" hint has done its job
+    restoreCachedBal(); refreshBal();   // show the balance the moment you're signed in — before any run prices it in
     if(!_signedInReflected){ _signedInReflected = true; toast("signed in — the app can run now"); } }
   else { _signedInReflected = false; }
 }
@@ -7618,12 +7670,12 @@ $("keysave").addEventListener("click", async ()=>{
     toast("that key was rejected by NanoGPT — check you copied the whole key","err");
     return;
   }
-  setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp();
+  setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp(); refreshBal();   // fresh key may be a different account — skip the cache, fetch live
   $("keyinput").value="";   // don't leave the plaintext key in the DOM — reopening the row (streamer on camera) would show it
   toast(probe==="unverified" ? "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail" : "key saved — the app can run now", probe==="unverified" ? "err" : undefined);
 });
 $("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
-$("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
+$("signout").addEventListener("click",()=>{ setKey(null); BAL=null; cacheBal(); renderAuth(); pushAuthToApp(); toast("signed out"); });   // drop the cached balance with the key (it's the key's balance, and the cache is editor-shared)
 
 // one-time: lift a pre-library customized session (old single LS_KEY slot) into "My apps"
 function migrateLegacy(){
@@ -7674,6 +7726,7 @@ async function boot(){
   $("baractions").addEventListener("click",(e)=>{ if(e.target.closest("button,a")){ document.body.classList.remove("bar-open"); $("barmore").setAttribute("aria-expanded","false"); } });
   $("custtoggle").addEventListener("click",()=>{ const o=document.body.classList.toggle("cust-open"); if(o){ const g=$("goal"); if(g) g.focus(); } });
   renderAuth();
+  restoreCachedBal(); refreshBal();   // seed the balance chip (editor-shared cache first, then live)
   if(authErr){ $("auth-status").textContent = "sign-in error: "+authErr.message; toast("sign-in didn't complete: "+authErr.message,"err"); }
   migrateLegacy();
   renderAppsBtn();
