@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 // An async music/TTS job bills at /api/v1/audio/speech submit but can outlast the runtime's
-// 5-min poll window. Re-running the SAME node must RESUME the in-flight job (poll its runId)
-// instead of POSTing — and paying — a second time. Editing the node's inputs must submit a
-// fresh job. Offline node:vm, same technique as check-video-resume.mjs.
+// 5-min poll window — or be Stopped mid-poll. EVERY early exit must leave the job resumable:
+// re-running the SAME node RESUMES the in-flight job (polls its runId) instead of POSTing —
+// and paying — a second time. Editing the node's inputs must submit a fresh job, and concurrent
+// multi-count lanes (cloned graphs, identical node ids) must keep DISTINCT pending entries so
+// no paid job is clobbered. Offline node:vm, same technique as check-video-resume.mjs.
 import { readFileSync } from "node:fs";
 import { resolve, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,15 +42,18 @@ function scriptAwareDocument(ctx) {
 
 function loadEngine() {
   const calls = [];
+  const net = { complete: false };   // flip to true → /tts/status reports completed (resume phase)
   function recordingFetch(url, opts = {}) {
     let body = null; try { body = opts.body ? JSON.parse(opts.body) : null; } catch { body = opts.body; }
-    calls.push({ url: String(url), body });
+    const m = String(url).match(/[?&]runId=([^&]+)/);
+    calls.push({ url: String(url), body, runId: m ? decodeURIComponent(m[1]) : null });
     let json = {};
     // Async music: JSON body with runId, no immediate url → poll path.
     if (/\/audio\/speech/.test(url))
       json = { runId: "aud-" + calls.filter((c) => /\/audio\/speech/.test(c.url)).length, status: "pending", cost: 0.05 };
     else if (/\/tts\/status/.test(url))
-      json = { status: "processing" };   // never completes → timeout path
+      json = net.complete ? { status: "completed", audioUrl: "https://cdn.example/track.mp3" }
+                          : { status: "processing" };   // never completes → timeout path
     return Promise.resolve({
       ok: true, status: 200,
       headers: { get: (k) => (String(k).toLowerCase() === "content-type" ? "application/json" : null) },
@@ -77,7 +82,7 @@ function loadEngine() {
   try { new vm.Script(code, { filename: "play.html#module" }).runInContext(ctx); }
   catch (e) { if (!String(e && e.message).includes("__READY__")) throw e; }
   if (!ctx.__t || !ctx.__t.app) throw new Error("run-test hook did not initialize");
-  return { app: ctx.__t.app, calls };
+  return { app: ctx.__t.app, calls, net };
 }
 
 const music = (id, prompt) => ({ id, type: "music", x: 0, y: 0, fields: { prompt, model: "x" } });
@@ -116,5 +121,52 @@ const ok = (c, m) => { if (!c) { fail++; console.log("  ✗ " + m); } else conso
   ok(posts(calls) === 2, `two identical sibling music nodes each submit their own job (POSTs=${posts(calls)}, want 2)`);
 }
 
+// 4) ABORT-SAFE: Stop mid-poll (long before the 5-min timeout) must still leave the job
+// resumable — the charge already happened at submit. We abort out of the poll loop on the
+// FIRST progress tick (same exit shape as the abortable sleep rejecting on Stop), then
+// re-run unchanged: the finished job must be picked up with NO second POST.
+{
+  const { app, calls, net } = loadEngine();
+  const g = graph([music("m1", "lofi beat")]);
+  const stopOpts = { onResult() {}, onStart() {},
+    onStatus(id, kind, msg) { if (kind === "run" && /generating audio/.test(String(msg))) throw new DOMException("canceled", "AbortError"); } };
+  await app.runGraph(g, stopOpts).catch(() => {});
+  ok(posts(calls) === 1, `aborted run submitted exactly once (POSTs=${posts(calls)}, want 1)`);
+  net.complete = true;
+  await app.runGraph(g, opts).catch(() => {});
+  ok(posts(calls) === 1, `Stop mid-poll keeps the job resumable — unchanged re-run polls, never re-POSTs (POSTs=${posts(calls)}, want 1)`);
+}
+
+// 5) LANE DISCRIMINATION: a multi-count Run executes N cloned graphs with IDENTICAL node ids
+// concurrently. Each lane's pending entry must survive (lane-scoped runKey) — with bare-nodeId
+// keys one lane clobbers the other's runId and a paid job is lost, or the second lane "resumes"
+// the first lane's job instead of submitting its own.
+{
+  const { app, calls, net } = loadEngine();
+  const mk = () => graph([music("m1", "same prompt")]);
+  const lane = (n) => ({ ...opts, lane: n });
+  await Promise.allSettled([app.runGraph(mk(), lane(0)), app.runGraph(mk(), lane(1))]);   // both time out
+  ok(posts(calls) === 2, `two concurrent lanes of the same node each submit their own paid job (POSTs=${posts(calls)}, want 2)`);
+  const before = calls.length;
+  net.complete = true;
+  await Promise.allSettled([app.runGraph(mk(), lane(0)), app.runGraph(mk(), lane(1))]);   // both resume
+  const resumed = new Set(calls.slice(before).filter((c) => c.runId).map((c) => c.runId));
+  ok(posts(calls) === 2, `re-running both lanes resumes — no re-submit, no double charge (POSTs=${posts(calls)}, want 2)`);
+  ok(resumed.size === 2 && resumed.has("aud-1") && resumed.has("aud-2"),
+    `each lane resumes ITS OWN pending job — nothing clobbered/lost (resumed: ${[...resumed].join(",") || "none"}, want aud-1,aud-2)`);
+}
+
+// 6) STRUCTURE (both engines): pollAudio must register the pending job BEFORE its poll loop,
+// so abort AND timeout exits are equally recoverable — a set placed after/inside the loop
+// re-introduces the Stop-drops-the-runId double charge.
+for (const file of ["index.html", "play.html"]) {
+  const src = readFileSync(join(ROOT, file), "utf8");
+  const at = src.indexOf("async function pollAudio");
+  const fn = at === -1 ? "" : src.slice(at, at + 4000);
+  const set = fn.indexOf("PENDING_AUDIO.set"), loop = fn.indexOf("while(");
+  ok(at !== -1 && set !== -1 && loop !== -1 && set < loop,
+    `${file}: pollAudio registers PENDING_AUDIO before entering the poll loop`);
+}
+
 if (fail) { console.error(`\n✗ audio-resume: ${fail} assertion(s) failed.`); process.exit(1); }
-console.log("\n✓ audio-resume: timed-out async audio jobs resume (charged once), edits resubmit, siblings stay distinct.");
+console.log("\n✓ audio-resume: async audio jobs stay resumable on Stop AND timeout (charged once), edits resubmit, siblings + concurrent lanes stay distinct.");

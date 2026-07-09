@@ -1413,11 +1413,15 @@ window.NoodleApp = (function () {
   // editing the node's inputs (new prompt/media) submits a correct fresh job rather than resuming a
   // stale render. Set on submit, kept on the 10-min timeout, deleted on COMPLETED/FAILED. Module-level,
   // so it survives re-runs in both the exported file and the builder preview iframe.
-  const PENDING_VIDEO = new Map();   // nodeId -> {runId, sig} of an in-flight (possibly timed-out) video job
-  // Async music/TTS: submit charges + returns runId, then we poll /api/tts/status. A 5-min client
-  // timeout used to drop the runId — re-run re-submitted and double-charged. PENDING_AUDIO keeps
-  // the job so an unchanged re-run resumes the poll only (twin of PENDING_VIDEO / the editor).
-  const PENDING_AUDIO = new Map();   // nodeId -> {sig, job:{runId,cost,paymentSource,isApiRequest,model}}
+  const PENDING_VIDEO = new Map();   // runKey (nodeId:lane) -> {runId, sig} of an in-flight (possibly timed-out) video job
+  // Async music/TTS: submit charges + returns runId, then we poll /api/tts/status. Dropping the
+  // runId on ANY early exit (Stop's abort, the 5-min timeout) meant a re-run re-submitted and
+  // double-charged. PENDING_AUDIO registers the job the moment it exists and deletes it only on
+  // completed/failed, so an unchanged re-run resumes the poll (twin of PENDING_VIDEO / the editor).
+  // Keys carry the lane index (nodeId:lane) — a multi-count Run executes N cloned graphs with
+  // IDENTICAL node ids at once, and bare-nodeId keys made concurrent lanes clobber each other's
+  // pending entry (one paid job became unrecoverable). Lane-keying applies to PENDING_VIDEO too.
+  const PENDING_AUDIO = new Map();   // runKey (nodeId:lane) -> {sig, job:{runId,cost,paymentSource,isApiRequest,model}}
   function videoSig(s){              // djb2, tiny + backtick-free; detects input edits so we never resume a stale job
     let h = 5381;
     for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0;
@@ -2238,10 +2242,15 @@ function mp4ParamsMatch(bufs){
     }
   }
   // async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed.
-  // runKey + bodySig: on client timeout, stash the job in PENDING_AUDIO so a re-run resumes without re-charging.
+  // runKey + bodySig: the job is stashed in PENDING_AUDIO so a re-run resumes without re-charging.
   async function pollAudio(model, j, onProgress, runKey, bodySig){
     const runId = j.runId || j.id;
     const job = { runId:runId, model:model, cost:j.cost, paymentSource:j.paymentSource, isApiRequest:j.isApiRequest };
+    // Remember the job (with its request sig) the moment it exists, so EVERY early exit is recoverable
+    // (mirror PENDING_VIDEO / the editor). The charge already happened at submit: Stop's abort (the
+    // abortable sleep below rejects) and the 5-min timeout must both leave this entry in place —
+    // only completed/failed below may delete it.
+    if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job:job });
     const qs = new URLSearchParams({ runId:runId, model:model });
     if(j.cost!=null) qs.set("cost", j.cost);                 // these let the server auto-refund on failure
     if(j.paymentSource) qs.set("paymentSource", j.paymentSource);
@@ -2262,7 +2271,7 @@ function mp4ParamsMatch(bufs){
       }
       onProgress && onProgress(s.queuePosition, Date.now()-t0);
     }
-    if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job:job });
+    // Timeout: the job stays in PENDING_AUDIO (registered above) so an unchanged re-run polls the same runId (no second charge).
     throw new Error(runKey
       ? "Still generating audio after 5 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished track (you won't be charged twice)."
       : "audio timed out (5 min)");
@@ -3035,7 +3044,12 @@ function mp4ParamsMatch(bufs){
         }
         onStatus && onStatus(id, "run", "running…");
         let nodeCost = 0, nodeKnown = false, didGen = false;   // didGen: this node actually called the model (onCost fires only on a real generation, never for instant local nodes like text/join/trim)
-        const ctx = makeCtx((c)=>{ didGen = true; nodeCost += bumpCost(c); if(c && c.usd!=null) nodeKnown = true; }, id);
+        // runKey discriminates lanes: a multi-count Run executes N cloned graphs with IDENTICAL node
+        // ids concurrently, so pending-job entries (PENDING_AUDIO/PENDING_VIDEO) keyed by bare node id
+        // would clobber each other — one paid job's runId lost, resumed twice by the survivor. Store
+        // and resume-lookup both flow through this one key, so they always match.
+        const runKey = opts.lane!=null ? (id + ":" + opts.lane) : id;
+        const ctx = makeCtx((c)=>{ didGen = true; nodeCost += bumpCost(c); if(c && c.usd!=null) nodeKnown = true; }, runKey);
         let p = null;
         try{
           // Fixed seed: register the IN-FLIGHT generation BEFORE awaiting so a concurrent multi-count
@@ -5098,6 +5112,7 @@ function mp4ParamsMatch(bufs){
         let failed = false, nothingNew = false;
         try {
           const res = await runGraph(cloneGraph(), {
+            lane: i,   // pending-job keys (PENDING_AUDIO/PENDING_VIDEO) are lane-scoped so concurrent lanes can't clobber each other's resumable runId
             onStart: (order)=> laneStart(i, order),
             onStatus: (id,kind,msg)=> laneStep(i, id, kind, msg),
             onResult: (n)=>{ laneCapture(i, n); if(outIds.has(n.id)){ renderResult(n, N>1 ? i+1 : 0); persistOut(n); } },
