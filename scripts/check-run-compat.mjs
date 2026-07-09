@@ -337,6 +337,23 @@ const SCENARIOS = [
     },
   },
   {
+    // Trust: genVideo applied opts.extra (modelOpts) AFTER opts.dims, so a stale modelOpts.duration
+    // (saved graph / describe-copilot / hand edit) overwrote the node's duration. The "~$X to run"
+    // chip prices the node field; the API billed the clobber → under-quote. Dims must win after extra.
+    name: "tvideo node duration wins over stale modelOpts.duration (no price clobber)",
+    data: { nodes: [node("t1", "tvideo", {
+              model: "x", prompt: "a drone shot", duration: "5", aspect: "16:9",
+              modelOpts: { duration: "10", style: "cinematic" },
+            })], links: [] },
+    check(app, g, fail) {
+      const b = videoCalls()[0]?.body;
+      if (!b) return fail("no generate-video call recorded");
+      if (b.duration !== "5") fail(`node duration must win over modelOpts.duration, got ${JSON.stringify(b.duration)}`);
+      if (b.style !== "cinematic") fail(`non-dim modelOpts must still forward, got ${JSON.stringify(b.style)}`);
+      if (b.aspect_ratio !== "16:9") fail(`aspect must still forward, got ${JSON.stringify(b.aspect_ratio)}`);
+    },
+  },
+  {
     // Trust: collectAudioParams clamps UI number_of_songs to 1, but advanced-params JSON used to
     // reintroduce number_of_songs/generation_count after that clamp → API bills N, audioRun surfaces 1.
     // extraJson must not resurrect any song-count key.
