@@ -337,6 +337,7 @@
     #bar .sep{ display:none; }
     #bar #sharehint{ display:none; }
     #auth-status{ display:none; }        /* the sign-in link / sign-out button carry the state; drop the status text */
+    #bal{ display:none; }                /* balance follows the status text into the ⋯ menu */
     .title-wrap{ max-width:14ch; }
     .cust-label{ display:none; }
     #goal{ min-width:140px; }
@@ -351,6 +352,7 @@
     body.bar-open #baractions{ display:flex; }
     #baractions .sep{ display:none; }
     #baractions #auth-status{ display:block; }   /* re-show status inside the menu (base rule hides it) */
+    #baractions #bal{ display:block; }           /* balance too — paintBal's inline none still wins when unknown */
     body.recipient #export{ display:none; }      /* a non-owner didn't build it — drop Export (Share+Edit stay) */
     #custtoggle{ display:flex; width:100%; justify-content:center; align-items:center; gap:.4rem;
                  background:var(--panel2); border:1px solid var(--line); color:var(--muted); font-weight:700;
@@ -392,6 +394,7 @@
   <!-- auth status mirrors index.html: sign in / paste key / sign out, shared ngpt_key -->
   <div id="baractions">
   <span id="auth-status" class="status">checking…</span>
+  <span id="bal" class="status" style="display:none" data-no-i18n></span>
   <a id="signin" href="#" style="display:none">Sign in with NanoGPT</a>
   <button id="pastebtn" class="link" style="display:none">paste key</button>
   <button id="signout" class="link" style="display:none">sign out</button>
@@ -1411,6 +1414,10 @@ window.NoodleApp = (function () {
   // stale render. Set on submit, kept on the 10-min timeout, deleted on COMPLETED/FAILED. Module-level,
   // so it survives re-runs in both the exported file and the builder preview iframe.
   const PENDING_VIDEO = new Map();   // nodeId -> {runId, sig} of an in-flight (possibly timed-out) video job
+  // Async music/TTS: submit charges + returns runId, then we poll /api/tts/status. A 5-min client
+  // timeout used to drop the runId — re-run re-submitted and double-charged. PENDING_AUDIO keeps
+  // the job so an unchanged re-run resumes the poll only (twin of PENDING_VIDEO / the editor).
+  const PENDING_AUDIO = new Map();   // nodeId -> {sig, job:{runId,cost,paymentSource,isApiRequest,model}}
   function videoSig(s){              // djb2, tiny + backtick-free; detects input edits so we never resume a stale job
     let h = 5381;
     for(let i=0;i<s.length;i++) h = ((h<<5)+h+s.charCodeAt(i))|0;
@@ -1498,6 +1505,9 @@ window.NoodleApp = (function () {
       if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
       if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
       if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
+      // Node-owned dims win AGAIN after extra (twin of the editor): stale modelOpts duration/resolution/
+      // aspect must not clobber the node's dims — that under-quoted the run-cost chip vs the real bill.
+      if(opts.dims) Object.assign(body, opts.dims);
       // Wired reference images LAST — a wired port must always win the key over a knob (see editor twin).
       if(opts.refImages && opts.refImages.length && opts.refKey) body[opts.refKey] = opts.refImages;   // ref-image array param
       // NanoGPT inlines media as base64 and the edge rejects bodies over ~4.5 MB with a header-less
@@ -1544,8 +1554,17 @@ window.NoodleApp = (function () {
         : "Still rendering after 10 min — the job is likely still running on NanoGPT's side. Try running it again in a bit; a finished render usually returns fast.");
     },
     // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
+    // runKey (from makeCtx) enables resume of a timed-out async job without a second charge.
     async genAudio(model, input, extra, onProgress){
       const body = Object.assign({ model, input }, extra||{});
+      const bodySig = videoSig(JSON.stringify(body));
+      const pend = runKey ? PENDING_AUDIO.get(runKey) : null;
+      if(pend && pend.sig===bodySig && pend.job){
+        const url = await pollAudio(model, pend.job, onProgress, runKey, bodySig);
+        if(!url) throw new Error("no audio url in response");
+        return url;   // resume — no second onCost
+      }
+      if(pend && runKey) PENDING_AUDIO.delete(runKey);
       const r = await apiFetch(NANOGPT + "/api/v1/audio/speech", {method:"POST", headers:authHeaders(), body:JSON.stringify(body)});
       if(!r.ok){
         flagAuth(r.status);
@@ -1563,7 +1582,7 @@ window.NoodleApp = (function () {
       if(ct.includes("application/json")){
         const j = await r.json(); onCost(costWithHeaders(j, r));
         let url = j.url || j.audioUrl || (j.data && j.data.url) || (j.data && j.data.audioUrl);
-        if(!url && (j.runId || j.id)) url = await pollAudio(model, j, onProgress);   // async model → poll
+        if(!url && (j.runId || j.id)) url = await pollAudio(model, j, onProgress, runKey, bodySig);   // async model → poll (resume-aware)
         if(!url) throw new Error("no audio url in response");
         return url;
       }
@@ -2218,10 +2237,12 @@ function mp4ParamsMatch(bufs){
       try{ ac && ac.close(); }catch(e){}
     }
   }
-  // async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed
-  async function pollAudio(model, j, onProgress){
+  // async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed.
+  // runKey + bodySig: on client timeout, stash the job in PENDING_AUDIO so a re-run resumes without re-charging.
+  async function pollAudio(model, j, onProgress, runKey, bodySig){
     const runId = j.runId || j.id;
-    const qs = new URLSearchParams({ runId, model });
+    const job = { runId:runId, model:model, cost:j.cost, paymentSource:j.paymentSource, isApiRequest:j.isApiRequest };
+    const qs = new URLSearchParams({ runId:runId, model:model });
     if(j.cost!=null) qs.set("cost", j.cost);                 // these let the server auto-refund on failure
     if(j.paymentSource) qs.set("paymentSource", j.paymentSource);
     if(j.isApiRequest!=null) qs.set("isApiRequest", j.isApiRequest);
@@ -2231,12 +2252,20 @@ function mp4ParamsMatch(bufs){
       let s; try{ s = await (await apiFetch(NANOGPT + "/api/tts/status?" + qs, {headers:authHeaders()})).json(); }
       catch(e){ continue; }
       const st = String(s.status||"").toLowerCase();
-      if(st==="completed" || st==="succeeded")
+      if(st==="completed" || st==="succeeded"){
+        if(runKey) PENDING_AUDIO.delete(runKey);
         return s.audioUrl || s.url || (s.data && s.data.audioUrl) || (s.data && s.data.url) || (()=>{ throw new Error("completed but no audio url"); })();
-      if(["error","failed","content_policy_violation"].includes(st)) throw new Error("audio failed: " + (s.error || s.message || st));
+      }
+      if(["error","failed","content_policy_violation"].includes(st)){
+        if(runKey) PENDING_AUDIO.delete(runKey);
+        throw new Error("audio failed: " + (s.error || s.message || st));
+      }
       onProgress && onProgress(s.queuePosition, Date.now()-t0);
     }
-    throw new Error("audio timed out (5 min)");
+    if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job:job });
+    throw new Error(runKey
+      ? "Still generating audio after 5 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished track (you won't be charged twice)."
+      : "audio timed out (5 min)");
   }
 
   /* =====================================================================
@@ -2302,6 +2331,15 @@ function mp4ParamsMatch(bufs){
     }
     if((n.fields.extraJson||"").trim()){                    // escape hatch: merge any extra keys verbatim
       try{ Object.assign(body, JSON.parse(n.fields.extraJson)); }catch(e){ throw new Error("advanced params: invalid JSON"); }
+    }
+    // Re-enforce the surface-one-track contract AFTER extraJson (twin of the editor): advanced params
+    // used to reintroduce number_of_songs / generation_count / n and bill N songs while audioRun only
+    // keeps the single returned URL. Drop every song-count key (omit = one track at the model default).
+    if(n.type==="music"){
+      for(const k of Object.keys(body)){
+        if(/^(number_of_songs|n|num_songs|song_count|generation_count|generation_count_parameter)$/i.test(k)
+           || /generation_count|num_?songs|song_?count/i.test(k)) delete body[k];
+      }
     }
     return body;
   }
@@ -2732,8 +2770,10 @@ function mp4ParamsMatch(bufs){
         if(!inp.audio) throw new Error("no audio input");
         const prompt = (inp.prompt != null ? inp.prompt : (n.fields.prompt != null ? n.fields.prompt : "")).trim();
         const prog = (st,ms)=> onProgress && onProgress("lip-syncing… " + Math.round(ms/1000) + "s · " + String(st).toLowerCase());
-        // Send audio as-is first (a remote song rides full-length); if the model rejects it for
-        // duration, read its real cap from the error, trim to fit (mono WAV) and retry once.
+        // Send audio as-is first (a remote song rides full-length); if the model REJECTS the submit
+        // for duration (HTTP error — not yet charged), read its real cap, trim, and retry once.
+        // NEVER auto-retry after a post-submit job failure ("video failed: …") — that path already
+        // reserved credits and a second genVideo would double-charge (twin of the editor).
         let trimSec = null;
         for(let attempt=0; attempt<2; attempt++){
           let opts;
@@ -2757,6 +2797,7 @@ function mp4ParamsMatch(bufs){
           }catch(e){
             if(attempt>0) throw e;
             const msg = e.message || "";
+            if(/^video failed:/i.test(msg)) throw e;   // already charged — no second submit
             const cap = /up to\s+(\d+(?:\.\d+)?)\s*second/i.exec(msg);
             if(cap && /INVALID_AUDIO_DURATION|audio.{0,15}duration/i.test(msg))
               trimSec = Math.min(60, Math.max(1, parseFloat(cap[1]) - 0.1));
@@ -3173,10 +3214,21 @@ function mp4ParamsMatch(bufs){
     extractaudio:[{ f:"start",  label:"Start (s)",  kind:"number", min:0, step:"0.1", def:"0" },
               { f:"length", label:"Length (s)", kind:"number", min:0.1, step:"0.1" }],
     join:    [{ f:"sep", label:"Separator (use \\n for a line break)", kind:"text", def:" " }],
+    // On-device processing nodes — no model, but their knobs must stay swappable in the app or the
+    // authored trim/join/stitch settings become frozen (combine/soundtrack/vframes were missing).
+    combine: [{ f:"dedup", label:"Trim duplicate seam frame", kind:"boolean", def:true }],
+    soundtrack:[{ f:"loop", label:"Loop audio to fill video", kind:"boolean", def:false }],
+    vframes: [{ f:"dir", label:"Start from", kind:"select", options:[["end","last frame"],["start","beginning"]], def:"end" },
+              { f:"frames", label:"How many frames", kind:"number", min:1, max:12, def:"1" },
+              { f:"gap", label:"Gap between frames (s)", kind:"number", min:0, step:"0.1", def:"0.5" }],
+    // prompt/image/mask are IO (deriveInputs special-case) — only model + size/seed here
+    inpaint: [{ f:"model", label:"Model", kind:"model" },
+              { f:"size", label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] },
+              { f:"seed", label:"Seed", kind:"number" }],
   };
   // node type -> NanoGPT catalog kind, used to populate the model-swap datalist
   const SETTING_MODEL_KIND = {
-    llm:"chat", vision:"chat", image:"image", edit:"image", draw:"chat",
+    llm:"chat", vision:"chat", image:"image", edit:"image", draw:"chat", inpaint:"image",
     tvideo:"video", ivideo:"video", vedit:"video", lipsync:"video",
     music:"audio", remix:"audio", tts:"audio", transcribe:"audio",
   };
@@ -3232,13 +3284,37 @@ function mp4ParamsMatch(bufs){
     if(!raw.find(m=> m && m.id===id))
       throw new Error('This app uses a model that’s no longer available ("'+id+'") — the app needs updating by its creator.');
   }
+  // Chat models that return an IMAGE inline (message.images[]) instead of text — same allowlist as
+  // index.html CHAT_IMAGE_OUT. Not metadata-derivable (NanoGPT tags them text->text with no image-output
+  // flag). The Draw node filters the swap list on this; without it, modelSuits falls into default:true
+  // and every chat model is offered (a paid dead-end for non-image chat ids).
+  const CHAT_IMAGE_OUT = { "gemini-3-pro-image-preview":1 };
+  // Edit models verified to honor a brushed mask (index.html INPAINT_OK) — plus true *inpaint* ids.
+  // Keep in lockstep with the editor allowlist; not metadata-derivable (many advertise inpainting yet
+  // regenerate the whole image when handed a mask).
+  const INPAINT_OK = {
+    "bria-fibo":1, "bria-fibo-edit":1,
+    "nano-banana":1, "nano-banana-2":1, "nano-banana-pro":1, "nano-banana-edit":1,
+    "nano-banana-pro-edit":1, "nano-banana-pro-edit-ultra":1,
+    "reve-2-edit":1, "reve-2-remix":1,
+    "pruna-ai/p-image/edit":1, "pruna-ai/p-image/edit-lora":1,
+    "kling-image-o1":1, "fal-ai/boogu-image/edit":1, "gemini-flash-edit":1, "flux-kontext":1,
+    "imagineart/imagineart-2.0-edit-preview/image-to-image":1,
+  };
   // does a raw catalog item suit this node type? (capability flags, mirrors the editor's filters)
   function modelSuits(type, m){
     const c = m.capabilities||{}, mod = (m.architecture||{}).modality||"", out = mod.split("->")[1]||"";
     switch(type){
       case "vision":     return !!c.vision;
-      case "image":      return mod ? mod.startsWith("text") : !c.image_to_image;
-      case "edit":       return !!c.image_to_image;
+      case "draw":       return !!CHAT_IMAGE_OUT[m.id];   // image-output chat models only (mirrors editor imageOut filter)
+      case "image":      { // mirrors editor normImg.gen: text→image only; exclude edit/upscale/inpaint-only ids
+                           const needsSrc = /upscal|inpaint|image-to-image|img2img/i.test(m.id||"");
+                           return needsSrc ? false : (mod ? mod.startsWith("text") : !c.image_to_image); }
+      case "edit":       { // mirrors editor normImg.edit: image_to_image OR id-regex upscalers; never mask-required inpainters
+                           const needsMask = /inpaint/i.test(m.id||"");
+                           const needsSrc = /upscal|inpaint|image-to-image|img2img/i.test(m.id||"");
+                           return !needsMask && (needsSrc || !!c.image_to_image); }
+      case "inpaint":    return /inpaint/i.test(m.id||"") || !!INPAINT_OK[m.id];
       case "tvideo":     { const im = mod.split("->")[0].split("+"); return !!c.text_to_video && !(im.includes("video") && !im.includes("image")); }   // edit/extend models are mislabeled text_to_video but demand a source video
       case "ivideo":     return !!c.image_to_video;
       case "vedit":      return !!c.video_to_video;
@@ -3247,7 +3323,10 @@ function mp4ParamsMatch(bufs){
                            return !!c.image_to_video && !!c.audio_input && !multiAudio; }
       case "tts":        return !!c.text_to_speech || m.category==="audio_tts";
       case "music":      { const am = mod.split("->")[0].split("+");   // cover/extend models are text+audio-> and demand a source track — keep them out of a plain Music swap
-                           return am.includes("text") && !am.includes("audio") && /audio|music/.test(out) && !(c.text_to_speech || m.category==="audio_tts"); }
+                           // verb guard mirrors editor normAudio.usable: cover/extend/clone ids would leak in via modality alone
+                           const usable = !/lyric|describe|recognize|stem|clone|upload|cover|extend|inpaint/i.test(m.id||"");
+                           const dead = /^Elevenlabs-Music-V1$/i.test(m.id||"");
+                           return usable && !dead && am.includes("text") && !am.includes("audio") && /audio|music/.test(out) && !(c.text_to_speech || m.category==="audio_tts"); }
       case "remix":      return !!(c.music_cover || c.audio_to_music || c.music_extension || c.audio_extension || c.audio_inpainting);   // mirrors the editor's normAudio remix flag
       case "transcribe": return (!!c.speech_to_text || m.category==="audio_stt") && !/clone/i.test(m.id||"");
       default:           return true;   // llm — any chat model
@@ -6277,6 +6356,8 @@ addEventListener("message", async (e) => {
       }
       const headers = Object.assign({}, d.headers, k ? { Authorization:"Bearer "+k, "x-api-key":k } : {});
       const r = await fetch(u.href, { method:d.method||"GET", headers, body:(d.body!=null?d.body:undefined) });
+      // Every generation carries NanoGPT's canonical post-charge balance — keep the bar chip live.
+      { const hb = parseFloat(r.headers.get("x-remaining-balance") || ""); if(!isNaN(hb)) noteBalance(hb); }
       const body = await r.arrayBuffer();
       const hdrs = {}; r.headers.forEach((v,kk)=> hdrs[kk.toLowerCase()]=v);
       reply({ ok:r.ok, status:r.status, headers:hdrs, body });   // ArrayBuffer → structured clone
@@ -6476,6 +6557,7 @@ function streamingCallLlm(phase){
         }
         throw new Error("LLM " + r.status + ": " + (await r.text().catch(()=>"")).slice(0,300));
       }
+      { const hb = parseFloat(r.headers.get("x-remaining-balance") || ""); if(!isNaN(hb)) noteBalance(hb); }   // customize spends too — headers land before the stream
       const reader = r.body.getReader(), dec = new TextDecoder();
       let buf="", content="", reasoning="", pricing=null, lastPaint=0, streamErr=null;
       for(;;){
@@ -7331,6 +7413,50 @@ async function handleRedirect(){
   if(!r.ok) throw new Error("token: "+(await r.text()));
   setKey((await r.json()).access_token);
 }
+// ----- balance chip (mirrors index.html's #cost "bal $X.XX") -----
+// Recipients top-load /play with the "what is this costing me?" question and used to get NO answer
+// until after their first paid run (the runtime's cost meter is count-gated). The parent owns the
+// key, so it owns the chip: seeded from the editor-shared cache (same origin, same BAL_CACHE_KEY),
+// refreshed best-effort from /api/check-balance at boot/sign-in, and kept live by noteBalance()
+// wherever a nano-gpt response passes through the parent (the __api__ bridge proxy + the customize
+// stream both carry x-remaining-balance). Cache is written back so the editor's chip stays fresh too.
+const BAL_CACHE_KEY = "ngpt_balance_usd";
+let BAL = null;
+function cacheBal(){
+  try{
+    if(BAL==null) localStorage.removeItem(BAL_CACHE_KEY);
+    else localStorage.setItem(BAL_CACHE_KEY, JSON.stringify({ usd:BAL, t:Date.now() }));
+  }catch(_){}
+}
+function paintBal(){
+  const el = $("bal"); if(!el) return;
+  const on = !!getKey() && BAL!=null;
+  el.style.display = on ? "" : "none";
+  if(on) el.innerHTML = 'bal $<b>' + BAL.toFixed(2) + '</b>';
+}
+function noteBalance(usd){ if(typeof usd==="number" && isFinite(usd)){ BAL = usd; cacheBal(); paintBal(); } }
+function restoreCachedBal(){
+  if(!getKey()) return;
+  try{
+    const j = JSON.parse(localStorage.getItem(BAL_CACHE_KEY)||"null");
+    if(j && typeof j.usd==="number" && isFinite(j.usd) && Date.now()-(j.t||0) < 7*24*60*60*1000){ BAL = j.usd; paintBal(); }
+  }catch(_){}
+}
+let _balPending = false;
+async function refreshBal(){
+  if(!getKey() || _balPending) return;
+  _balPending = true;
+  try{
+    const k = getKey();
+    const r = await fetch(NANOGPT + "/api/check-balance", { method:"POST",
+      headers:{ Authorization:"Bearer "+k, "x-api-key":k, "Content-Type":"application/json" }, body:"{}" });
+    if(!r.ok) return;               // rejected key → no seed; key validity is probeKey's job, not ours
+                                    // (check-balance is CORS-enabled since ~2026-07: ACAO * on 200 AND 401 — live-probed 2026-07-05)
+    const usd = parseFloat((await r.json()).usd_balance);
+    if(!isNaN(usd)) noteBalance(usd);
+  }catch(_){}                       // best-effort: the first run's x-remaining-balance fills it in anyway
+  finally{ _balPending = false; }
+}
 function renderAuth(){
   const signed = !!getKey();
   $("auth-status").textContent = signed ? tB("signed in ✓") : tB("not signed in");
@@ -7341,6 +7467,7 @@ function renderAuth(){
   $("pastebtn").style.display = signed ? "none" : "";
   $("signout").style.display  = signed ? "" : "none";
   $("apply").disabled = false;   // signed-out clicks route through kickBuilderSignIn (same as Enter) — never a dead-end
+  paintBal();                    // chip rides the same signed-in visibility
 }
 // Hand-typed/copied keys arrive with mobile-keyboard dashes, NBSP or zero-width junk — ONE
 // non-ISO-8859-1 char makes fetch() itself throw before the network. Mirrors index.html.
@@ -7384,6 +7511,7 @@ let _signedInReflected = false;
 function finishSignIn(){
   renderAuth(); pushAuthToApp();
   if(getKey()){ if($("keyless-hint")) $("cust-status").innerHTML = "";   // the "sign in…" hint has done its job
+    restoreCachedBal(); refreshBal();   // show the balance the moment you're signed in — before any run prices it in
     if(!_signedInReflected){ _signedInReflected = true; toast("signed in — the app can run now"); } }
   else { _signedInReflected = false; }
 }
@@ -7798,12 +7926,12 @@ $("keysave").addEventListener("click", async ()=>{
     toast("that key was rejected by NanoGPT — check you copied the whole key","err");
     return;
   }
-  setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp();
+  setKey(k); $("key").style.display="none"; renderAuth(); pushAuthToApp(); refreshBal();   // fresh key may be a different account — skip the cache, fetch live
   $("keyinput").value="";   // don't leave the plaintext key in the DOM — reopening the row (streamer on camera) would show it
   toast(probe==="unverified" ? "key saved — but nano-gpt.com can't be reached right now (ad-blocker, VPN or network?), so runs may fail" : "key saved — the app can run now", probe==="unverified" ? "err" : undefined);
 });
 $("keyinput").addEventListener("keydown",(e)=>{ if(e.key==="Enter") $("keysave").click(); });
-$("signout").addEventListener("click",()=>{ setKey(null); renderAuth(); pushAuthToApp(); toast("signed out"); });
+$("signout").addEventListener("click",()=>{ setKey(null); BAL=null; cacheBal(); renderAuth(); pushAuthToApp(); toast("signed out"); });   // drop the cached balance with the key (it's the key's balance, and the cache is editor-shared)
 
 // one-time: lift a pre-library customized session (old single LS_KEY slot) into "My apps"
 function migrateLegacy(){
@@ -7854,6 +7982,7 @@ async function boot(){
   $("baractions").addEventListener("click",(e)=>{ if(e.target.closest("button,a")){ document.body.classList.remove("bar-open"); $("barmore").setAttribute("aria-expanded","false"); } });
   $("custtoggle").addEventListener("click",()=>{ const o=document.body.classList.toggle("cust-open"); if(o){ const g=$("goal"); if(g) g.focus(); } });
   renderAuth();
+  restoreCachedBal(); refreshBal();   // seed the balance chip (editor-shared cache first, then live)
   if(authErr){ $("auth-status").textContent = "sign-in error: "+authErr.message; toast("sign-in didn't complete: "+authErr.message,"err"); }
   migrateLegacy();
   renderAppsBtn();

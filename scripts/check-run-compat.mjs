@@ -337,6 +337,42 @@ const SCENARIOS = [
     },
   },
   {
+    // Trust: genVideo applied opts.extra (modelOpts) AFTER opts.dims, so a stale modelOpts.duration
+    // (saved graph / describe-copilot / hand edit) overwrote the node's duration. The "~$X to run"
+    // chip prices the node field; the API billed the clobber → under-quote. Dims must win after extra.
+    name: "tvideo node duration wins over stale modelOpts.duration (no price clobber)",
+    data: { nodes: [node("t1", "tvideo", {
+              model: "x", prompt: "a drone shot", duration: "5", aspect: "16:9",
+              modelOpts: { duration: "10", style: "cinematic" },
+            })], links: [] },
+    check(app, g, fail) {
+      const b = videoCalls()[0]?.body;
+      if (!b) return fail("no generate-video call recorded");
+      if (b.duration !== "5") fail(`node duration must win over modelOpts.duration, got ${JSON.stringify(b.duration)}`);
+      if (b.style !== "cinematic") fail(`non-dim modelOpts must still forward, got ${JSON.stringify(b.style)}`);
+      if (b.aspect_ratio !== "16:9") fail(`aspect must still forward, got ${JSON.stringify(b.aspect_ratio)}`);
+    },
+  },
+  {
+    // Trust: collectAudioParams clamps UI number_of_songs to 1, but advanced-params JSON used to
+    // reintroduce number_of_songs/generation_count after that clamp → API bills N, audioRun surfaces 1.
+    // extraJson must not resurrect any song-count key.
+    name: "Music extraJson cannot reintroduce number_of_songs (bill-N surface-1 guard)",
+    data: { nodes: [node("m1", "music", {
+              model: "x", prompt: "lofi beat",
+              extraJson: JSON.stringify({ number_of_songs: 4, n: 3, generation_count: 2, style: "chill" }),
+            })], links: [] },
+    check(app, g, fail) {
+      const b = audioCalls()[0]?.body;
+      if (!b) return fail("no /audio/speech call recorded for music");
+      if (b.input !== "lofi beat") fail(`music prompt must ride as input, got ${JSON.stringify(b.input)}`);
+      for (const k of ["number_of_songs", "n", "generation_count", "num_songs", "song_count"]) {
+        if (k in b) fail(`song-count key ${k} must be stripped after extraJson, got ${JSON.stringify(b[k])}`);
+      }
+      if (b.style !== "chill") fail(`non-count extraJson keys must still forward, got ${JSON.stringify(b.style)}`);
+    },
+  },
+  {
     // Remix node (audio+text→audio) rides the same /audio/speech wire as Music, plus a source track
     // under `audio`. An UPLOADED clip is a data: URL and must ride inline exactly as wired.
     name: "Remix node: uploaded data: source rides inline as body.audio (+ input, + lyrics)",

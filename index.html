@@ -4186,13 +4186,22 @@ function collectAudioParams(n){
   if((n.fields.extraJson||"").trim()){                      // escape hatch: merge any extra keys verbatim
     try{ Object.assign(body, JSON.parse(n.fields.extraJson)); }catch{ throw new Error("advanced params: invalid JSON"); }
   }
+  // Re-enforce the surface-one-track contract AFTER extraJson: the advanced-params escape hatch used
+  // to reintroduce number_of_songs / generation_count / n and bill N songs while audioRun only keeps
+  // the single returned URL. Drop every song-count key (omit = one track at the model default).
+  if(n.type==="music"){
+    for(const k of Object.keys(body)){
+      if(/^(number_of_songs|n|num_songs|song_count|generation_count|generation_count_parameter)$/i.test(k)
+         || /generation_count|num_?songs|song_?count/i.test(k)) delete body[k];
+    }
+  }
   return body;
 }
 async function audioRun(n, inp, ctx){
   const text = (inp.text ?? n.fields.prompt ?? "").trim();
   if(!text) throw new Error("no text — type something in the prompt field first");
   return { audio: await ctx.genAudio(mdl(n), text, collectAudioParams(n),
-    (q,ms)=> setNodeProgress(n, `${t("generating audio…")} ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`)) };
+    (q,ms)=> setNodeProgress(n, `${t("generating audio…")} ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`), n.id) };
 }
 // Source track for the Remix node's `audio` param. A chained https output (Music, an earlier Remix)
 // rides as-is — every provider takes a hosted URL. Anything local (upload data:, Trim/Speech blob:)
@@ -4213,7 +4222,7 @@ async function remixRun(n, inp, ctx){
   const extra = collectAudioParams(n);
   extra.audio = await remixSourceAudio(inp.audio);
   return { audio: await ctx.genAudio(mdl(n), text, extra,
-    (q,ms)=> setNodeProgress(n, `${t("generating audio…")} ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`)) };
+    (q,ms)=> setNodeProgress(n, `${t("generating audio…")} ${Math.round(ms/1000)}s${q!=null?` · queue ${q}`:""}`), n.id) };
 }
 /* ---------- general per-model options (from the catalog's own param descriptors) ----------
    Video models advertise rich params (preset, style, effect, cameraMovement, mode, switches…)
@@ -5383,8 +5392,11 @@ const NODE_TYPES = {
       const prog = (st,ms)=> setNodeProgress(n, `lip-syncing… ${Math.round(ms/1000)}s · ${st.toLowerCase()}`);
       // Avatar models cap audio length (LongCat = 30s) and the cap isn't reliably in the catalog,
       // so send the audio as-is first (a remote song rides full-length as a url, no truncation). If
-      // the model rejects it for duration, read its real cap from the error, trim to fit (mono WAV,
-      // sized to inline) and retry once. An oversize local clip that can't inline also trims to 15s.
+      // the model REJECTS the submit for duration (HTTP error — not yet charged), read its real cap
+      // from the error, trim to fit (mono WAV, sized to inline) and retry once. An oversize local
+      // clip that can't inline also trims to 15s. NEVER auto-retry after a post-submit job failure
+      // ("video failed: …"): that path already reserved credits, and a second genVideo would
+      // double-charge.
       let trimSec = null;
       for(let attempt=0; attempt<2; attempt++){
         let opts;
@@ -5409,6 +5421,8 @@ const NODE_TYPES = {
         }catch(e){
           if(attempt>0) throw e;
           const msg = e.message || "";
+          // Post-submit poll failure already charged (and may refund later) — do not issue a second job.
+          if(/^video failed:/i.test(msg)) throw e;
           const cap = /up to\s+(\d+(?:\.\d+)?)\s*second/i.exec(msg);
           if(cap && /INVALID_AUDIO_DURATION|audio.{0,15}duration/i.test(msg))
             trimSec = Math.min(60, Math.max(1, parseFloat(cap[1]) - 0.1));   // model told us its real cap
@@ -7364,6 +7378,10 @@ const LORA_EXAMPLES = {
 // runId keyed by the calling node so the next run resumes the same job instead of paying to
 // re-submit. In-memory only; a transient runId has no business in a saved or shared graph.
 const PENDING_VIDEO = new Map();   // nodeId → {sig, runId} of an in-flight (timed-out) video job
+// Same idea for async music/TTS: submit returns runId + charges immediately, then we poll
+// /api/tts/status. A 5-min client timeout used to throw and drop the runId — re-run re-submitted
+// and double-charged. PENDING_AUDIO keeps the job so an unchanged re-run resumes the poll only.
+const PENDING_AUDIO = new Map();   // nodeId → {sig, job:{runId,cost,paymentSource,isApiRequest,model}}
 const CTX = {
   // opts.n = how many images to request (default 1). opts.multi=true returns ALL images as an
   // array (the gen node, which shows a pick-one gallery); every other caller omits opts and gets a
@@ -7442,6 +7460,11 @@ const CTX = {
     if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
     if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
     if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
+    // Node-owned dims win AGAIN after extra: ⚙️ modelOpts can still carry duration/resolution/aspect
+    // (stale saved graphs, describe-copilot, hand-edited JSON) even though the UI no longer surfaces
+    // those knobs. extra used to clobber dims here → the API billed the modelOpts duration while the
+    // "~$X to run" chip priced the node's duration. Same priority rule as refImages below.
+    if(opts.dims) Object.assign(body, opts.dims);
     // Wired subject/style reference images LAST, so a ⚙️ knob can never clobber the array (a camelCase
     // `referenceImages` key isn't caught by videoFreetextSkip, so a wired port must always win the key).
     if(opts.refImages && opts.refImages.length && opts.refKey) body[opts.refKey] = opts.refImages;   // ref-image array param (data: URLs inline; oversize caught below)
@@ -7501,8 +7524,18 @@ const CTX = {
   },
   // sync audio (speech OR music): /api/v1/audio/speech → binary audio (or JSON with a url for some providers).
   // extra = the dynamic, model-specific params already resolved by the node (lyrics, voice, duration, …).
-  async genAudio(model, input, extra, onProgress){
+  // runKey = calling node id — enables resume of a timed-out async job without a second charge.
+  async genAudio(model, input, extra, onProgress, runKey){
     const body = Object.assign({ model, input }, extra||{});
+    const bodySig = sigHash(JSON.stringify(body));
+    // Resume a timed-out async job for THIS node when the request is unchanged (mirror PENDING_VIDEO).
+    const pend = runKey && PENDING_AUDIO.get(runKey);
+    if(pend && pend.sig===bodySig && pend.job){
+      const url = await pollAudio(model, pend.job, onProgress, runKey, bodySig);
+      if(!url) throw new Error("no audio url in response");
+      return url;
+    }
+    if(pend && runKey) PENDING_AUDIO.delete(runKey);   // stale (request changed) — drop and submit fresh
     const r = await fetch(`${NANOGPT}/api/v1/audio/speech`, {method:"POST", headers:authHeaders(), body:JSON.stringify(body), signal:runSignal()});
     if(!r.ok){
       flagAuth(r);
@@ -7520,7 +7553,7 @@ const CTX = {
     if(ct.includes("application/json")){
       const j = await r.json(); accrue(j, undefined, r);
       let url = j.url || j.audioUrl || j.data?.url || j.data?.audioUrl;
-      if(!url && (j.runId || j.id)) url = await pollAudio(model, j, onProgress);   // async model → poll
+      if(!url && (j.runId || j.id)) url = await pollAudio(model, j, onProgress, runKey, bodySig);   // async model → poll (resume-aware)
       if(!url) throw new Error("no audio url in response");
       return url;
     }
@@ -7635,6 +7668,12 @@ const DEMO_CTX = { ...CTX, demo:true,
   async genImage(prompt, model, size, imageDataUrl, maskDataUrl, extra, opts){
     const [url] = await Promise.all([demoImage(), demoPause(2800 + Math.random()*1600)]);
     return (opts && opts.multi) ? [url] : url;
+  },
+  // Draw node uses genChatImage (not genImage). Stub it so a shape-mode sample never hits the live
+  // chat-image endpoint (DEMO_CTX spreads CTX, which would otherwise call NanoGPT without a key).
+  async genChatImage(){
+    const [url] = await Promise.all([demoImage(), demoPause(2800 + Math.random()*1600)]);
+    return { images:[url], text:"(sample draw — sign in to generate for real)", reasoning:"" };
   },
   genVideo: demoDeny, genAudio: demoDeny, transcribe: demoDeny,
 };
@@ -8279,9 +8318,11 @@ async function muxSoundtrack(videoUrl, audioUrl, loop, onProgress){
   }
 }
 const sleep = (ms)=> new Promise(res=> setTimeout(res, ms));
-// async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed
-async function pollAudio(model, j, onProgress){
+// async audio (music / some TTS): submit returns {status:"pending", runId} → poll /api/tts/status until completed.
+// runKey + bodySig: on client timeout, stash the job in PENDING_AUDIO so a re-run resumes without re-charging.
+async function pollAudio(model, j, onProgress, runKey, bodySig){
   const runId = j.runId || j.id;
+  const job = { runId, model, cost:j.cost, paymentSource:j.paymentSource, isApiRequest:j.isApiRequest };
   const qs = new URLSearchParams({ runId, model });
   if(j.cost!=null) qs.set("cost", j.cost);                 // these let the server auto-refund on failure
   if(j.paymentSource) qs.set("paymentSource", j.paymentSource);
@@ -8294,12 +8335,21 @@ async function pollAudio(model, j, onProgress){
     let s; try{ s = await (await fetch(`${NANOGPT}/api/tts/status?${qs}`, {headers:authHeaders(), signal:runSignal()})).json(); }
     catch(e){ if(e?.name==="AbortError") throw e; continue; }
     const st = String(s.status||"").toLowerCase();
-    if(st==="completed" || st==="succeeded")
+    if(st==="completed" || st==="succeeded"){
+      if(runKey) PENDING_AUDIO.delete(runKey);
       return s.audioUrl || s.url || s.data?.audioUrl || s.data?.url || (()=>{ throw new Error("completed but no audio url"); })();
-    if(["error","failed","content_policy_violation"].includes(st)) throw new Error("audio failed: " + (s.error || s.message || st));
+    }
+    if(["error","failed","content_policy_violation"].includes(st)){
+      if(runKey) PENDING_AUDIO.delete(runKey);   // genuinely dead — don't resume
+      throw new Error("audio failed: " + (s.error || s.message || st));
+    }
     onProgress && onProgress(s.queuePosition, Date.now()-t0);
   }
-  throw new Error("audio timed out (5 min)");
+  // Keep the job so an unchanged re-run of this node polls the same runId (no second charge).
+  if(runKey && bodySig!=null) PENDING_AUDIO.set(runKey, { sig:bodySig, job });
+  throw new Error(runKey
+    ? "Still generating audio after 5 min — the job is likely still running on NanoGPT's side. Run this node again to pick up the finished track (you won't be charged twice)."
+    : "audio timed out (5 min)");
 }
 function authHeaders(){ const k=getKey(); return { Authorization:`Bearer ${k}`, "x-api-key":k, "Content-Type":"application/json" }; }
 // A 401/403 from a generation call means the stored key is dead (revoked, or an expired OAuth token the
@@ -9649,38 +9699,86 @@ $("signout").onclick = ()=> setKey(null);
     text:{ main:"text", fields:{ text:"the literal string" } },
     upload:{ fields:{} }, aupload:{ fields:{} }, vupload:{ fields:{} },
     join:{ fields:{ sep:"separator (default space; \\n = newline)" } },
-    llm:{ main:"prompt", fields:{ model:"chat model id (optional)", system:"system prompt", prompt:"user prompt" }, note:"vision models also accept wired image ports" },
+    llm:{ main:"prompt", fields:{
+      model:"chat model id (optional)", system:"system prompt", prompt:"user prompt",
+      temperature:"0–2 sampling (default 0.8)", maxTokens:"output length cap (optional)",
+      format:"Text|JSON (JSON only on structured_output models)",
+      reasoningEffort:"default|low|medium|high (reasoning models)",
+      showThinking:"true/false — include chain-of-thought in the text output",
+    }, note:"vision models grow wired image ports (img1…); audio_input models grow an audio port" },
     vision:{ fields:{ model:"vision model id (optional)", q:"the question" } },
-    image:{ main:"prompt", fields:{ model:"image model id (optional)", prompt:"image prompt", size:"e.g. 1024x1024" } },
-    edit:{ main:"prompt", fields:{ model:"edit model id (optional)", prompt:"edit instruction" } },
-    draw:{ main:"prompt", fields:{ model:"image-output chat model id (optional)", system:"system prompt", prompt:"what to draw (or how to edit wired images)" }, note:"reasons, then draws; wired image ports are edited/composed" },
-    inpaint:{ main:"prompt", fields:{ model:"inpaint model id (optional)", prompt:"what to paint in" } },
+    image:{ main:"prompt", fields:{
+      model:"image model id (optional)", prompt:"image prompt", size:"e.g. 1024x1024 or catalog tier",
+      variations:"how many candidates (1…max_output_images)", seed:"fixed seed to repeat (blank = random)",
+    } },
+    edit:{ main:"prompt", fields:{
+      model:"edit model id (optional)", prompt:"edit instruction", size:"output size tier",
+      seed:"fixed seed (blank = random)",
+    }, note:"multi-reference models grow image, image2, … up to max_input_images" },
+    draw:{ main:"prompt", fields:{
+      model:"image-output chat model id (optional — currently gemini-3-pro-image-preview)",
+      system:"system prompt", prompt:"what to draw (or how to edit wired images)",
+      showThinking:"true/false — include reasoning in the text output (default true)",
+    }, note:"reasons, then draws; wired image ports (img1…) are edited/composed in the same call" },
+    inpaint:{ main:"prompt", fields:{
+      model:"inpaint model id (optional)", prompt:"what to paint in", size:"usually follows source",
+      seed:"fixed seed (blank = random)", brush:"brush size when painting inline",
+    }, note:"source+mask from wire OR inline upload+brush; white = repaint region" },
     resize:{ fields:{ mode:"fit|fill|exact", width:"target px", height:"target px (blank = derive from aspect)" } },
-    tvideo:{ main:"prompt", fields:{ model:"t2v model id (optional)", prompt:"video prompt", duration:"seconds", aspect:"e.g. 16:9" } },
-    ivideo:{ main:"prompt", fields:{ model:"i2v model id (optional)", prompt:"motion prompt", duration:"seconds", aspect:"e.g. 16:9" } },
-    vedit:{ main:"prompt", fields:{ model:"v2v model id (optional)", prompt:"instruction" } },
-    vframes:{ fields:{ frames:"how many", gap:"seconds between frames", dir:"end|start" } },
-    combine:{ fields:{ dedup:"trim duplicate seam frame (true/false)" } },
-    soundtrack:{ fields:{ loop:"loop audio to fill the video (true/false)" } },
-    lipsync:{ fields:{ model:"avatar model id (optional)", prompt:"optional direction" } },
-    music:{ main:"prompt", fields:{ model:"music model id (optional)", prompt:"style/prompt", lyrics:"lyrics for vocal models", instrumental:"true/false" } },
-    remix:{ main:"prompt", fields:{ model:"remix model id (optional)", prompt:"style/direction for the cover or extension", lyrics:"lyrics to continue (song-extend models)" }, note:"audio + text → audio; wire the source track into the audio port" },
-    tts:{ main:"prompt", fields:{ model:"tts model id (optional)", prompt:"text to speak", voice:"voice id (optional)" } },
-    trim:{ fields:{ start:"seconds", length:"seconds" } },
-    extractaudio:{ fields:{ start:"seconds", length:"seconds (blank = whole clip)" }, note:"video → audio; feed 🎙️ Transcribe or ✂️ Trim" },
-    transcribe:{ fields:{ model:"stt model id (optional)", language:"auto or a language code" } },
+    tvideo:{ main:"prompt", fields:{
+      model:"t2v model id (optional)", prompt:"video prompt", duration:"seconds",
+      aspect:"e.g. 16:9", resolution:"catalog resolution tier (optional)",
+    }, note:"ref-capable models (seedance/luma/kling/wan) grow ref1… reference-image ports for character/style consistency" },
+    ivideo:{ main:"prompt", fields:{
+      model:"i2v model id (optional)", prompt:"motion prompt", duration:"seconds",
+      aspect:"e.g. 16:9", resolution:"catalog resolution tier (optional)",
+    }, note:"models with last_image grow an optional endframe port for start→end morph; character refs live on tvideo, not here" },
+    vedit:{ main:"prompt", fields:{
+      model:"v2v model id (optional)", prompt:"instruction (restyle / extend / upscale)",
+      resolution:"catalog resolution tier (optional)",
+    } },
+    vframes:{ fields:{ frames:"how many (1–12)", gap:"seconds between frames", dir:"end|start" }, note:"grows frame1…frameN image output ports" },
+    combine:{ fields:{ dedup:"trim duplicate seam frame (true/false, default true)" }, note:"grows clip1, clip2, … video input ports" },
+    soundtrack:{ fields:{ loop:"loop audio to fill the video (true/false)" }, note:"replaces the video's existing soundtrack" },
+    lipsync:{ fields:{ model:"avatar model id (optional)", prompt:"optional direction (mood/movement)", resolution:"optional" }, note:"image + single audio → talking video; multi-speaker avatars are filtered out" },
+    music:{ main:"prompt", fields:{
+      model:"music model id (optional)", prompt:"style/prompt", lyrics:"lyrics for vocal models",
+      instrumental:"true/false", duration:"seconds when model advertises a range",
+      negative_prompt:"what to avoid", seed:"fixed seed (blank = random)",
+    } },
+    remix:{ main:"prompt", fields:{
+      model:"remix model id (optional)", prompt:"style/direction for the cover or extension",
+      lyrics:"lyrics to continue (song-extend models)", duration:"seconds when billed per-second",
+    }, note:"audio + text → audio; wire the source track into the audio port" },
+    tts:{ main:"prompt", fields:{
+      model:"tts model id (optional)", prompt:"text to speak", voice:"voice id from catalog (optional)",
+      speed:"0.25–2 (default 1)", instructions:"tone/accent/emotion (some models ignore)",
+    } },
+    trim:{ fields:{ start:"seconds", length:"seconds" }, note:"outputs mono WAV small enough to send to models" },
+    extractaudio:{ fields:{ start:"seconds", length:"seconds (blank = whole clip)" }, note:"video → mono WAV; feed 🎙️ Transcribe or ✂️ Trim. AI-generated videos are usually silent." },
+    transcribe:{ fields:{ model:"stt model id (optional)", language:"auto or a language code (select when model lists langs)" } },
     choice:{ fields:{ options:"the choices, one per line", selected:"the pre-picked option (optional)" } },
-    comment:{ fields:{ text:"the note text" } },
+    comment:{ fields:{ text:"the note text", color:"yellow|pink|green|blue|purple|gray" } },
   };
   function schemaLines(){
     return Object.keys(NODE_TYPES).map(type=>{
       const t = NODE_TYPES[type], a = DESC_FIELDS[type] || { fields:{} };
       const ins = (Array.isArray(t.inputs) ? t.inputs : []).map(p=>`${p.name}:${p.type}`);
-      if(t.videoInputs) ins.push("clip1:video,…");
-      if(t.imageInputs) ins.push("image1:image,… (vision models)");
-      const out = typeof t.outputs === "function" ? "image (ports frame1,frame2,…)" : (t.outputs[0]?.type || "—");
+      if(t.videoInputs) ins.push("clip1:video, clip2:video, …");
+      if(t.refInputs) ins.push("ref1:image, ref2:image, … (when model supports reference images)");
+      if(t.endFrame) ins.push("endframe:image (when model supports last_image morph)");
+      if(t.imageInputs){
+        if(t.imageInputs === "vision" || t.imageInputs === true)
+          ins.push("img1:image, … (vision / draw models grow ports as needed)");
+        else if(t.imageInputs.multi)
+          ins.push("image, image2, … (up to model's max_input_images)");
+      }
+      if(t.audioInput) ins.push("audio:audio (when model supports audio_input)");
+      const outs = typeof t.outputs === "function"
+        ? "image (ports frame1,frame2,… grow with fields.frames)"
+        : (Array.isArray(t.outputs) ? t.outputs.map(p=>`${p.name}:${p.type}`).join(", ") || "—" : "—");
       const flds = Object.entries(a.fields).map(([k,v])=>`${k} (${v})`).join("; ") || "—";
-      return `- ${type}: ${t.desc}. in: ${ins.join(", ")||"—"}. out: ${out}. fields: ${flds}.${a.note?" "+a.note:""}`;
+      return `- ${type}: ${t.desc}. in: ${ins.join(", ")||"—"}. out: ${outs}. fields: ${flds}.${a.note?" "+a.note:""}`;
     }).join("\n");
   }
 

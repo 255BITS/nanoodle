@@ -133,6 +133,17 @@
   },
   {
     "date": "2026-07-05",
+    "text": "The play page now shows your NanoGPT balance in the top bar as soon as you're signed in — no need to run the app first or go back to the editor to check your credit.",
+    "i18n": {
+      "pt": "A página de execução agora mostra seu saldo de NanoGPT na barra superior assim que você se conecta — sem precisar Executar o app primeiro ou voltar ao editor para conferir seu crédito.",
+      "fr": "La page de jeu affiche désormais votre solde NanoGPT dans la barre supérieure dès que vous êtes connecté — plus besoin d'Exécuter l'app d'abord ou de retourner à l'éditeur pour vérifier votre crédit.",
+      "de": "Die Play-Seite zeigt jetzt dein NanoGPT-Guthaben in der oberen Leiste an, sobald du angemeldet bist – du musst die App nicht erst ausführen oder zurück zum Editor gehen, um dein Guthaben zu prüfen.",
+      "ja": "サインインすると、プレイページのトップバーにNanoGPTの残高がすぐ表示されるようになりました。クレジットの確認のためだけにアプリを実行したりエディタに戻ったりする必要はありません。",
+      "es": "La página de reproducción ahora muestra tu saldo de NanoGPT en la barra superior en cuanto inicias sesión — no necesitas ejecutar la app primero ni volver al editor para comprobar tu crédito."
+    }
+  },
+  {
+    "date": "2026-07-05",
     "text": "Your newest result now takes the spotlight at full size, while earlier results tuck into a compact \"Earlier results\" shelf — tap any card to reopen it. Long text and tall images stay tidy too.",
     "i18n": {
       "fr": "Votre dernier résultat est désormais mis en avant en pleine taille, tandis que les résultats précédents se rangent dans un espace « Résultats précédents » compact — touchez n'importe quelle carte pour la rouvrir. Les longs textes et les grandes images restent également bien ordonnés.",
