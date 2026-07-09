@@ -213,6 +213,24 @@ try {
     // 5) aliased/unknown nodes must not crash deriveSettings (audio → tts via materialize)
     const aliased = settingsOf(graph([node("a1", "audio", { model: "m" })]));
     if (!byField(aliased).model) fail("audio (aliased to tts): no model setting after materialize");
+
+    // 6) vframes' frame count is SHAPE-affecting: run() emits frame1..frameN and downstream
+    //    links read fixed frameK ports. The knob's floor (min) must rise to the highest wired
+    //    frame port, or an app user lowering it starves those consumers mid-run — AFTER the
+    //    upstream paid steps already generated and charged. Raising must stay allowed.
+    const vfGraph = (outLinks) => graph(
+      [node("v1", "vupload", {}), node("f1", "vframes", { frames: "3" }), node("e1", "edit", { model: "m", prompt: "x" })],
+      [{ from: { node: "v1", port: "video" }, to: { node: "f1", port: "video" } }, ...outLinks],
+    );
+    const framesKnob = (outLinks) => byField(settingsOf(vfGraph(outLinks))).frames;
+    const wired3 = framesKnob([{ from: { node: "f1", port: "frame3" }, to: { node: "e1", port: "image" } }]);
+    if (!wired3) fail("vframes: no frames setting surfaced");
+    else if (wired3.min !== 3) fail(`vframes: frames floor must rise to the highest wired frame port (frame3 wired → min 3), got min ${JSON.stringify(wired3.min)}`);
+    const wired1 = framesKnob([{ from: { node: "f1", port: "frame1" }, to: { node: "e1", port: "image" } }]);
+    if (wired1 && wired1.min !== 1) fail(`vframes: only frame1 wired must keep min 1, got ${JSON.stringify(wired1.min)}`);
+    const unwired = byField(settingsOf(graph([node("f1", "vframes", {})]))).frames;
+    if (!unwired || unwired.min !== 1 || unwired.max !== 12)
+      fail(`vframes: unwired frames knob must keep min 1 / max 12 (raising stays allowed), got min ${unwired && unwired.min} max ${unwired && unwired.max}`);
   }
 } catch (e) {
   fail("could not run the settings surface: " + (e && e.stack ? e.stack : e));
