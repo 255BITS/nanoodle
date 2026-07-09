@@ -7564,6 +7564,12 @@ const DEMO_CTX = { ...CTX, demo:true,
     const [url] = await Promise.all([demoImage(), demoPause(2800 + Math.random()*1600)]);
     return (opts && opts.multi) ? [url] : url;
   },
+  // Draw node uses genChatImage (not genImage). Stub it so a shape-mode sample never hits the live
+  // chat-image endpoint (DEMO_CTX spreads CTX, which would otherwise call NanoGPT without a key).
+  async genChatImage(){
+    const [url] = await Promise.all([demoImage(), demoPause(2800 + Math.random()*1600)]);
+    return { images:[url], text:"(sample draw — sign in to generate for real)", reasoning:"" };
+  },
   genVideo: demoDeny, genAudio: demoDeny, transcribe: demoDeny,
 };
 // "loading sample…" — honest running-state text for a demo node (t() is free here, unshadowed).
@@ -9571,38 +9577,86 @@ $("signout").onclick = ()=> setKey(null);
     text:{ main:"text", fields:{ text:"the literal string" } },
     upload:{ fields:{} }, aupload:{ fields:{} }, vupload:{ fields:{} },
     join:{ fields:{ sep:"separator (default space; \\n = newline)" } },
-    llm:{ main:"prompt", fields:{ model:"chat model id (optional)", system:"system prompt", prompt:"user prompt" }, note:"vision models also accept wired image ports" },
+    llm:{ main:"prompt", fields:{
+      model:"chat model id (optional)", system:"system prompt", prompt:"user prompt",
+      temperature:"0–2 sampling (default 0.8)", maxTokens:"output length cap (optional)",
+      format:"Text|JSON (JSON only on structured_output models)",
+      reasoningEffort:"default|low|medium|high (reasoning models)",
+      showThinking:"true/false — include chain-of-thought in the text output",
+    }, note:"vision models grow wired image ports (img1…); audio_input models grow an audio port" },
     vision:{ fields:{ model:"vision model id (optional)", q:"the question" } },
-    image:{ main:"prompt", fields:{ model:"image model id (optional)", prompt:"image prompt", size:"e.g. 1024x1024" } },
-    edit:{ main:"prompt", fields:{ model:"edit model id (optional)", prompt:"edit instruction" } },
-    draw:{ main:"prompt", fields:{ model:"image-output chat model id (optional)", system:"system prompt", prompt:"what to draw (or how to edit wired images)" }, note:"reasons, then draws; wired image ports are edited/composed" },
-    inpaint:{ main:"prompt", fields:{ model:"inpaint model id (optional)", prompt:"what to paint in" } },
+    image:{ main:"prompt", fields:{
+      model:"image model id (optional)", prompt:"image prompt", size:"e.g. 1024x1024 or catalog tier",
+      variations:"how many candidates (1…max_output_images)", seed:"fixed seed to repeat (blank = random)",
+    } },
+    edit:{ main:"prompt", fields:{
+      model:"edit model id (optional)", prompt:"edit instruction", size:"output size tier",
+      seed:"fixed seed (blank = random)",
+    }, note:"multi-reference models grow image, image2, … up to max_input_images" },
+    draw:{ main:"prompt", fields:{
+      model:"image-output chat model id (optional — currently gemini-3-pro-image-preview)",
+      system:"system prompt", prompt:"what to draw (or how to edit wired images)",
+      showThinking:"true/false — include reasoning in the text output (default true)",
+    }, note:"reasons, then draws; wired image ports (img1…) are edited/composed in the same call" },
+    inpaint:{ main:"prompt", fields:{
+      model:"inpaint model id (optional)", prompt:"what to paint in", size:"usually follows source",
+      seed:"fixed seed (blank = random)", brush:"brush size when painting inline",
+    }, note:"source+mask from wire OR inline upload+brush; white = repaint region" },
     resize:{ fields:{ mode:"fit|fill|exact", width:"target px", height:"target px (blank = derive from aspect)" } },
-    tvideo:{ main:"prompt", fields:{ model:"t2v model id (optional)", prompt:"video prompt", duration:"seconds", aspect:"e.g. 16:9" } },
-    ivideo:{ main:"prompt", fields:{ model:"i2v model id (optional)", prompt:"motion prompt", duration:"seconds", aspect:"e.g. 16:9" } },
-    vedit:{ main:"prompt", fields:{ model:"v2v model id (optional)", prompt:"instruction" } },
-    vframes:{ fields:{ frames:"how many", gap:"seconds between frames", dir:"end|start" } },
-    combine:{ fields:{ dedup:"trim duplicate seam frame (true/false)" } },
-    soundtrack:{ fields:{ loop:"loop audio to fill the video (true/false)" } },
-    lipsync:{ fields:{ model:"avatar model id (optional)", prompt:"optional direction" } },
-    music:{ main:"prompt", fields:{ model:"music model id (optional)", prompt:"style/prompt", lyrics:"lyrics for vocal models", instrumental:"true/false" } },
-    remix:{ main:"prompt", fields:{ model:"remix model id (optional)", prompt:"style/direction for the cover or extension", lyrics:"lyrics to continue (song-extend models)" }, note:"audio + text → audio; wire the source track into the audio port" },
-    tts:{ main:"prompt", fields:{ model:"tts model id (optional)", prompt:"text to speak", voice:"voice id (optional)" } },
-    trim:{ fields:{ start:"seconds", length:"seconds" } },
-    extractaudio:{ fields:{ start:"seconds", length:"seconds (blank = whole clip)" }, note:"video → audio; feed 🎙️ Transcribe or ✂️ Trim" },
-    transcribe:{ fields:{ model:"stt model id (optional)", language:"auto or a language code" } },
+    tvideo:{ main:"prompt", fields:{
+      model:"t2v model id (optional)", prompt:"video prompt", duration:"seconds",
+      aspect:"e.g. 16:9", resolution:"catalog resolution tier (optional)",
+    }, note:"ref-capable models (seedance/luma/kling/wan) grow ref1… reference-image ports for character/style consistency" },
+    ivideo:{ main:"prompt", fields:{
+      model:"i2v model id (optional)", prompt:"motion prompt", duration:"seconds",
+      aspect:"e.g. 16:9", resolution:"catalog resolution tier (optional)",
+    }, note:"models with last_image grow an optional endframe port for start→end morph; character refs live on tvideo, not here" },
+    vedit:{ main:"prompt", fields:{
+      model:"v2v model id (optional)", prompt:"instruction (restyle / extend / upscale)",
+      resolution:"catalog resolution tier (optional)",
+    } },
+    vframes:{ fields:{ frames:"how many (1–12)", gap:"seconds between frames", dir:"end|start" }, note:"grows frame1…frameN image output ports" },
+    combine:{ fields:{ dedup:"trim duplicate seam frame (true/false, default true)" }, note:"grows clip1, clip2, … video input ports" },
+    soundtrack:{ fields:{ loop:"loop audio to fill the video (true/false)" }, note:"replaces the video's existing soundtrack" },
+    lipsync:{ fields:{ model:"avatar model id (optional)", prompt:"optional direction (mood/movement)", resolution:"optional" }, note:"image + single audio → talking video; multi-speaker avatars are filtered out" },
+    music:{ main:"prompt", fields:{
+      model:"music model id (optional)", prompt:"style/prompt", lyrics:"lyrics for vocal models",
+      instrumental:"true/false", duration:"seconds when model advertises a range",
+      negative_prompt:"what to avoid", seed:"fixed seed (blank = random)",
+    } },
+    remix:{ main:"prompt", fields:{
+      model:"remix model id (optional)", prompt:"style/direction for the cover or extension",
+      lyrics:"lyrics to continue (song-extend models)", duration:"seconds when billed per-second",
+    }, note:"audio + text → audio; wire the source track into the audio port" },
+    tts:{ main:"prompt", fields:{
+      model:"tts model id (optional)", prompt:"text to speak", voice:"voice id from catalog (optional)",
+      speed:"0.25–2 (default 1)", instructions:"tone/accent/emotion (some models ignore)",
+    } },
+    trim:{ fields:{ start:"seconds", length:"seconds" }, note:"outputs mono WAV small enough to send to models" },
+    extractaudio:{ fields:{ start:"seconds", length:"seconds (blank = whole clip)" }, note:"video → mono WAV; feed 🎙️ Transcribe or ✂️ Trim. AI-generated videos are usually silent." },
+    transcribe:{ fields:{ model:"stt model id (optional)", language:"auto or a language code (select when model lists langs)" } },
     choice:{ fields:{ options:"the choices, one per line", selected:"the pre-picked option (optional)" } },
-    comment:{ fields:{ text:"the note text" } },
+    comment:{ fields:{ text:"the note text", color:"yellow|pink|green|blue|purple|gray" } },
   };
   function schemaLines(){
     return Object.keys(NODE_TYPES).map(type=>{
       const t = NODE_TYPES[type], a = DESC_FIELDS[type] || { fields:{} };
       const ins = (Array.isArray(t.inputs) ? t.inputs : []).map(p=>`${p.name}:${p.type}`);
-      if(t.videoInputs) ins.push("clip1:video,…");
-      if(t.imageInputs) ins.push("image1:image,… (vision models)");
-      const out = typeof t.outputs === "function" ? "image (ports frame1,frame2,…)" : (t.outputs[0]?.type || "—");
+      if(t.videoInputs) ins.push("clip1:video, clip2:video, …");
+      if(t.refInputs) ins.push("ref1:image, ref2:image, … (when model supports reference images)");
+      if(t.endFrame) ins.push("endframe:image (when model supports last_image morph)");
+      if(t.imageInputs){
+        if(t.imageInputs === "vision" || t.imageInputs === true)
+          ins.push("img1:image, … (vision / draw models grow ports as needed)");
+        else if(t.imageInputs.multi)
+          ins.push("image, image2, … (up to model's max_input_images)");
+      }
+      if(t.audioInput) ins.push("audio:audio (when model supports audio_input)");
+      const outs = typeof t.outputs === "function"
+        ? "image (ports frame1,frame2,… grow with fields.frames)"
+        : (Array.isArray(t.outputs) ? t.outputs.map(p=>`${p.name}:${p.type}`).join(", ") || "—" : "—");
       const flds = Object.entries(a.fields).map(([k,v])=>`${k} (${v})`).join("; ") || "—";
-      return `- ${type}: ${t.desc}. in: ${ins.join(", ")||"—"}. out: ${out}. fields: ${flds}.${a.note?" "+a.note:""}`;
+      return `- ${type}: ${t.desc}. in: ${ins.join(", ")||"—"}. out: ${outs}. fields: ${flds}.${a.note?" "+a.note:""}`;
     }).join("\n");
   }
 

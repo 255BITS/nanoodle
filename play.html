@@ -3170,10 +3170,21 @@ function mp4ParamsMatch(bufs){
     extractaudio:[{ f:"start",  label:"Start (s)",  kind:"number", min:0, step:"0.1", def:"0" },
               { f:"length", label:"Length (s)", kind:"number", min:0.1, step:"0.1" }],
     join:    [{ f:"sep", label:"Separator (use \\n for a line break)", kind:"text", def:" " }],
+    // On-device processing nodes — no model, but their knobs must stay swappable in the app or the
+    // authored trim/join/stitch settings become frozen (combine/soundtrack/vframes were missing).
+    combine: [{ f:"dedup", label:"Trim duplicate seam frame", kind:"boolean", def:true }],
+    soundtrack:[{ f:"loop", label:"Loop audio to fill video", kind:"boolean", def:false }],
+    vframes: [{ f:"dir", label:"Start from", kind:"select", options:[["end","last frame"],["start","beginning"]], def:"end" },
+              { f:"frames", label:"How many frames", kind:"number", min:1, max:12, def:"1" },
+              { f:"gap", label:"Gap between frames (s)", kind:"number", min:0, step:"0.1", def:"0.5" }],
+    // prompt/image/mask are IO (deriveInputs special-case) — only model + size/seed here
+    inpaint: [{ f:"model", label:"Model", kind:"model" },
+              { f:"size", label:"Image size", kind:"select", options:SIZES, def:SIZES[0][0] },
+              { f:"seed", label:"Seed", kind:"number" }],
   };
   // node type -> NanoGPT catalog kind, used to populate the model-swap datalist
   const SETTING_MODEL_KIND = {
-    llm:"chat", vision:"chat", image:"image", edit:"image", draw:"chat",
+    llm:"chat", vision:"chat", image:"image", edit:"image", draw:"chat", inpaint:"image",
     tvideo:"video", ivideo:"video", vedit:"video", lipsync:"video",
     music:"audio", remix:"audio", tts:"audio", transcribe:"audio",
   };
@@ -3229,13 +3240,37 @@ function mp4ParamsMatch(bufs){
     if(!raw.find(m=> m && m.id===id))
       throw new Error('This app uses a model that’s no longer available ("'+id+'") — the app needs updating by its creator.');
   }
+  // Chat models that return an IMAGE inline (message.images[]) instead of text — same allowlist as
+  // index.html CHAT_IMAGE_OUT. Not metadata-derivable (NanoGPT tags them text->text with no image-output
+  // flag). The Draw node filters the swap list on this; without it, modelSuits falls into default:true
+  // and every chat model is offered (a paid dead-end for non-image chat ids).
+  const CHAT_IMAGE_OUT = { "gemini-3-pro-image-preview":1 };
+  // Edit models verified to honor a brushed mask (index.html INPAINT_OK) — plus true *inpaint* ids.
+  // Keep in lockstep with the editor allowlist; not metadata-derivable (many advertise inpainting yet
+  // regenerate the whole image when handed a mask).
+  const INPAINT_OK = {
+    "bria-fibo":1, "bria-fibo-edit":1,
+    "nano-banana":1, "nano-banana-2":1, "nano-banana-pro":1, "nano-banana-edit":1,
+    "nano-banana-pro-edit":1, "nano-banana-pro-edit-ultra":1,
+    "reve-2-edit":1, "reve-2-remix":1,
+    "pruna-ai/p-image/edit":1, "pruna-ai/p-image/edit-lora":1,
+    "kling-image-o1":1, "fal-ai/boogu-image/edit":1, "gemini-flash-edit":1, "flux-kontext":1,
+    "imagineart/imagineart-2.0-edit-preview/image-to-image":1,
+  };
   // does a raw catalog item suit this node type? (capability flags, mirrors the editor's filters)
   function modelSuits(type, m){
     const c = m.capabilities||{}, mod = (m.architecture||{}).modality||"", out = mod.split("->")[1]||"";
     switch(type){
       case "vision":     return !!c.vision;
-      case "image":      return mod ? mod.startsWith("text") : !c.image_to_image;
-      case "edit":       return !!c.image_to_image;
+      case "draw":       return !!CHAT_IMAGE_OUT[m.id];   // image-output chat models only (mirrors editor imageOut filter)
+      case "image":      { // mirrors editor normImg.gen: text→image only; exclude edit/upscale/inpaint-only ids
+                           const needsSrc = /upscal|inpaint|image-to-image|img2img/i.test(m.id||"");
+                           return needsSrc ? false : (mod ? mod.startsWith("text") : !c.image_to_image); }
+      case "edit":       { // mirrors editor normImg.edit: image_to_image OR id-regex upscalers; never mask-required inpainters
+                           const needsMask = /inpaint/i.test(m.id||"");
+                           const needsSrc = /upscal|inpaint|image-to-image|img2img/i.test(m.id||"");
+                           return !needsMask && (needsSrc || !!c.image_to_image); }
+      case "inpaint":    return /inpaint/i.test(m.id||"") || !!INPAINT_OK[m.id];
       case "tvideo":     { const im = mod.split("->")[0].split("+"); return !!c.text_to_video && !(im.includes("video") && !im.includes("image")); }   // edit/extend models are mislabeled text_to_video but demand a source video
       case "ivideo":     return !!c.image_to_video;
       case "vedit":      return !!c.video_to_video;
@@ -3244,7 +3279,10 @@ function mp4ParamsMatch(bufs){
                            return !!c.image_to_video && !!c.audio_input && !multiAudio; }
       case "tts":        return !!c.text_to_speech || m.category==="audio_tts";
       case "music":      { const am = mod.split("->")[0].split("+");   // cover/extend models are text+audio-> and demand a source track — keep them out of a plain Music swap
-                           return am.includes("text") && !am.includes("audio") && /audio|music/.test(out) && !(c.text_to_speech || m.category==="audio_tts"); }
+                           // verb guard mirrors editor normAudio.usable: cover/extend/clone ids would leak in via modality alone
+                           const usable = !/lyric|describe|recognize|stem|clone|upload|cover|extend|inpaint/i.test(m.id||"");
+                           const dead = /^Elevenlabs-Music-V1$/i.test(m.id||"");
+                           return usable && !dead && am.includes("text") && !am.includes("audio") && /audio|music/.test(out) && !(c.text_to_speech || m.category==="audio_tts"); }
       case "remix":      return !!(c.music_cover || c.audio_to_music || c.music_extension || c.audio_extension || c.audio_inpainting);   // mirrors the editor's normAudio remix flag
       case "transcribe": return (!!c.speech_to_text || m.category==="audio_stt") && !/clone/i.test(m.id||"");
       default:           return true;   // llm — any chat model
