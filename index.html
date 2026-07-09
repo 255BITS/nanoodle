@@ -7389,6 +7389,11 @@ const CTX = {
     if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
     if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
     if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
+    // Node-owned dims win AGAIN after extra: ⚙️ modelOpts can still carry duration/resolution/aspect
+    // (stale saved graphs, describe-copilot, hand-edited JSON) even though the UI no longer surfaces
+    // those knobs. extra used to clobber dims here → the API billed the modelOpts duration while the
+    // "~$X to run" chip priced the node's duration. Same priority rule as refImages below.
+    if(opts.dims) Object.assign(body, opts.dims);
     // Wired subject/style reference images LAST, so a ⚙️ knob can never clobber the array (a camelCase
     // `referenceImages` key isn't caught by videoFreetextSkip, so a wired port must always win the key).
     if(opts.refImages && opts.refImages.length && opts.refKey) body[opts.refKey] = opts.refImages;   // ref-image array param (data: URLs inline; oversize caught below)

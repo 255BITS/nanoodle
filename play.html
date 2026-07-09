@@ -1495,6 +1495,9 @@ window.NoodleApp = (function () {
       if(opts.audioDataUrl) body.audioDataUrl = opts.audioDataUrl;
       if(opts.lora) Object.assign(body, opts.lora);        // LoRA params (lora_url_1.. for LTX video)
       if(opts.extra) Object.assign(body, opts.extra);      // per-model catalog options (preset/style/effect/…)
+      // Node-owned dims win AGAIN after extra (twin of the editor): stale modelOpts duration/resolution/
+      // aspect must not clobber the node's dims — that under-quoted the run-cost chip vs the real bill.
+      if(opts.dims) Object.assign(body, opts.dims);
       // Wired reference images LAST — a wired port must always win the key over a knob (see editor twin).
       if(opts.refImages && opts.refImages.length && opts.refKey) body[opts.refKey] = opts.refImages;   // ref-image array param
       // NanoGPT inlines media as base64 and the edge rejects bodies over ~4.5 MB with a header-less

@@ -337,6 +337,23 @@ const SCENARIOS = [
     },
   },
   {
+    // Trust: genVideo applied opts.extra (modelOpts) AFTER opts.dims, so a stale modelOpts.duration
+    // (saved graph / describe-copilot / hand edit) overwrote the node's duration. The "~$X to run"
+    // chip prices the node field; the API billed the clobber → under-quote. Dims must win after extra.
+    name: "tvideo node duration wins over stale modelOpts.duration (no price clobber)",
+    data: { nodes: [node("t1", "tvideo", {
+              model: "x", prompt: "a drone shot", duration: "5", aspect: "16:9",
+              modelOpts: { duration: "10", style: "cinematic" },
+            })], links: [] },
+    check(app, g, fail) {
+      const b = videoCalls()[0]?.body;
+      if (!b) return fail("no generate-video call recorded");
+      if (b.duration !== "5") fail(`node duration must win over modelOpts.duration, got ${JSON.stringify(b.duration)}`);
+      if (b.style !== "cinematic") fail(`non-dim modelOpts must still forward, got ${JSON.stringify(b.style)}`);
+      if (b.aspect_ratio !== "16:9") fail(`aspect must still forward, got ${JSON.stringify(b.aspect_ratio)}`);
+    },
+  },
+  {
     // Remix node (audio+text→audio) rides the same /audio/speech wire as Music, plus a source track
     // under `audio`. An UPLOADED clip is a data: URL and must ride inline exactly as wired.
     name: "Remix node: uploaded data: source rides inline as body.audio (+ input, + lyrics)",
