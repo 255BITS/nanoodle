@@ -10,6 +10,9 @@
 
 .claude/settings.local.json
 
+# scratch clones used by scripts/gen-llms-full.mjs
+.tmp-libs/
+
 # internal — not part of the public release
 .claude/
 growth/

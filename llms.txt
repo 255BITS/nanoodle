@@ -9,6 +9,20 @@ nanoodle is a static site (three HTML pages) hosted on Cloudflare Pages at https
 - [App builder](https://nanoodle.com/play): turns any workflow into a standalone, shareable app — auto inputs, Run, outputs; share via link or export a self-contained .html.
 - [Terms, Privacy & FAQ](https://nanoodle.com/legal): how it works and what it does (and does not) collect.
 
+## Open source
+
+Everything is MIT-licensed under the nanoodlecom GitHub org. Naming note: the installable package is `nanoodle` on BOTH registries (npm and PyPI); only the repositories carry a `-js` / `-py` suffix. Don't guess `nanoodle-js` / `nanoodle-py` as package names — install `nanoodle`.
+
+- [nanoodlecom](https://github.com/nanoodlecom): the GitHub organization — site plus executor libraries.
+- [nanoodle](https://github.com/nanoodlecom/nanoodle): the site's source; nanoodle.com serves exactly the files in this repository.
+- [nanoodle-js](https://github.com/nanoodlecom/nanoodle-js): zero-dependency Node.js (≥ 20) library + CLI that re-runs saved graphs headlessly. Install: `npm install nanoodle`
+- [nanoodle-py](https://github.com/nanoodlecom/nanoodle-py): stdlib-only Python (≥ 3.9) library + CLI, same graphs and same semantics as the JS package. Install: `pip install nanoodle`
+
+## Formats
+
+- noodle-graph.json: the portable graph format. Save it from the editor (💾), load it back, or execute it headlessly with the `nanoodle` npm / PyPI package.
+- Share links encode the whole graph in the URL fragment — `#g=` for editor graphs, `#a=` for exported apps. Browsers never send URL fragments over the network, so a shared workflow never reaches any server.
+
 ## Languages
 The interface is available in six languages: English, Español, Français, Deutsch, Português and 日本語. The language is auto-detected from your browser and can be changed with a manual switcher; your choice is remembered. Generated model output also replies in your chosen language, and apps you export keep that language built in.
 
@@ -22,3 +36,4 @@ The interface is available in six languages: English, Español, Français, Deuts
 - Privacy: no analytics, no tracking, no third-party scripts. Model requests go directly to nano-gpt.com.
 - Source code (MIT): https://github.com/nanoodlecom/nanoodle — nanoodle is open source, and the site is served straight from this repository.
 - Contact: https://www.reddit.com/user/dividebynano
+- [llms-full.txt](https://nanoodle.com/llms-full.txt): expanded single-file reference — the site README, executor library quickstarts (JS + Python), and the editor's full node-type catalog.
