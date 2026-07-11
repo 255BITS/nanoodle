@@ -5,6 +5,18 @@ Wire text, image, video, audio and LLM nodes into a workflow, run it, turn
 it into a standalone app, share it as a URL, or export it as a single
 self-contained `.html` file.
 
+![The nanoodle editor: a Text node wired into an LLM node wired into an Image node, with a generated picture of a rainy-night ramen shop sitting in the Image node's result slot](docs/readme-hero.png)
+
+**Try it now: [nanoodle.com](https://nanoodle.com)** — no account, no install; bring a [NanoGPT](https://nano-gpt.com) key.
+
+- **Visual node editor** — drag ports together, compatible inputs glow and
+  snap by type; disconnected groups run in parallel.
+- **Any graph becomes an app** — auto-generated inputs → Run → outputs,
+  shareable as a URL or exported as one self-contained `.html` file.
+- **100% in your browser** — no backend, no analytics, no tracking; your
+  key and workflows never leave your machine.
+- **Six UI languages** — EN/ES/FR/DE/PT/JA, auto-detected with a switcher.
+
 ## Privacy architecture
 
 nanoodle is three static HTML pages. There is no backend, and that is the
@@ -81,6 +93,24 @@ Replace the code with your own (or delete the parameter and use bare
   [patchling](https://github.com/255BITS/patchling), share via `#a=`
   link, or export a self-contained `.html`.
 - **`legal.html`** — terms, privacy, FAQ (`/legal`).
+
+## Run workflows from code
+
+A saved graph (`noodle-graph.json`) doesn't need the browser: two
+zero-dependency sibling libraries re-execute it headlessly —
+[nanoodle-js](https://github.com/nanoodlecom/nanoodle-js)
+(`npm install nanoodle`, Node ≥ 20) and
+[nanoodle-py](https://github.com/nanoodlecom/nanoodle-py)
+(`pip install nanoodle`, stdlib-only). Same graphs, same results; useful
+for scripts, servers, and agent skills.
+
+```js
+import { Workflow } from "nanoodle";
+
+const wf = await Workflow.load("noodle-graph.json");   // key from NANOGPT_API_KEY
+const result = await wf.run({ Text: "a cozy ramen shop on a rainy night" });
+await result.get("Image").save("ramen.png");
+```
 
 ## Development
 
