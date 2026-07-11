@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-10",
+    "text": "🩹 Inpaint apps got smoother — brush controls appear when your photo does, and the whole control now speaks all 5 languages.",
+    "i18n": {
+      "es": "🩹 Las apps de Inpaint van más fluidas: los controles del pincel aparecen cuando lo hace tu foto, y todo el control ya habla los 5 idiomas.",
+      "fr": "🩹 Les apps Inpaint sont plus fluides — les contrôles du pinceau apparaissent en même temps que votre photo, et l'ensemble du contrôle est désormais disponible dans les 5 langues.",
+      "de": "🩹 Inpaint-Apps sind jetzt flüssiger — Pinsel-Steuerungen erscheinen zusammen mit deinem Foto, und die gesamte Steuerung spricht jetzt alle 5 Sprachen.",
+      "ja": "🩹 Inpaintアプリがさらにスムーズになりました — 写真が表示されるとブラシコントロールが現れ、コントロール全体が5言語すべてに対応しました。",
+      "pt": "🩹 Apps de Inpaint ficaram mais fluidos — os controles de pincel aparecem quando sua foto aparece, e o controle inteiro agora fala os 5 idiomas."
+    }
+  },
+  {
+    "date": "2026-07-10",
     "text": "🩹 Inpaint just got friendlier — wire an Image input and its photo is instantly brushable, no run needed.",
     "i18n": {
       "es": "🩹 Inpaint ahora es más amigable: conecta una entrada de Image y su foto se puede pincelar al instante, sin necesidad de Ejecutar.",
