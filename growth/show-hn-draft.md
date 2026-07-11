@@ -17,6 +17,8 @@ supersedes it.
 Show HN: Nanoodle – node-graph AI workflows in one HTML file, no server
 
 **URL:** https://nanoodle.com
+(Live product in the URL field; the repo link goes in the text — the app is the
+demo, the source is the receipt.)
 
 **Text (first comment, post immediately after submitting):**
 
@@ -26,6 +28,7 @@ then export the graph as a standalone single-file .html app you can host anywher
 or open from disk.
 
 The whole product is one static HTML page — no build step, no bundler, no backend.
+It's open source (MIT): https://github.com/255BITS/nanoodle
 Constraints that fell out of that, which turned out to be the interesting part:
 
 - Exported apps embed their own runtime, so the runtime JS lives in a String.raw
@@ -50,10 +53,10 @@ design decisions than any feature did.
 
 ## Comment FAQ (prep — answer in your own words, don't paste)
 
-- **"Why not open-source it?"** — Answer honestly per current stance. If closed:
-  the exported .html apps are yours forever and fully inspectable (view-source);
-  the product promise is ownership of *your* output, and the page itself ships
-  un-minified enough to audit.
+- **"Why not open-source it?"** — Moot as of Jul 10: it IS open source, MIT, full
+  commit history — https://github.com/255BITS/nanoodle. If asked why the repo also
+  contains marketing notes (`growth/`) and an AI output style: shrug honestly —
+  solo project, everything lives in one repo, planned the launch in the open.
 - **"BYO-key is a paywall."** — Yes, effectively. The alternative is me proxying
   keys through a server, which breaks the entire privacy model and makes me a
   custodian. Chose the tradeoff eyes-open.
@@ -68,7 +71,8 @@ design decisions than any feature did.
   subscriptions. Nanoodle itself has no wallet, no token, no chain code.
 - **"CSP / privacy claims — prove it."** — Point at the response headers: no
   third-party origins in the CSP, connect-src pinned to the API provider. Invite
-  them to open devtools; the network tab is the receipt.
+  them to open devtools; the network tab is the receipt — and the `_headers` file
+  in the repo shows the same CSP in source, so the claim is auditable both ways.
 - **Someone posts what they built** — best possible outcome; engage hard, ask to
   feature it credited. Winner noodles from the Cookoff are your show-and-tell
   links if asked "what do people make with it?"

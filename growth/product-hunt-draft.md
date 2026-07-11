@@ -23,7 +23,11 @@ in your browser — no server, no analytics, no subscription. Export any workflo
 as a standalone single-file .html app you own, or share it as a link. BYO
 nano-gpt key, pay per call.
 
-**Topics:** Artificial Intelligence · No-Code · Privacy · Developer Tools
+**Topics:** Artificial Intelligence · No-Code · Privacy · Developer Tools · Open Source
+
+**Links:** add the GitHub repo (https://github.com/255BITS/nanoodle — public + MIT
+as of Jul 10) in the listing's links section; PH surfaces it as an "Open Source"
+badge and it pre-answers the trust question.
 
 **Pricing:** select "Free options" / "Payment required to run models" per the
 form's choices — describe as "no signup to build; running models uses your own
