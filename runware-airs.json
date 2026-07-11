@@ -1,40 +1,316 @@
 {
-  "generated": "2026-07-10",
+  "generated": "2026-07-11",
   "groups": [
     {
       "id": "runware",
       "label": "Runware",
       "models": [
         {
+          "air": "runware:160@1",
+          "name": "Flex.1-alpha",
+          "source": "runware-content",
+          "headline": "Compact 8B Apache 2.0 text to image transformer model"
+        },
+        {
+          "air": "runware:101@1",
+          "name": "FLUX.1 [dev]",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Open-weight 12B text to image model for rich visuals"
+        },
+        {
+          "air": "runware:111@1",
+          "name": "FLUX.1 [dev] SRPO",
+          "source": "runware-content",
+          "headline": "FLUX.1 SRPO dev for high realism text to image"
+        },
+        {
           "air": "runware:100@1",
-          "name": "Flux (runware:100@1)",
+          "name": "FLUX.1 [schnell]",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Ultra fast FLUX.1 text to image model for local use"
+        },
+        {
+          "air": "runware:104@1",
+          "name": "FLUX.1 Canny [dev]",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Edge guided image generation with FLUX.1 Canny Dev"
+        },
+        {
+          "air": "runware:103@1",
+          "name": "FLUX.1 Depth [dev]",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Depth guided image generation for precise structure"
+        },
+        {
+          "air": "runware:106@1",
+          "name": "FLUX.1 Kontext [dev]",
           "source": "seed"
         },
         {
           "air": "runware:107@1",
-          "name": "Flux 1 Krea Dev",
-          "source": "nanogpt-catalog"
-        },
-        {
-          "air": "runware:106@1",
-          "name": "Flux Kontext Dev",
-          "source": "nanogpt-catalog"
+          "name": "FLUX.1 Krea [dev]",
+          "source": "runware-content",
+          "creator": "krea",
+          "headline": "FLUX.1 Krea Dev for photorealistic open-weight generation"
         },
         {
           "air": "runware:400@1",
-          "name": "FLUX.2 [dev] (runware:400@1)",
+          "name": "FLUX.2 [dev]",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "FLUX.2 dev for controllable open text to image workflows"
+        },
+        {
+          "air": "runware:400@4",
+          "name": "FLUX.2 [klein] 4B",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Fastest Klein model for real-time image generation and editing"
+        },
+        {
+          "air": "runware:400@5",
+          "name": "FLUX.2 [klein] 4B Base",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Compact undistilled model for efficient image generation and editing"
+        },
+        {
+          "air": "runware:400@2",
+          "name": "FLUX.2 [klein] 9B",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Ultra-fast image generation and editing with sub-second latency"
+        },
+        {
+          "air": "runware:400@3",
+          "name": "FLUX.2 [klein] 9B Base",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "Undistilled foundation model for high-quality image generation and editing"
+        },
+        {
+          "air": "runware:400@6",
+          "name": "FLUX.2 [klein] 9B KV",
+          "source": "runware-content",
+          "creator": "black-forest-labs",
+          "headline": "KV-cache accelerated image generation and editing for real-time multi-reference workflows"
+        },
+        {
+          "air": "runware:97@2",
+          "name": "HiDream-I1 Dev",
+          "source": "runware-content",
+          "headline": "HiDream-I1 Dev fast 17B text to image generation model"
+        },
+        {
+          "air": "runware:97@3",
+          "name": "HiDream-I1 Fast",
+          "source": "runware-content",
+          "headline": "HiDream-I1 Fast for low latency text to image generation"
+        },
+        {
+          "air": "runware:97@1",
+          "name": "HiDream-I1 Full",
+          "source": "runware-content",
+          "headline": "HiDream-I1 Full high fidelity text to image generator"
+        },
+        {
+          "air": "runware:180@1",
+          "name": "HunyuanImage-3.0",
+          "source": "runware-content",
+          "headline": "Open-source 80B MoE text to image model by Tencent"
+        },
+        {
+          "air": "runware:kandinsky-5.0-image-lite@1",
+          "name": "Kandinsky 5.0 Image Lite",
+          "source": "runware-content",
+          "headline": "Efficient text-to-image and image-to-image editing model"
+        },
+        {
+          "air": "runware:777@1",
+          "name": "Pony V7",
+          "source": "runware-content",
+          "headline": "Character focused AuraFlow text to image generation"
+        },
+        {
+          "air": "runware:108@1",
+          "name": "Qwen-Image",
+          "source": "runware-content",
+          "creator": "alibaba",
+          "headline": "Qwen-Image high fidelity text aware image generation model"
+        },
+        {
+          "air": "runware:5@1",
+          "name": "Stable Diffusion 3",
+          "source": "runware-content",
+          "headline": "Stable Diffusion 3 for sharper text and complex images"
+        },
+        {
+          "air": "runware:twinflow-z-image-turbo@0",
+          "name": "TwinFlow Z-Image-Turbo",
+          "source": "runware-content",
+          "headline": "Fast text to image generation with turbo inference"
+        },
+        {
+          "air": "runware:201@10",
+          "name": "Wan2.5-Preview Image",
+          "source": "runware-content",
+          "creator": "alibaba",
+          "headline": "High fidelity Wan2.5 image generation for rich single frames"
+        },
+        {
+          "air": "runware:z-image@0",
+          "name": "Z-Image",
+          "source": "runware-content",
+          "creator": "alibaba",
+          "headline": "Efficient high-quality image generation foundation model"
+        },
+        {
+          "air": "runware:z-image@turbo",
+          "name": "Z-Image-Turbo",
+          "source": "runware-content",
+          "creator": "alibaba",
+          "headline": "Fast photorealistic image generator with text control"
+        }
+      ]
+    },
+    {
+      "id": "civitai",
+      "label": "CivitAI",
+      "models": [
+        {
+          "air": "civitai:140737@1041855",
+          "name": "AlbedoBase XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:9409@384264",
+          "name": "Anything XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:288584@324619",
+          "name": "AutismMix SDXL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:25494@177164",
+          "name": "Beautiful Realistic Asians",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:119012@592322",
+          "name": "blue_pencil-XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:4468@57618",
+          "name": "Counterfeit-V3.0",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:4384@128713",
+          "name": "DreamShaper 8",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:112902@126688",
+          "name": "DreamShaper XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:112902@354657",
+          "name": "DreamShaper XL Lightning",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:122606@297740",
+          "name": "DynaVision XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:25694@143906",
+          "name": "epiCRealism",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:133005@782002",
+          "name": "Juggernaut XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:133005@1759168",
+          "name": "Juggernaut XL (Ragnarok)",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:43977@570138",
+          "name": "LEOSAM HelloWorld XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:43331@176425",
+          "name": "majicMIX realistic",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:372465@914390",
+          "name": "Pony Realism",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:305149@392545",
+          "name": "Promissing Realistic XL",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:4201@130072",
+          "name": "Realistic Vision V5.1",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:139562@789646",
+          "name": "RealVisXL V5.0",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:139562@798204",
+          "name": "RealVisXL V5.0 Lightning",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:7371@425083",
+          "name": "ReV Animated",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:101055@128078",
+          "name": "Stable Diffusion XL 1.0",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:84040@395107",
+          "name": "YamerMIX (SDXL Unstable)",
+          "source": "seed"
+        },
+        {
+          "air": "civitai:119229@916744",
+          "name": "ZavyChromaXL",
           "source": "seed"
         }
       ]
     },
     {
       "id": "persona",
-      "label": "Curated",
+      "label": "Persona",
       "models": [
         {
           "air": "persona:376130@2456367",
           "name": "Nova Anime XL",
-          "source": "nanogpt-catalog"
+          "source": "seed"
         }
       ]
     }
