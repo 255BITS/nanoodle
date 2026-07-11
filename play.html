@@ -821,6 +821,13 @@ window.NoodleApp = (function () {
   "You'll sign in on nano-gpt.com — your key stays in this browser.":{es:"Inicias sesión en nano-gpt.com — tu clave se queda en este navegador.",fr:"Vous vous connectez sur nano-gpt.com — votre clé reste dans ce navigateur.",de:"Du meldest dich auf nano-gpt.com an — dein Schlüssel bleibt in diesem Browser.",pt:"Você entra em nano-gpt.com — sua chave fica neste navegador.",ja:"nano-gpt.com でサインインします — キーはこのブラウザーに保存されます。"},
   "Continue to nano-gpt.com →":{es:"Continuar a nano-gpt.com →",fr:"Continuer vers nano-gpt.com →",de:"Weiter zu nano-gpt.com →",pt:"Continuar para nano-gpt.com →",ja:"nano-gpt.com へ進む →"},
   "Cancel":{es:"Cancelar",fr:"Annuler",de:"Abbrechen",pt:"Cancelar",ja:"キャンセル"},
+  "upload an image, then brush the area to repaint":{es:"sube una imagen, luego pincela la zona a repintar",fr:"importez une image, puis peignez la zone à repeindre",de:"Bild hochladen, dann den neu zu zeichnenden Bereich übermalen",pt:"envie uma imagem, depois pincele a área a repintar",ja:"画像をアップロードし、塗り直す領域をブラシで塗ってください"},
+  "brush":{es:"pincel",fr:"pinceau",de:"Pinsel",pt:"pincel",ja:"ブラシ"},
+  "Clear mask":{es:"Borrar máscara",fr:"Effacer le masque",de:"Maske löschen",pt:"Limpar máscara",ja:"マスクをクリア"},
+  "What to paint in":{es:"Qué pintar dentro",fr:"Ce qu’il faut peindre",de:"Was hineingemalt werden soll",pt:"O que pintar na área",ja:"何を描き込むか"},
+  "Image — brush the area to repaint":{es:"Imagen — pincela la zona a repintar",fr:"Image — peignez la zone à repeindre",de:"Bild — den neu zu zeichnenden Bereich übermalen",pt:"Imagem — pincele a área a repintar",ja:"画像 — 塗り直す領域をブラシで塗る"},
+  "Image":{es:"Imagen",fr:"Image",de:"Bild",pt:"Imagem",ja:"画像"},
+  "Mask (white = repaint)":{es:"Máscara (blanco = repintar)",fr:"Masque (blanc = repeindre)",de:"Maske (weiß = neu zeichnen)",pt:"Máscara (branco = repintar)",ja:"マスク（白 = 塗り直し）"},
   };
   const PLAY_LANGS = ["en","es","fr","de","pt","ja"];
   const PLAY_ENDONYM = { en:"English", es:"Español", fr:"Français", de:"Deutsch", pt:"Português", ja:"日本語" };
@@ -3755,7 +3762,7 @@ function mp4ParamsMatch(bufs){
     if((it.optional || ns==="set") && (cur==null || cur==="") && it.def!=null){ cur = it.def; it.node.fields[it.field] = it.def; }
     let ctrl, ownLabel = false;
     if(it.kind==="textarea")
-      ctrl = '<textarea id="'+id+'" '+di+' placeholder="'+esc(it.label)+'">'+esc(cur||"")+'</textarea>';
+      ctrl = '<textarea id="'+id+'" '+di+' placeholder="'+esc(t(it.label))+'">'+esc(cur||"")+'</textarea>';
     else if(it.kind==="image")
       ctrl = '<div class="imgin">'
            + '<div class="file-prev" data-prev="'+id+'">'+(cur ? '<img src="'+esc(cur)+'" alt="">' : '<span class="muted">no image</span>')+'</div>'
@@ -3767,13 +3774,16 @@ function mp4ParamsMatch(bufs){
            + '<input type="file" accept="'+it.kind+'/*" id="'+id+'" '+di+'>'
            + '</div>';
     else if(it.kind==="inpaint")   // upload a source image, then brush the area to repaint (writes fields.image + fields.mask)
+      // brush knobs ride hidden until pixels render (wireInpaintControl un-hides on load) — nothing
+      // to brush yet. Old apps' frozen app.css has a plain display:flex on .brushrow, so the widget
+      // css carries a higher-specificity [hidden] guard.
       ctrl = '<div class="imgin inpaint-ctl" data-ip="'+i+'">'
            + '<div class="file-prev maskwrap2" data-prev="'+i+'">'
-           +   (cur ? '<img src="'+esc(cur)+'" alt=""><canvas data-mc="'+i+'"></canvas>' : '<span class="muted">upload an image, then brush the area to repaint</span>')
+           +   (cur ? '<img src="'+esc(cur)+'" alt=""><canvas data-mc="'+i+'"></canvas>' : '<span class="muted">'+esc(t("upload an image, then brush the area to repaint"))+'</span>')
            + '</div>'
            + '<input type="file" accept="image/*" id="'+id+'" data-ip-src="'+i+'">'
-           + '<div class="brushrow"><label>brush <input type="range" min="8" max="140" value="40" data-ip-brush="'+i+'"></label>'
-           +   '<button type="button" data-ip-clear="'+i+'">Clear mask</button></div>'
+           + '<div class="brushrow"'+(cur?'':' hidden')+'><label>'+esc(t("brush"))+' <input type="range" min="8" max="140" value="40" data-ip-brush="'+i+'"></label>'
+           +   '<button type="button" data-ip-clear="'+i+'">'+esc(t("Clear mask"))+'</button></div>'
            + '</div>';
     else if(it.kind==="choice"){
       // App-input dropdown (the 🔘 Choice node). Options are authored on the graph, so they come
@@ -3799,7 +3809,7 @@ function mp4ParamsMatch(bufs){
     }
     else if(it.kind==="number"){
       const a=(it.min!=null?' min="'+esc(it.min)+'"':""), b=(it.max!=null?' max="'+esc(it.max)+'"':""), s=(it.step!=null?' step="'+esc(it.step)+'"':"");
-      ctrl = '<input type="number" id="'+id+'" '+di+a+b+s+' value="'+esc(cur==null?"":cur)+'" placeholder="'+esc(it.label)+'">';
+      ctrl = '<input type="number" id="'+id+'" '+di+a+b+s+' value="'+esc(cur==null?"":cur)+'" placeholder="'+esc(t(it.label))+'">';
     }
     else if(it.kind==="model"){
       // A free-text input over a small custom dropdown (setupModelCombo): focus shows
@@ -3814,10 +3824,12 @@ function mp4ParamsMatch(bufs){
            + '</div>';
     }
     else
-      ctrl = '<input id="'+id+'" '+di+' value="'+esc(cur||"")+'" placeholder="'+esc(it.label)+'">';
+      ctrl = '<input id="'+id+'" '+di+' value="'+esc(cur||"")+'" placeholder="'+esc(t(it.label))+'">';
     if(ownLabel) return '<div class="field">'+ctrl+'</div>';
     const tag = (!grouped && it.em) ? esc(it.em)+' ' : "";
-    const labText = (labelHtml != null) ? labelHtml : esc(it.label);
+    // it.label is always OUR literal (renamed nodes arrive via labelHtml, [data-no-i18n]-wrapped),
+    // so localize at the call site — renderInputs runs after the boot translateTree pass.
+    const labText = (labelHtml != null) ? labelHtml : esc(t(it.label));
     return '<div class="field"><label for="'+id+'">'+tag+labText+'</label>'+ctrl+'</div>';
   }
   // resolve a control's (ns, index) back to its live item in STATE
@@ -4005,6 +4017,7 @@ function mp4ParamsMatch(bufs){
         initMask(img.naturalWidth, img.naturalHeight);
         if(it.node.fields.mask){ const m=new Image(); m.onload=()=>{ octx.drawImage(m,0,0,off.width,off.height); bind(); }; m.src=it.node.fields.mask; }
         else bind();
+        const br = ctl.querySelector('.brushrow'); if(br) br.removeAttribute('hidden');   // pixels on screen → surface the brush knobs
       }; img.src=url; };
     fileEl?.addEventListener('change', async ()=>{ const f=fileEl.files&&fileEl.files[0]; if(!f) return;
       const url=await imageFileToDataUrl(f); it.node.fields.image=url; it.node.fields.mask=null; loadSource(url); });
@@ -5753,7 +5766,10 @@ const MADE_WITH_CSS =
 // template below, so an author (or the customize model) can still restyle any of it — their
 // later, equal-specificity rules win.
 const RUNTIME_WIDGET_CSS =
-`/* optional inputs — collapsed, pre-filled disclosure under the mandatory fields */
+`/* inpaint brush knobs hide until a source image renders; old apps' frozen app.css has a plain
+   display:flex on .brushrow, so this [hidden] guard needs the higher specificity to win. */
+.field .brushrow[hidden]{ display:none; }
+/* optional inputs — collapsed, pre-filled disclosure under the mandatory fields */
 .opt{ border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); }
 .opt > summary{ list-style:none; cursor:pointer; user-select:none; display:flex; align-items:center; gap:.5rem;
   padding:.6rem .8rem; font-size:.82rem; color:var(--dim); }
@@ -5988,7 +6004,7 @@ body{ background:
 .field .maskwrap2:has(.muted){ line-height:1.35; padding:.5rem; }   /* restore leading for the wrapping empty-state hint (base line-height:0 keeps the canvas aligned) */
 .field .maskwrap2 img{ width:100%; max-width:280px; border-radius:.5rem; border:1px solid var(--line); display:block; }
 .field .maskwrap2 canvas{ position:absolute; inset:0; width:100%; height:100%; cursor:crosshair; touch-action:none; border-radius:.5rem; }
-.field .brushrow{ display:flex; align-items:center; gap:.7rem; margin-top:.5rem; flex-wrap:wrap; }
+.field .brushrow:not([hidden]){ display:flex; align-items:center; gap:.7rem; margin-top:.5rem; flex-wrap:wrap; }
 .field .brushrow label{ display:flex; align-items:center; gap:.4rem; margin:0; flex:1; min-width:120px; }
 .field .brushrow input[type=range]{ flex:1; }
 .field .brushrow button{ font:inherit; padding:.4rem .7rem; border-radius:var(--radius); background:var(--panel); border:1px solid var(--line); color:var(--ink); cursor:pointer; width:auto; }
