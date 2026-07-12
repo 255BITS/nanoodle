@@ -467,6 +467,26 @@
   #toast.show{ opacity:1; transform:translateX(-50%) translateY(0) scale(1) }
   #toast.err{ border-color:var(--bad) }
   #toast.warn{ border-color:var(--warn) }
+  /* ⛽ Refuel — scan-to-top-up panel; opens ONLY at the out-of-balance dead-end (nowhere else) */
+  #refuelmodal[hidden]{ display:none }
+  #refuelmodal{ position:fixed; inset:0; z-index:214; display:flex; padding:min(4vh,2.4rem) min(4vw,2.4rem);
+                background:rgba(4,6,11,.78); backdrop-filter:blur(3px); }
+  #refuelpanel{ position:relative; margin:auto; width:100%; max-width:420px; max-height:92vh; overflow:auto; text-align:center;
+                background:var(--bg); border:1px solid var(--line); border-radius:.9rem; padding:1.35rem 1.35rem 1.15rem; box-shadow:0 30px 90px #000c; }
+  #refuelclose{ position:absolute; top:.55rem; right:.6rem; width:2rem; height:2rem; border-radius:.55rem;
+                display:flex; align-items:center; justify-content:center; font-size:1.05rem; z-index:2 }
+  .rf-title{ margin:.1rem 1.6rem .35rem; font-size:1.08rem; font-weight:800 }
+  .rf-hint{ margin:0 0 .9rem; font-size:.82rem; color:var(--dim) }
+  /* deliberate deviation from the dark theme: wallet cameras need dark-on-light contrast to scan */
+  #refuelqr{ width:min(220px,62vw); margin:0 auto .85rem; padding:.5rem; color:#000; background:#fff; border-radius:.7rem; line-height:0 }
+  #refuelqr svg{ width:100%; height:auto; display:block }
+  .rf-addrrow{ display:flex; gap:.5rem; flex-wrap:wrap; text-align:left }
+  #refueladdr{ flex:1 1 12rem; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:.5rem;
+               padding:.6rem .65rem; font-size:.74rem; color:var(--ink); font-family:ui-monospace,monospace }
+  .rf-status{ margin:.8rem 0 .15rem; font-size:.8rem; color:var(--dim) }
+  .rf-ok{ margin:.8rem 0 .15rem; font-size:.86rem; font-weight:700; color:var(--good) }
+  .rf-alt{ margin:.55rem 0 0; font-size:.78rem }
+  .rf-alt a{ color:var(--dim) }
   #cost{font-family:ui-monospace,monospace; font-size:.78rem; color:var(--dim)}
   #cost b{color:var(--ink)}
 
@@ -1145,6 +1165,25 @@
   </div>
 </div>
 
+<!-- ⛽ Refuel — opens ONLY when a run just failed for lack of credit: the account's permanent
+     Nano deposit address as a scannable nano: QR + copyable text, re-checking the balance while
+     open. The nano-gpt.com link stays as the card/other-methods route. -->
+<div id="refuelmodal" hidden>
+  <div id="refuelpanel" role="dialog" aria-modal="true" aria-label="Top up to keep running">
+    <button id="refuelclose" class="hbtn" title="Close (Esc)" aria-label="Close">✕</button>
+    <h3 class="rf-title">Top up to keep running</h3>
+    <p class="rf-hint">Scan with your Nano wallet to top up — this panel updates automatically.</p>
+    <div id="refuelqr" data-no-i18n></div>
+    <div class="rf-addrrow">
+      <input id="refueladdr" type="text" readonly aria-label="Your Nano deposit address" />
+      <button id="refuelcopy" class="sub-copy">Copy</button>
+    </div>
+    <p id="refuelwait" class="rf-status">Waiting for your deposit — the balance re-checks every few seconds.</p>
+    <p id="refuelok" class="rf-ok" hidden>✓ Balance topped up — run again when ready.</p>
+    <p class="rf-alt"><a href="https://nano-gpt.com" target="_blank" rel="noopener">or top up with a card at nano-gpt.com ↗</a></p>
+  </div>
+</div>
+
 <!-- SHARE popover — copy / shorten (opt-in, 3rd-party) / share-to-social. Same as the app share. -->
 <div id="sharemenu" hidden>
   <div class="sm-head">Share this workflow</div>
@@ -1692,6 +1731,13 @@ const I18N = {
     "key saved — you're ready to run":"clave guardada — listo para ejecutar",
     "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"el saldo {bal} podría no cubrir esta ejecución de ~{usd} — recarga en nano-gpt.com",
     "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"sin saldo — esta ejecución necesita más crédito. Recarga en nano-gpt.com y vuelve a ejecutar.",
+    "Top up to keep running":"Recarga para seguir ejecutando",
+    "Scan with your Nano wallet to top up — this panel updates automatically.":"Escanea con tu cartera Nano para recargar — este panel se actualiza automáticamente.",
+    "Your Nano deposit address":"Tu dirección de depósito Nano",
+    "Waiting for your deposit — the balance re-checks every few seconds.":"Esperando tu depósito — el saldo se comprueba cada pocos segundos.",
+    "✓ Balance topped up — run again when ready.":"✓ Saldo recargado — vuelve a ejecutar cuando quieras.",
+    "or top up with a card at nano-gpt.com ↗":"o recarga con tarjeta en nano-gpt.com ↗",
+    "Couldn't copy — select the address and copy it manually":"No se pudo copiar — selecciona la dirección y cópiala manualmente",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"tu clave API guardada contiene un carácter que no se puede enviar (normalmente un guion tipográfico o un carácter invisible al escribir/copiar) — cópiala de nuevo desde nano-gpt.com → Ajustes → API y pégala otra vez",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"no se pudo conectar con nano-gpt.com — un bloqueador de anuncios, VPN o filtro de red podría estar bloqueándolo; comprueba la conexión y vuelve a ejecutar",
     "— this model may have changed on NanoGPT; click the node's model name to pick another":"— este modelo pudo haber cambiado en nano-gpt; haz clic en el nombre del modelo del nodo para elegir otro",
@@ -2207,6 +2253,13 @@ const I18N = {
     "key saved — you're ready to run":"clé enregistrée — prêt à exécuter",
     "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"le solde {bal} pourrait ne pas couvrir cette exécution de ~{usd} — rechargez sur nano-gpt.com",
     "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"solde insuffisant — cette exécution nécessite plus de crédit. Rechargez sur nano-gpt.com, puis relancez.",
+    "Top up to keep running":"Rechargez pour continuer à exécuter",
+    "Scan with your Nano wallet to top up — this panel updates automatically.":"Scannez avec votre portefeuille Nano pour recharger — ce panneau se met à jour automatiquement.",
+    "Your Nano deposit address":"Votre adresse de dépôt Nano",
+    "Waiting for your deposit — the balance re-checks every few seconds.":"En attente de votre dépôt — le solde est revérifié toutes les quelques secondes.",
+    "✓ Balance topped up — run again when ready.":"✓ Solde rechargé — relancez quand vous voulez.",
+    "or top up with a card at nano-gpt.com ↗":"ou rechargez par carte sur nano-gpt.com ↗",
+    "Couldn't copy — select the address and copy it manually":"Impossible de copier — sélectionnez l'adresse et copiez-la manuellement",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"votre clé API enregistrée contient un caractère qui ne peut pas être envoyé (souvent un tiret typographique ou un caractère invisible collé en tapant/copiant) — recopiez-la depuis nano-gpt.com → Paramètres → API et collez-la à nouveau",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"impossible de joindre nano-gpt.com — un bloqueur de pub, un VPN ou un filtre réseau le bloque peut-être ; vérifiez la connexion et relancez",
     "— this model may have changed on NanoGPT; click the node's model name to pick another":"— ce modèle a peut-être changé sur nano-gpt ; cliquez sur le nom du modèle dans le nœud pour en choisir un autre",
@@ -2722,6 +2775,13 @@ const I18N = {
     "key saved — you're ready to run":"Schlüssel gespeichert — bereit zum Ausführen",
     "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"Guthaben {bal} deckt diese ~{usd}-Ausführung möglicherweise nicht — bei nano-gpt.com aufladen",
     "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"Guthaben aufgebraucht — diese Ausführung braucht mehr Guthaben. Bei nano-gpt.com aufladen und erneut ausführen.",
+    "Top up to keep running":"Aufladen und weiter ausführen",
+    "Scan with your Nano wallet to top up — this panel updates automatically.":"Zum Aufladen mit deiner Nano-Wallet scannen — dieses Panel aktualisiert sich automatisch.",
+    "Your Nano deposit address":"Deine Nano-Einzahlungsadresse",
+    "Waiting for your deposit — the balance re-checks every few seconds.":"Warten auf deine Einzahlung — das Guthaben wird alle paar Sekunden geprüft.",
+    "✓ Balance topped up — run again when ready.":"✓ Guthaben aufgeladen — führe jederzeit erneut aus.",
+    "or top up with a card at nano-gpt.com ↗":"oder per Karte aufladen auf nano-gpt.com ↗",
+    "Couldn't copy — select the address and copy it manually":"Kopieren fehlgeschlagen — wähle die Adresse aus und kopiere sie manuell",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"dein gespeicherter API-Schlüssel enthält ein Zeichen, das nicht gesendet werden kann (meist ein Sonderstrich oder ein unsichtbares Zeichen beim Tippen/Kopieren) — kopiere ihn erneut von nano-gpt.com → Einstellungen → API und füge ihn erneut ein",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.com konnte nicht erreicht werden — ein Werbeblocker, VPN oder Netzwerkfilter blockiert es möglicherweise; Verbindung prüfen und erneut ausführen",
     "— this model may have changed on NanoGPT; click the node's model name to pick another":"— dieses Modell hat sich auf nano-gpt möglicherweise geändert; klicke auf den Modellnamen im Node, um ein anderes zu wählen",
@@ -3237,6 +3297,13 @@ const I18N = {
     "key saved — you're ready to run":"chave salva — pronto para executar",
     "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"o saldo {bal} pode não cobrir esta execução de ~{usd} — recarregue em nano-gpt.com",
     "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"sem saldo — esta execução precisa de mais crédito. Recarregue em nano-gpt.com e execute novamente.",
+    "Top up to keep running":"Recarregue para continuar executando",
+    "Scan with your Nano wallet to top up — this panel updates automatically.":"Escaneie com sua carteira Nano para recarregar — este painel atualiza automaticamente.",
+    "Your Nano deposit address":"Seu endereço de depósito Nano",
+    "Waiting for your deposit — the balance re-checks every few seconds.":"Aguardando seu depósito — o saldo é verificado a cada poucos segundos.",
+    "✓ Balance topped up — run again when ready.":"✓ Saldo recarregado — execute novamente quando quiser.",
+    "or top up with a card at nano-gpt.com ↗":"ou recarregue com cartão em nano-gpt.com ↗",
+    "Couldn't copy — select the address and copy it manually":"Não foi possível copiar — selecione o endereço e copie manualmente",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"sua chave de API salva contém um caractere que não pode ser enviado (geralmente um traço tipográfico ou um caractere invisível pego ao digitar/copiar) — copie-a novamente em nano-gpt.com → Configurações → API e cole de novo",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"não foi possível alcançar o nano-gpt.com — um bloqueador de anúncios, VPN ou filtro de rede pode estar bloqueando; verifique a conexão e execute novamente",
     "— this model may have changed on NanoGPT; click the node's model name to pick another":"— este modelo pode ter mudado no nano-gpt; clique no nome do modelo no nó para escolher outro",
@@ -3752,6 +3819,13 @@ const I18N = {
     "key saved — you're ready to run":"キーを保存しました — 実行の準備ができました",
     "balance {bal} may not cover this ~{usd} run — top up at nano-gpt.com":"残高{bal}ではこの~{usd}の実行を賄えない可能性があります — nano-gpt.comでチャージしてください",
     "out of balance — this run needs more credit. Top up at nano-gpt.com, then run again.":"残高不足 — この実行にはさらにクレジットが必要です。nano-gpt.comでチャージしてから再実行してください。",
+    "Top up to keep running":"チャージして実行を続ける",
+    "Scan with your Nano wallet to top up — this panel updates automatically.":"Nanoウォレットでスキャンしてチャージ — このパネルは自動的に更新されます。",
+    "Your Nano deposit address":"あなたのNano入金アドレス",
+    "Waiting for your deposit — the balance re-checks every few seconds.":"入金を待っています — 残高は数秒ごとに確認されます。",
+    "✓ Balance topped up — run again when ready.":"✓ 残高がチャージされました — いつでも再実行できます。",
+    "or top up with a card at nano-gpt.com ↗":"またはnano-gpt.comでカードでチャージ ↗",
+    "Couldn't copy — select the address and copy it manually":"コピーできませんでした — アドレスを選択して手動でコピーしてください",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"保存されたAPIキーに送信できない文字が含まれています（多くは特殊なダッシュや、入力・コピー時に紛れ込んだ不可視文字です） — nano-gpt.com → 設定 → API から再度コピーして貼り付け直してください",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.comに接続できませんでした — 広告ブロッカー、VPN、ネットワークフィルターが原因の可能性があります。接続を確認して再実行してください",
     "— this model may have changed on NanoGPT; click the node's model name to pick another":"— このモデルはnano-gpt側で変更された可能性があります。ノードのモデル名をクリックして別のモデルを選んでください",
@@ -9250,9 +9324,11 @@ function isLowFundsError(status, body){
   return status===402 || (status!==401 && status!==403 && /insufficient|balance|funds|not enough|payment required/i.test(String(body||"")));
 }
 function httpRunError(status, body){
-  return isLowFundsError(status, body)
-    ? new Error(t("out of balance — this run needs more credit. Top up at nano-gpt.com, then run again."))
-    : new Error(`${status}: ${String(body).slice(0,160)}`);
+  if(isLowFundsError(status, body)){
+    offerRefuel();   // fire-and-forget: the scan-to-refuel panel opens when the account has a deposit address
+    return new Error(t("out of balance — this run needs more credit. Top up at nano-gpt.com, then run again."));
+  }
+  return new Error(`${status}: ${String(body).slice(0,160)}`);
 }
 // Read a failed generation Response and throw the clearest Error (auth flagged first, then low-funds → raw).
 async function throwHttp(r){ flagAuth(r); throw httpRunError(r.status, await r.text()); }
@@ -9315,6 +9391,462 @@ function toast(msg, kind){
   el.textContent=t(msg); el.className = (kind==="err"?"err ":kind==="warn"?"warn ":"")+"show";
   clearTimeout(toastT); toastT=setTimeout(()=> el.classList.remove("show"), kind==="warn"?4600:3200);
 }
+
+/* ======================================================================
+   SCAN-TO-REFUEL  (the out-of-balance dead-end → top up by Nano QR, in place)
+   The ONLY place any crypto UI appears: a run just failed for lack of
+   credit (httpRunError). /api/check-balance returns the account's permanent
+   Nano deposit address (and is CORS-open — the "no CORS header" note on
+   refreshBalance predates that), so the panel shows it as a nano: QR +
+   copyable text and re-checks the balance every ~9s while open. The
+   nano-gpt.com link stays as the card/other-methods route.
+   ====================================================================== */
+/*
+ * renderNanoQr — self-contained client-side QR code generator (SVG output).
+ *
+ * Derived from the "QR Code generator library" by Project Nayuki
+ * (https://www.nayuki.io/page/qr-code-generator-library), trimmed to
+ * byte mode + ECC level M + automatic mask selection. Algorithm unmodified.
+ *
+ * Copyright (c) Project Nayuki. (MIT License)
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ * - The above copyright notice and this permission notice shall be included in
+ *   all copies or substantial portions of the Software.
+ * - The Software is provided "as is", without warranty of any kind, express or
+ *   implied, including but not limited to the warranties of merchantability,
+ *   fitness for a particular purpose and noninfringement. In no event shall the
+ *   authors or copyright holders be liable for any claim, damages or other
+ *   liability, whether in an action of contract, tort or otherwise, arising from,
+ *   out of or in connection with the Software or the use or other dealings in the
+ *   Software.
+ */
+function renderNanoQr(text, targetEl) {
+  // ---- UTF-8 encode the text into bytes ----
+  var data = [];
+  var enc = encodeURIComponent(text);
+  for (var ei = 0; ei < enc.length; ei++) {
+    var ch = enc.charAt(ei);
+    if (ch === "%") { data.push(parseInt(enc.substr(ei + 1, 2), 16)); ei += 2; }
+    else data.push(ch.charCodeAt(0));
+  }
+
+  // ---- Tables for ECC level M (index = version; index 0 unused) ----
+  var ECC_PER_BLOCK = [-1, 10, 16, 26, 18, 24, 16, 18, 22, 22, 26, 30, 22, 22, 24, 24, 28, 28, 26, 26, 26, 26, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28, 28];
+  var NUM_BLOCKS = [-1, 1, 1, 1, 2, 2, 4, 4, 4, 5, 5, 5, 8, 9, 9, 10, 10, 11, 13, 14, 16, 17, 17, 18, 20, 21, 23, 25, 26, 28, 29, 31, 33, 35, 37, 38, 40, 43, 45, 47, 49];
+
+  function numRawDataModules(ver) {
+    var result = (16 * ver + 128) * ver + 64;
+    if (ver >= 2) {
+      var numAlign = Math.floor(ver / 7) + 2;
+      result -= (25 * numAlign - 10) * numAlign - 55;
+      if (ver >= 7) result -= 36;
+    }
+    return result;
+  }
+  function numDataCodewords(ver) {
+    return Math.floor(numRawDataModules(ver) / 8) - ECC_PER_BLOCK[ver] * NUM_BLOCKS[ver];
+  }
+
+  // ---- Choose the smallest version that fits (byte mode) ----
+  var version = -1;
+  for (var v = 1; v <= 40; v++) {
+    var used = 4 + (v < 10 ? 8 : 16) + data.length * 8;
+    if (used <= numDataCodewords(v) * 8) { version = v; break; }
+  }
+  if (version < 0) throw new RangeError("Data too long");
+
+  // ---- Bit buffer: mode + char count + data, terminator, padding ----
+  var bb = [];
+  function appendBits(val, len) {
+    for (var i = len - 1; i >= 0; i--) bb.push((val >>> i) & 1);
+  }
+  appendBits(4, 4); // byte-mode indicator
+  appendBits(data.length, version < 10 ? 8 : 16);
+  for (var di = 0; di < data.length; di++) appendBits(data[di], 8);
+  var capacityBits = numDataCodewords(version) * 8;
+  appendBits(0, Math.min(4, capacityBits - bb.length));
+  appendBits(0, (8 - bb.length % 8) % 8);
+  for (var padByte = 0xEC; bb.length < capacityBits; padByte ^= 0xEC ^ 0x11)
+    appendBits(padByte, 8);
+  var dataCodewords = [];
+  for (var ci = 0; ci * 8 < bb.length; ci++) dataCodewords.push(0);
+  for (var bi = 0; bi < bb.length; bi++)
+    dataCodewords[bi >>> 3] |= bb[bi] << (7 - (bi & 7));
+
+  // ---- Reed-Solomon over GF(2^8/0x11D) ----
+  function rsMultiply(x, y) {
+    var z = 0;
+    for (var i = 7; i >= 0; i--) {
+      z = (z << 1) ^ ((z >>> 7) * 0x11D);
+      z ^= ((y >>> i) & 1) * x;
+    }
+    return z;
+  }
+  function rsDivisor(degree) {
+    var result = [];
+    for (var i = 0; i < degree - 1; i++) result.push(0);
+    result.push(1);
+    var root = 1;
+    for (var d = 0; d < degree; d++) {
+      for (var j = 0; j < result.length; j++) {
+        result[j] = rsMultiply(result[j], root);
+        if (j + 1 < result.length) result[j] ^= result[j + 1];
+      }
+      root = rsMultiply(root, 0x02);
+    }
+    return result;
+  }
+  function rsRemainder(dat, divisor) {
+    var result = divisor.map(function () { return 0; });
+    for (var i = 0; i < dat.length; i++) {
+      var factor = dat[i] ^ result.shift();
+      result.push(0);
+      for (var j = 0; j < divisor.length; j++)
+        result[j] ^= rsMultiply(divisor[j], factor);
+    }
+    return result;
+  }
+
+  // ---- Split into blocks, append ECC, interleave ----
+  var numBlocks = NUM_BLOCKS[version];
+  var blockEccLen = ECC_PER_BLOCK[version];
+  var rawCodewords = Math.floor(numRawDataModules(version) / 8);
+  var numShortBlocks = numBlocks - rawCodewords % numBlocks;
+  var shortBlockLen = Math.floor(rawCodewords / numBlocks);
+  var blocks = [];
+  var rsDiv = rsDivisor(blockEccLen);
+  for (var b = 0, k = 0; b < numBlocks; b++) {
+    var dat = dataCodewords.slice(k, k + shortBlockLen - blockEccLen + (b < numShortBlocks ? 0 : 1));
+    k += dat.length;
+    var ecc = rsRemainder(dat, rsDiv);
+    if (b < numShortBlocks) dat.push(0);
+    blocks.push(dat.concat(ecc));
+  }
+  var allCodewords = [];
+  for (var p = 0; p < blocks[0].length; p++) {
+    for (var q = 0; q < blocks.length; q++) {
+      if (p != shortBlockLen - blockEccLen || q >= numShortBlocks)
+        allCodewords.push(blocks[q][p]);
+    }
+  }
+
+  // ---- Module grid ----
+  var size = version * 4 + 17;
+  var modules = [];
+  var isFunction = [];
+  for (var r = 0; r < size; r++) {
+    var row = [], frow = [];
+    for (var c = 0; c < size; c++) { row.push(false); frow.push(false); }
+    modules.push(row);
+    isFunction.push(frow);
+  }
+
+  function setFunctionModule(x, y, isDark) {
+    modules[y][x] = isDark;
+    isFunction[y][x] = true;
+  }
+  function getBitOf(x, i) {
+    return ((x >>> i) & 1) != 0;
+  }
+  function drawFinderPattern(x, y) {
+    for (var dy = -4; dy <= 4; dy++) {
+      for (var dx = -4; dx <= 4; dx++) {
+        var dist = Math.max(Math.abs(dx), Math.abs(dy));
+        var xx = x + dx, yy = y + dy;
+        if (0 <= xx && xx < size && 0 <= yy && yy < size)
+          setFunctionModule(xx, yy, dist != 2 && dist != 4);
+      }
+    }
+  }
+  function drawAlignmentPattern(x, y) {
+    for (var dy = -2; dy <= 2; dy++) {
+      for (var dx = -2; dx <= 2; dx++)
+        setFunctionModule(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) != 1);
+    }
+  }
+  function alignmentPatternPositions() {
+    if (version == 1) return [];
+    var numAlign = Math.floor(version / 7) + 2;
+    var step = (version == 32) ? 26 :
+      Math.ceil((version * 4 + 4) / (numAlign * 2 - 2)) * 2;
+    var result = [6];
+    for (var pos = size - 7; result.length < numAlign; pos -= step)
+      result.splice(1, 0, pos);
+    return result;
+  }
+  // ECC level M has formatBits = 0, so format data = mask alone.
+  function drawFormatBits(mask) {
+    var fdata = 0 << 3 | mask;
+    var rem = fdata;
+    for (var i = 0; i < 10; i++)
+      rem = (rem << 1) ^ ((rem >>> 9) * 0x537);
+    var bits = (fdata << 10 | rem) ^ 0x5412;
+    for (var a = 0; a <= 5; a++)
+      setFunctionModule(8, a, getBitOf(bits, a));
+    setFunctionModule(8, 7, getBitOf(bits, 6));
+    setFunctionModule(8, 8, getBitOf(bits, 7));
+    setFunctionModule(7, 8, getBitOf(bits, 8));
+    for (var i2 = 9; i2 < 15; i2++)
+      setFunctionModule(14 - i2, 8, getBitOf(bits, i2));
+    for (var i3 = 0; i3 < 8; i3++)
+      setFunctionModule(size - 1 - i3, 8, getBitOf(bits, i3));
+    for (var i4 = 8; i4 < 15; i4++)
+      setFunctionModule(8, size - 15 + i4, getBitOf(bits, i4));
+    setFunctionModule(8, size - 8, true); // always dark
+  }
+  function drawVersion() {
+    if (version < 7) return;
+    var rem = version;
+    for (var i = 0; i < 12; i++)
+      rem = (rem << 1) ^ ((rem >>> 11) * 0x1F25);
+    var bits = version << 12 | rem;
+    for (var j = 0; j < 18; j++) {
+      var color = getBitOf(bits, j);
+      var a = size - 11 + j % 3;
+      var bpos = Math.floor(j / 3);
+      setFunctionModule(a, bpos, color);
+      setFunctionModule(bpos, a, color);
+    }
+  }
+  function drawFunctionPatterns() {
+    for (var i = 0; i < size; i++) {
+      setFunctionModule(6, i, i % 2 == 0);
+      setFunctionModule(i, 6, i % 2 == 0);
+    }
+    drawFinderPattern(3, 3);
+    drawFinderPattern(size - 4, 3);
+    drawFinderPattern(3, size - 4);
+    var alignPatPos = alignmentPatternPositions();
+    var numAlign = alignPatPos.length;
+    for (var i5 = 0; i5 < numAlign; i5++) {
+      for (var j = 0; j < numAlign; j++) {
+        if (!(i5 == 0 && j == 0 || i5 == 0 && j == numAlign - 1 || i5 == numAlign - 1 && j == 0))
+          drawAlignmentPattern(alignPatPos[i5], alignPatPos[j]);
+      }
+    }
+    drawFormatBits(0); // dummy; overwritten after mask choice
+    drawVersion();
+  }
+  function drawCodewords(cw) {
+    var i = 0;
+    for (var right = size - 1; right >= 1; right -= 2) {
+      if (right == 6) right = 5;
+      for (var vert = 0; vert < size; vert++) {
+        for (var j = 0; j < 2; j++) {
+          var x = right - j;
+          var upward = ((right + 1) & 2) == 0;
+          var y = upward ? size - 1 - vert : vert;
+          if (!isFunction[y][x] && i < cw.length * 8) {
+            modules[y][x] = getBitOf(cw[i >>> 3], 7 - (i & 7));
+            i++;
+          }
+        }
+      }
+    }
+  }
+  function applyMask(mask) {
+    for (var y = 0; y < size; y++) {
+      for (var x = 0; x < size; x++) {
+        var invert;
+        switch (mask) {
+          case 0: invert = (x + y) % 2 == 0; break;
+          case 1: invert = y % 2 == 0; break;
+          case 2: invert = x % 3 == 0; break;
+          case 3: invert = (x + y) % 3 == 0; break;
+          case 4: invert = (Math.floor(x / 3) + Math.floor(y / 2)) % 2 == 0; break;
+          case 5: invert = x * y % 2 + x * y % 3 == 0; break;
+          case 6: invert = (x * y % 2 + x * y % 3) % 2 == 0; break;
+          default: invert = ((x + y) % 2 + x * y % 3) % 2 == 0; break;
+        }
+        if (!isFunction[y][x] && invert)
+          modules[y][x] = !modules[y][x];
+      }
+    }
+  }
+  var PENALTY_N1 = 3, PENALTY_N2 = 3, PENALTY_N3 = 40, PENALTY_N4 = 10;
+  function finderPenaltyCountPatterns(runHistory) {
+    var n = runHistory[1];
+    var core = n > 0 && runHistory[2] == n && runHistory[3] == n * 3 && runHistory[4] == n && runHistory[5] == n;
+    return (core && runHistory[0] >= n * 4 && runHistory[6] >= n ? 1 : 0)
+      + (core && runHistory[6] >= n * 4 && runHistory[0] >= n ? 1 : 0);
+  }
+  function finderPenaltyAddHistory(currentRunLength, runHistory) {
+    if (runHistory[0] == 0) currentRunLength += size; // light border on initial run
+    runHistory.pop();
+    runHistory.unshift(currentRunLength);
+  }
+  function finderPenaltyTerminateAndCount(currentRunColor, currentRunLength, runHistory) {
+    if (currentRunColor) {
+      finderPenaltyAddHistory(currentRunLength, runHistory);
+      currentRunLength = 0;
+    }
+    currentRunLength += size; // light border on final run
+    finderPenaltyAddHistory(currentRunLength, runHistory);
+    return finderPenaltyCountPatterns(runHistory);
+  }
+  function getPenaltyScore() {
+    var result = 0;
+    var x, y, runColor, run, runHistory;
+    for (y = 0; y < size; y++) {
+      runColor = false; run = 0; runHistory = [0, 0, 0, 0, 0, 0, 0];
+      for (x = 0; x < size; x++) {
+        if (modules[y][x] == runColor) {
+          run++;
+          if (run == 5) result += PENALTY_N1;
+          else if (run > 5) result++;
+        } else {
+          finderPenaltyAddHistory(run, runHistory);
+          if (!runColor) result += finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
+          runColor = modules[y][x];
+          run = 1;
+        }
+      }
+      result += finderPenaltyTerminateAndCount(runColor, run, runHistory) * PENALTY_N3;
+    }
+    for (x = 0; x < size; x++) {
+      runColor = false; run = 0; runHistory = [0, 0, 0, 0, 0, 0, 0];
+      for (y = 0; y < size; y++) {
+        if (modules[y][x] == runColor) {
+          run++;
+          if (run == 5) result += PENALTY_N1;
+          else if (run > 5) result++;
+        } else {
+          finderPenaltyAddHistory(run, runHistory);
+          if (!runColor) result += finderPenaltyCountPatterns(runHistory) * PENALTY_N3;
+          runColor = modules[y][x];
+          run = 1;
+        }
+      }
+      result += finderPenaltyTerminateAndCount(runColor, run, runHistory) * PENALTY_N3;
+    }
+    for (y = 0; y < size - 1; y++) {
+      for (x = 0; x < size - 1; x++) {
+        var color = modules[y][x];
+        if (color == modules[y][x + 1] && color == modules[y + 1][x] && color == modules[y + 1][x + 1])
+          result += PENALTY_N2;
+      }
+    }
+    var dark = 0;
+    for (y = 0; y < size; y++) {
+      for (x = 0; x < size; x++) {
+        if (modules[y][x]) dark++;
+      }
+    }
+    var total = size * size;
+    var kk = Math.ceil(Math.abs(dark * 20 - total * 10) / total) - 1;
+    result += kk * PENALTY_N4;
+    return result;
+  }
+
+  // ---- Assemble: function patterns, codewords, best-of-8 mask ----
+  drawFunctionPatterns();
+  drawCodewords(allCodewords);
+  var bestMask = 0;
+  var minPenalty = Infinity;
+  for (var m = 0; m < 8; m++) {
+    applyMask(m);
+    drawFormatBits(m);
+    var penalty = getPenaltyScore();
+    if (penalty < minPenalty) { bestMask = m; minPenalty = penalty; }
+    applyMask(m); // undo (XOR)
+  }
+  applyMask(bestMask);
+  drawFormatBits(bestMask);
+
+  // ---- Emit crisp SVG (modules in currentColor over a light quiet zone) ----
+  var border = 4;
+  var dim = size + border * 2;
+  var d = "";
+  for (var sy = 0; sy < size; sy++) {
+    for (var sx = 0; sx < size; sx++) {
+      if (modules[sy][sx])
+        d += "M" + (sx + border) + "," + (sy + border) + "h1v1h-1z";
+    }
+  }
+  var svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + dim + " " + dim +
+    '" shape-rendering="crispEdges" role="img" aria-hidden="true">' +
+    '<rect width="' + dim + '" height="' + dim + '" fill="#fff"/>' +
+    '<path d="' + d + '" fill="currentColor"/></svg>';
+  if (targetEl) targetEl.innerHTML = svg;
+  return svg;
+}
+let _refuelToken = 0;            // bump to stop a live poll loop (close / success / reopen)
+let _refuelClosedAt = 0;         // user closed it mid-wait — don't auto-reopen right away
+// one check-balance round-trip → { usd, addr } (throws on any failure; addr null when absent/odd)
+function fetchBalanceInfo(){
+  return fetch(`${NANOGPT}/api/check-balance`, { method:"POST", headers:authHeaders(), body:"{}" })
+    .then(r=>{ if(!r.ok) throw new Error("check-balance "+r.status); return r.json(); })
+    .then(j=>{
+      const a = typeof j.nanoDepositAddress==="string" ? j.nanoDepositAddress.trim() : "";
+      return { usd: parseFloat(j.usd_balance), addr: (a.length>60 && /^nano_[a-z0-9]+$/.test(a)) ? a : null };
+    });
+}
+function refuelSawBalance(usd){  // write a freshly-polled figure through the normal balance path
+  if(isNaN(usd)) return;
+  stats.balance = usd; cacheBalance(); paintCost();
+}
+// Open the panel — fire-and-forget from the low-funds run error. Silent no-op when signed out,
+// already open, just dismissed, the endpoint fails, or the response carries no deposit address
+// (→ today's link-only error text stands unchanged).
+async function offerRefuel(){
+  const m = $("refuelmodal");
+  if(!m || !m.hidden || !getKey()) return;
+  if(Date.now() - _refuelClosedAt < 60000) return;   // parallel groups fail together — closing once means closed
+  let info; try{ info = await fetchBalanceInfo(); }catch(_){ return; }
+  if(!info.addr || !m.hidden || !getKey()) return;
+  refuelSawBalance(info.usd);
+  $("refueladdr").value = info.addr;
+  const cb = $("refuelcopy"); cb.textContent = t("Copy"); cb.classList.remove("ok");
+  renderNanoQr("nano:"+info.addr, $("refuelqr"));
+  $("refuelwait").hidden = false; $("refuelok").hidden = true;
+  m.hidden = false;
+  refuelPoll(isNaN(info.usd) ? null : info.usd);
+}
+// Poll while the panel is visible: ~9s cadence, skipped while the tab is in the background.
+// "Enough" = covers the current priced estimate when there is one, else any rise above the
+// balance the panel opened with.
+function refuelPoll(baseline){
+  const token = ++_refuelToken;
+  (async ()=>{
+    while(true){
+      await sleep(9000);
+      if(token!==_refuelToken || $("refuelmodal").hidden) return;   // closed or superseded → stop for good
+      if(document.hidden || !getKey()) continue;                    // background tab / signed out → skip this tick
+      let info; try{ info = await fetchBalanceInfo(); }catch(_){ continue; }   // transient failure → try again next tick
+      if(token!==_refuelToken || $("refuelmodal").hidden) return;
+      if(isNaN(info.usd)) continue;
+      refuelSawBalance(info.usd);
+      if(baseline==null) baseline = info.usd;
+      const { usd:need, priced } = workflowCost();
+      if((priced && need>0) ? info.usd >= need : info.usd > baseline){
+        _refuelToken++;                                             // stop polling; the panel stays up showing success
+        $("refuelwait").hidden = true; $("refuelok").hidden = false;
+        refreshRunEstimate();
+        return;
+      }
+    }
+  })();
+}
+function closeRefuel(){
+  const m = $("refuelmodal"); if(m.hidden) return;
+  m.hidden = true; _refuelToken++; _refuelClosedAt = Date.now();
+}
+$("refuelclose").onclick = closeRefuel;
+$("refuelmodal").addEventListener("click", e=>{ if(e.target.id==="refuelmodal") closeRefuel(); });   // click the dim backdrop
+addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("refuelmodal").hidden) closeRefuel(); });
+$("refuelcopy").onclick = async ()=>{
+  const inp = $("refueladdr"); inp.select();
+  const ok = await copyText(inp.value);
+  const b = $("refuelcopy");
+  if(ok){ b.textContent = t("✓ Copied"); b.classList.add("ok"); setTimeout(()=>{ b.textContent=t("Copy"); b.classList.remove("ok"); }, 1800); }
+  else { toast("Couldn't copy — select the address and copy it manually", "err"); }
+};
 
 /* ======================================================================
    ADD-NODE MENU

@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-11",
+    "text": "run out of balance mid-run? The editor now shows your own Nano deposit address as a QR — scan it with a Nano wallet and the balance updates by itself, no tab-switching.",
+    "i18n": {
+      "es": "¿Te quedaste sin saldo a mitad de una ejecución? El editor ahora muestra tu propia dirección de depósito de Nano como un QR — escanéala con una billetera de Nano y el saldo se actualiza solo, sin cambiar de pestaña.",
+      "fr": "À court de solde en plein milieu d'une exécution ? L'éditeur affiche désormais votre propre adresse de dépôt Nano sous forme de QR code — scannez-la avec un portefeuille Nano et le solde se met à jour tout seul, sans changer d'onglet.",
+      "de": "Ging dir während einer Ausführung das Guthaben aus? Der Editor zeigt jetzt deine eigene Nano-Einzahlungsadresse als QR-Code — scanne sie mit einer Nano-Wallet und das Guthaben aktualisiert sich von selbst, ohne Tabwechsel.",
+      "pt": "Ficou sem saldo no meio de uma execução? O editor agora mostra seu próprio endereço de depósito Nano como um QR — escaneie com uma carteira Nano e o saldo se atualiza sozinho, sem trocar de aba.",
+      "ja": "実行中に残高が切れた？エディタがあなたのNano入金アドレスをQRで表示するようになりました — Nanoウォレットでスキャンすれば残高が自動更新され、タブ切り替え不要です。"
+    }
+  },
+  {
+    "date": "2026-07-11",
     "text": "The Noodle Cookoff closes July 12 — a live countdown on the 🍜 pill now shows exactly how long you have left to enter.",
     "i18n": {
       "es": "El Noodle Cookoff cierra el 12 de julio: una cuenta regresiva en vivo en la píldora 🍜 te muestra exactamente cuánto tiempo te queda para participar.",
