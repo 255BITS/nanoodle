@@ -4504,6 +4504,10 @@ function mp4ParamsMatch(bufs){
     // never hijacked into an expand toggle.
     box.addEventListener("click", function(e){
       if(e.target.closest("audio,video,a,input,select,.dl,.varthumb,[data-vi],.nd-exp,.nd-dl,.tmore")) return;
+      // A drag to SELECT text ends in a click — don't hijack that into a fold. If any text is
+      // highlighted, this was a copy gesture (reading/quoting an earlier result), not an expand tap.
+      const sel = window.getSelection && window.getSelection();
+      if(sel && !sel.isCollapsed && sel.toString().trim()) return;
       const card = e.target.closest && e.target.closest(".card.nd-earlier");
       if(!card || !box.contains(card)) return;
       card.classList.toggle("nd-open"); updateExpBtn(card);
