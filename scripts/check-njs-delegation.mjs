@@ -61,6 +61,16 @@ const GRAPHS = [
     nodes: [node("s1", "vupload", { video: IMG }), node("u1", "upload", { image: IMG }), node("v1", "vedit", { model: "x", prompt: "restyle" })],
     links: [link("s1", "video", "v1", "video"), link("u1", "image", "v1", "ref1")],
   }, ["vedit"]],
+  // blob: media delegates too: the shim materializes page-local object URLs into data: URLs with
+  // the same urlToDataUrl the built-in senders use, so bodies stay identical
+  ["remix from a blob: source (Trim output)", {
+    nodes: [node("a1", "aupload", { audio: "blob:null/trimmed" }), node("r1", "remix", { model: "x", prompt: "lo-fi cover" })],
+    links: [link("a1", "audio", "r1", "audio")],
+  }, ["remix"]],
+  ["llm hears a blob: clip (inlined to bytes on both paths)", {
+    nodes: [node("a1", "aupload", { audio: "blob:null/clip" }), node("t1", "text", { text: "what is said?" }), node("m1", "llm", { model: "x", system: "" })],
+    links: [link("a1", "audio", "m1", "audio"), link("t1", "text", "m1", "prompt")],
+  }, ["llm"]],
 ];
 
 // Veto shapes (mirrors check-njs-editor-delegation.mjs): the library doesn't yet match the
@@ -71,10 +81,6 @@ const VETO_GRAPHS = [
     nodes: [node("i1", "image", { model: "x", prompt: "a fox", variations: "2" })],
     links: [],
   }, ["image"]],
-  ["blob: media input vetoed (posted verbatim by the library)", {
-    nodes: [node("u1", "upload", { image: "blob:null/dead" }), node("e1", "edit", { model: "x", prompt: "fix" })],
-    links: [link("u1", "image", "e1", "image")],
-  }, ["edit"]],
   ["lipsync excluded from NJS_TYPES (no trim-retry ladder)", {
     nodes: [node("u1", "upload", { image: IMG }), node("a1", "aupload", { audio: IMG }), node("l1", "lipsync", { model: "x" })],
     links: [link("u1", "image", "l1", "image"), link("a1", "audio", "l1", "audio")],
@@ -169,8 +175,7 @@ for (const [name, data, vetoTypes] of VETO_GRAPHS) {
   assert.notEqual(runFor("image", rn("image", { model: "x", prompt: "p", variations: "1" }), {}, "n1"), null, "image variations=1 still delegates");
   assert.notEqual(runFor("tvideo", rn("tvideo", { model: "x", prompt: "p" }), { ref1: IMG }, "n1"), null, "tvideo with wired refs delegates on play (both engines permissive-ON)");
   assert.notEqual(runFor("vedit", rn("vedit", { model: "x", prompt: "p" }), { video: IMG, ref1: IMG }, "n1"), null, "vedit with wired refs delegates on play");
-  assert.equal(runFor("remix", rn("remix", { model: "x", prompt: "p" }), { audio: "blob:null/abc" }, "n1"), null, "blob: media input must not delegate");
-  assert.equal(runFor("vedit", rn("vedit", { model: "x", prompt: "p" }), { video: "blob:null/v" }, "n1"), null, "vedit with a blob: source stays built-in");
+  assert.notEqual(runFor("remix", rn("remix", { model: "x", prompt: "p" }), { audio: "blob:null/abc" }, "n1"), null, "blob: media delegates (the shim materializes it to a data: URL)");
   assert.equal(runFor("lipsync", rn("lipsync", { model: "x" }), {}, "n1"), null, "lipsync is excluded from NJS_TYPES");
   PENDING_VIDEO.set("n1", { sig: 1, runId: "r1" });   // a BUILT-IN engine's pending job (no njs tag)
   assert.equal(runFor("ivideo", rn("ivideo", { model: "x", prompt: "p" }), { image: IMG }, "n1"), null, "a built-in pending video job keeps the node on the built-in engine");
@@ -182,7 +187,7 @@ for (const [name, data, vetoTypes] of VETO_GRAPHS) {
   PENDING_AUDIO.set("n1", { sig: 1, job: { runId: "r1" }, njs: true });
   assert.notEqual(runFor("music", rn("music", { model: "x", prompt: "p" }), {}, "n1"), null, "an njs-tagged pending audio job still delegates");
   PENDING_AUDIO.delete("n1");
-  console.log("✓ vetoes: gallery clamp / blob: media / excluded types / foreign pending jobs all fall back to built-in (wired video refs delegate)");
+  console.log("✓ vetoes: gallery clamp / excluded types / foreign pending jobs all fall back to built-in (wired video refs + blob: media delegate)");
 }
 
 const total = GRAPHS.length + VETO_GRAPHS.length;

@@ -6817,7 +6817,10 @@ function mp4ParamsMatch(bufs){
         // model trips it).
         let aud = null;
         if(inp.audio){
-          if(await chatModelCan(model, "audio_input")) aud = audioInputPart(inp.audio);
+          // input_audio.data must be base64 BYTES: a chained https song (Music/Speech CDN) or a
+          // local blob: (Trim) has to be downloaded + inlined first — posting the URL string as
+          // "base64 data" makes a paid call with garbage audio (twin of the library's fetchMedia).
+          if(await chatModelCan(model, "audio_input")) aud = audioInputPart(/^data:/.test(inp.audio) ? inp.audio : await urlToDataUrl(inp.audio));
           else if(onProgress) onProgress("audio ignored — this model is text-only");
         }
         const messages = [];
@@ -7341,9 +7344,6 @@ function mp4ParamsMatch(bufs){
     // tvideo/vedit refs delegate: the library resolves the model's real ref key + cap from the same
     // raw catalog (modelRefSpec, twin of this runtime's modelAllowsRefs — permissive-ON on a miss on
     // BOTH paths, so bodies agree in every catalog state; locked by check-js-parity's ref scenarios).
-    // blob: media (Trim / Extract audio / Combine / Soundtrack outputs): the library posts the
-    // object URL verbatim — dead outside this page; the built-in runners inline to data: first.
-    for(const k in inp){ if(typeof inp[k]==="string" && inp[k].slice(0,5)==="blob:") return null; }
     // A pending video/audio job submitted by the BUILT-IN engine (e.g. a run started under
     // ?engine=play in another tab flipping njs_engine, or a veto that no longer applies) uses a
     // body-shaped signature this shim can't match — delegating now would orphan that paid job and
@@ -7351,9 +7351,20 @@ function mp4ParamsMatch(bufs){
     const pv = runKey ? PENDING_VIDEO.get(runKey) : null, pa = runKey ? PENDING_AUDIO.get(runKey) : null;
     if((pv && !pv.njs) || (pa && !pa.njs)) return null;
     return async function(rn, inp, onCost, runKey, note){
+      // Materialize page-local blob: media (Trim / Extract audio / Combine / Soundtrack outputs)
+      // into data: URLs before the library sees them — its runners post non-https strings
+      // verbatim, and an object URL is dead outside this page. Same urlToDataUrl the built-in
+      // senders use, so delegated bodies stay byte-identical.
+      let inp2 = inp;
+      for(const k in inp){
+        if(typeof inp[k]==="string" && inp[k].slice(0,5)==="blob:"){
+          if(inp2===inp) inp2 = Object.assign({}, inp);
+          inp2[k] = await urlToDataUrl(inp[k]);
+        }
+      }
       const ctx = njsCtx(E, onCost, runKey, note);
       ctx.catalog = await njsCatalogs();
-      return E.RUNNERS[type](rn, inp, ctx);
+      return E.RUNNERS[type](rn, inp2, ctx);
     };
   }
 

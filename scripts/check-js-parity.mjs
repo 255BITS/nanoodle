@@ -187,6 +187,9 @@ function recordingFetchFactory(bucket) {
       json = { data: [] };
     }
     const hdr = { "x-remaining-balance": "9.87", "x-cost": "0" };
+    // media downloads (fetchMediaDataUrl): same content-type + bytes play-engine's recording
+    // fetch serves, so both engines inline the SAME data: URL
+    if (!/\/(api|v1)\//.test(String(url))) hdr["content-type"] = "audio/mpeg";
     return {
       ok: true, status: 200,
       headers: { get: (k) => hdr[String(k).toLowerCase()] ?? null },
@@ -248,6 +251,20 @@ const SCENARIOS = [
       nodes: [
         node("u1", "aupload", { audio: "data:audio/wav;base64,QUJD" }),
         node("t1", "text", { text: "Transcribe this" }),
+        node("m1", "llm", { model: "x" }),
+      ],
+      links: [
+        link("u1", "audio", "m1", "audio"),
+        link("t1", "text", "m1", "prompt"),
+      ],
+    },
+  },
+  {
+    name: "LLM audio from an https URL (downloaded + inlined to bytes on both engines)",
+    data: {
+      nodes: [
+        node("u1", "aupload", { audio: "https://cdn.example/song.mp3" }),
+        node("t1", "text", { text: "What is being said?" }),
         node("m1", "llm", { model: "x" }),
       ],
       links: [
