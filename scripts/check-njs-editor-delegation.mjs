@@ -127,7 +127,7 @@ function makeCtx({ flagOn, key = "test-api-key", drifted = false, spy = [], dire
     console, URLSearchParams, JSON, Promise, Object, Array, Math, Number, String, isNaN, isFinite, parseInt, parseFloat, Error, DOMException: Error,
     fetch: fakeFetch,
     location: { search: "" },
-    localStorage: { getItem: (k) => (k === "ngpt_key" ? key : k === "njs_engine" ? (flagOn ? "1" : null) : null), setItem() {}, removeItem() {} },
+    localStorage: { getItem: (k) => (k === "ngpt_key" ? key : k === "njs_engine" ? (flagOn ? "1" : "0") : null), setItem() {}, removeItem() {} },   // flag defaults ON, so "off" is the explicit "0" opt-out
     getKey: () => key,
     window: null,                                  // set below (self-reference)
     // leaf stubs — UI / i18n / registries the extracted code touches but the scenarios don't exercise

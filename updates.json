@@ -1,5 +1,9 @@
 [
   {
+    "date": "2026-07-16",
+    "text": "the open-source nanoodle-js engine now powers runs by default — byte-identical requests, one engine across the editor, shared apps, exports and the CLI."
+  },
+  {
     "date": "2026-07-11",
     "text": "run out of balance mid-run? The editor now shows your own Nano deposit address as a QR — scan it with a Nano wallet and the balance updates by itself, no tab-switching.",
     "i18n": {

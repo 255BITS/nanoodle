@@ -8020,7 +8020,7 @@ function nodeSig(n, inp){
   return sigHash(JSON.stringify({ t:n.type, f, inp }));
 }
 /* =====================================================================
-   nanoodle-js DELEGATION (experimental, default OFF) — replace-prep Phase F.
+   nanoodle-js DELEGATION (default ON) — replace-prep Phase F.
    Twin of play.html's Phase-E shim: when enabled, NETWORK nodes' payload
    building + response parsing run through the nanoodle-js RUNNERS — the
    surface scripts/check-js-parity.mjs locks — while ALL orchestration
@@ -8028,11 +8028,11 @@ function nodeSig(n, inp){
    pending-job resume, demo mode, statuses, DOM. Local media nodes keep
    the canvas / Web Audio paths. Unlike play (a self-contained export),
    the editor lazy-loads the bundle from vendor/njs-engine.js (generated
-   by scripts/gen-js-engine.mjs) only when the flag is on — the landing
-   page never pays its ~185 KB. Until it loads (or if it fails / hasn't
-   been fetched yet), njsRunFor() returns null → built-in runners.
-   Enable: ?engine=js or localStorage njs_engine="1"; ?engine=play forces
-   off. Demo runs and custom run contexts always use the built-in path.
+   by scripts/gen-js-engine.mjs) only when the flag is on. Until it loads
+   (or if it fails / hasn't been fetched yet), njsRunFor() returns null →
+   built-in runners.
+   Opt out: ?engine=play or localStorage njs_engine="0"; ?engine=js forces
+   on. Demo runs and custom run contexts always use the built-in path.
    ===================================================================== */
 // vedit and lipsync are NOT delegated yet: the library's vedit drops wired reference-image ports,
 // and its lipsync lacks the built-in's charged-aware duration-trim retry ladder — both would change
@@ -8043,7 +8043,7 @@ function njsOn(){
     const q = new URLSearchParams(location.search).get("engine");
     if(q==="js") return true;
     if(q==="play") return false;
-    return localStorage.getItem("njs_engine")==="1";
+    return localStorage.getItem("njs_engine")!=="0";   // default ON — njs_engine="0" (or ?engine=play) opts back into the built-in runners
   }catch(e){ return false; }
 }
 try{ if(njsOn()){ const s = document.createElement("script"); s.src = "vendor/njs-engine.js"; s.async = true; document.head.appendChild(s); } }catch(e){}
