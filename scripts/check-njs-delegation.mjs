@@ -59,7 +59,7 @@ function flaggedEngine(on, spy) {
     captured = ctx;
     ctx.URLSearchParams = URLSearchParams; // njsOn() parses location.search
     ctx.localStorage = ctx.sessionStorage = {
-      getItem: (k) => (k === "ngpt_key" ? "test-api-key" : k === "njs_engine" ? (on ? "1" : null) : null),
+      getItem: (k) => (k === "ngpt_key" ? "test-api-key" : k === "njs_engine" ? (on ? "1" : "0") : null),   // flag defaults ON, so "off" is the explicit "0" opt-out
       setItem() {}, removeItem() {},
     };
   });
