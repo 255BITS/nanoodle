@@ -71,6 +71,10 @@ const GRAPHS = [
     nodes: [node("a1", "aupload", { audio: "blob:null/clip" }), node("t1", "text", { text: "what is said?" }), node("m1", "llm", { model: "x", system: "" })],
     links: [link("a1", "audio", "m1", "audio"), link("t1", "text", "m1", "prompt")],
   }, ["llm"]],
+  ["lipsync happy path (library ladder submits as-is first)", {
+    nodes: [node("u1", "upload", { image: IMG }), node("a1", "aupload", { audio: IMG }), node("l1", "lipsync", { model: "x" })],
+    links: [link("u1", "image", "l1", "image"), link("a1", "audio", "l1", "audio")],
+  }, ["lipsync"]],
 ];
 
 // Veto shapes (mirrors check-njs-editor-delegation.mjs): the library doesn't yet match the
@@ -81,10 +85,6 @@ const VETO_GRAPHS = [
     nodes: [node("i1", "image", { model: "x", prompt: "a fox", variations: "2" })],
     links: [],
   }, ["image"]],
-  ["lipsync excluded from NJS_TYPES (no trim-retry ladder)", {
-    nodes: [node("u1", "upload", { image: IMG }), node("a1", "aupload", { audio: IMG }), node("l1", "lipsync", { model: "x" })],
-    links: [link("u1", "image", "l1", "image"), link("a1", "audio", "l1", "audio")],
-  }, ["lipsync"]],
 ];
 
 function flaggedEngine(on, spy) {
@@ -176,7 +176,7 @@ for (const [name, data, vetoTypes] of VETO_GRAPHS) {
   assert.notEqual(runFor("tvideo", rn("tvideo", { model: "x", prompt: "p" }), { ref1: IMG }, "n1"), null, "tvideo with wired refs delegates on play (both engines permissive-ON)");
   assert.notEqual(runFor("vedit", rn("vedit", { model: "x", prompt: "p" }), { video: IMG, ref1: IMG }, "n1"), null, "vedit with wired refs delegates on play");
   assert.notEqual(runFor("remix", rn("remix", { model: "x", prompt: "p" }), { audio: "blob:null/abc" }, "n1"), null, "blob: media delegates (the shim materializes it to a data: URL)");
-  assert.equal(runFor("lipsync", rn("lipsync", { model: "x" }), {}, "n1"), null, "lipsync is excluded from NJS_TYPES");
+  assert.notEqual(runFor("lipsync", rn("lipsync", { model: "x" }), {}, "n1"), null, "lipsync delegates (library ladder + ctx.trimAudio landed)");
   PENDING_VIDEO.set("n1", { sig: 1, runId: "r1" });   // a BUILT-IN engine's pending job (no njs tag)
   assert.equal(runFor("ivideo", rn("ivideo", { model: "x", prompt: "p" }), { image: IMG }, "n1"), null, "a built-in pending video job keeps the node on the built-in engine");
   PENDING_VIDEO.set("n1", { sig: 1, runId: "r1", njs: true });
@@ -187,7 +187,7 @@ for (const [name, data, vetoTypes] of VETO_GRAPHS) {
   PENDING_AUDIO.set("n1", { sig: 1, job: { runId: "r1" }, njs: true });
   assert.notEqual(runFor("music", rn("music", { model: "x", prompt: "p" }), {}, "n1"), null, "an njs-tagged pending audio job still delegates");
   PENDING_AUDIO.delete("n1");
-  console.log("✓ vetoes: gallery clamp / excluded types / foreign pending jobs all fall back to built-in (wired video refs + blob: media delegate)");
+  console.log("✓ vetoes: gallery clamp / foreign pending jobs fall back to built-in (wired video refs, blob: media and lipsync delegate)");
 }
 
 const total = GRAPHS.length + VETO_GRAPHS.length;

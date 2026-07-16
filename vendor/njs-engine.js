@@ -1,5 +1,5 @@
-/* data-hash=6b4f5876d7eac4cb */
-/* nanoodle-js browser engine — generated from nanoodle-js@src-988cefa05bc4 (15 modules) */
+/* data-hash=7b51b61783b90c77 */
+/* nanoodle-js browser engine — generated from nanoodle-js@src-bdff3a08fc89 (15 modules) */
 (function () {
   "use strict";
   var __mods = {};
@@ -1849,8 +1849,52 @@ const RUNNERS = {
     if (!inp.image) throw new NanoodleError("no image input");
     if (!inp.audio) throw new NanoodleError("no audio input");
     const prompt = promptOf(n, inp);
-    const opts = { ...audioSourceOpts(inp.audio), ...videoDims(n, ctx), extra: n.fields.modelOpts || {} };
-    return { video: await ctx.video(mdl(n), prompt, opts, inp.image) };
+    // Avatar models cap audio length (LongCat = 30s) and the cap isn't reliably in the catalog,
+    // so submit the audio as-is first (a remote song rides full-length as a url). If the model
+    // REJECTS the submit (HTTP error — not yet charged), read its real cap from the error, trim
+    // to fit (mono WAV) and retry ONCE; an oversize local clip that can't inline trims to 15s.
+    // NEVER auto-retry after a post-submit job failure ("video failed: …"): that path already
+    // reserved credits, and a second submit would double-charge. (Twin of the app runtimes.)
+    // ctx.trimAudio lets a browser host inject its Web Audio trimmer so the retry bytes match
+    // its built-in runner exactly; default is the local-media trimmer (pure-JS WAV, ffmpeg).
+    const trim = ctx.trimAudio || ((url, start, len, rate) => trimAudioToWav(url, start, len, rate, mediaOpts(ctx)));
+    let trimSec = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let opts;
+      if (trimSec != null) {
+        if (ctx.progress) ctx.progress("trimming audio to " + Math.round(trimSec) + "s…");
+        let trimmed;
+        try { trimmed = await trim(inp.audio, 0, trimSec, 24000); }
+        catch (e) {
+          // a hosted song's CDN may refuse byte downloads (browser CORS) — surface the model's
+          // cap and the way out instead of a bare "Failed to fetch"
+          if (/^https?:/i.test(inp.audio)) {
+            throw new NanoodleError("This avatar model accepts about " + Math.round(trimSec) + "s of audio, but the source track can't be downloaded to trim (the provider's audio CDN blocks it). Shorten it at the source — e.g. set the Music node's length to " + Math.round(trimSec) + "s or less — or use a Speech node (its audio can be trimmed).");
+          }
+          throw e;
+        }
+        opts = { audioDataUrl: trimmed };
+      } else {
+        opts = audioSourceOpts(inp.audio);
+      }
+      Object.assign(opts, videoDims(n, ctx));
+      opts.extra = n.fields.modelOpts || {};
+      try {
+        return { video: await ctx.video(mdl(n), prompt, opts, inp.image) };
+      } catch (e) {
+        if (attempt > 0) throw e;
+        const msg = (e && e.message) || "";
+        if (/^video failed:/i.test(msg)) throw e; // post-submit poll failure: already charged — no second job
+        const cap = /up to\s+(\d+(?:\.\d+)?)\s*second/i.exec(msg);
+        if (cap && /INVALID_AUDIO_DURATION|audio.{0,15}duration/i.test(msg)) {
+          trimSec = Math.min(60, Math.max(1, parseFloat(cap[1]) - 0.1)); // the model told us its real cap
+        } else if (/\blarge\b|MEDIA_INLINE|~4 MB|inline/i.test(msg)) {
+          trimSec = 15; // oversize local clip → safe default (a 30s guess can re-trip a 30s-cap avatar)
+        } else if (/left.{0,6}audio|right.{0,6}audio|left and right/i.test(msg)) {
+          throw new NanoodleError("This avatar model needs two separate audio tracks (multi-speaker). Pick a single-speaker avatar model.");
+        } else throw e;
+      }
+    }
   },
 
   async music(n, inp, ctx) {
@@ -4214,5 +4258,5 @@ __x.MP4CAT = MP4CAT;
 __x.default = MP4CAT;
 });
   window.NanoodleEngine = __req("browser.mjs");
-  window.NanoodleEngine.version = "src-988cefa05bc4";
+  window.NanoodleEngine.version = "src-bdff3a08fc89";
 })();

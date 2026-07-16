@@ -258,12 +258,12 @@ for (const [name, type, fields, inp, directive] of SCENARIOS) {
   assert.equal(rf("vedit", { model: "x", prompt: "p" }, { video: IMG, ref1: IMG }), null, "vedit with wired refs must not delegate (same permissive-OFF reasoning as tvideo)");
   assert.notEqual(rf("vedit", { model: "x", prompt: "p" }, { video: IMG }), null, "vedit without refs delegates (library ref/dims parity landed)");
   assert.notEqual(rf("remix", { model: "x", prompt: "p" }, { audio: "blob:null/abc" }), null, "blob: media delegates (the shim materializes it to a data: URL)");
-  assert.equal(rf("lipsync", { model: "x" }, {}), null, "lipsync is excluded from NJS_TYPES (library lacks the trim-retry ladder)");
+  assert.notEqual(rf("lipsync", { model: "x" }, {}), null, "lipsync delegates (library ladder + ctx.trimAudio landed)");
   on.PENDING_VIDEO.set("n1", { sig: 1, runId: "r1" });   // a BUILT-IN engine's pending job (no njs tag)
   assert.equal(rf("ivideo", { model: "x", prompt: "p" }, { image: IMG }), null, "a built-in pending job keeps the node on the built-in engine (resume, don't re-submit)");
   on.PENDING_VIDEO.set("n1", { sig: 1, runId: "r1", njs: true });
   assert.notEqual(rf("ivideo", { model: "x", prompt: "p" }, { image: IMG }), null, "an njs-tagged pending job still delegates (this engine can resume it)");
-  console.log("✓ vetoes: gallery clamp / wired video refs / excluded types / foreign pending jobs all fall back to built-in (blob: media delegates)");
+  console.log("✓ vetoes: gallery clamp / wired video refs / foreign pending jobs fall back to built-in (blob: media and lipsync delegate)");
 }
 
 // keep-pending-on-abort: Stop must NOT delete a submitted (charged) job's pending entry — only a

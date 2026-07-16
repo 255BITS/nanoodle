@@ -8037,10 +8037,8 @@ function nodeSig(n, inp){
    Opt out: ?engine=play or localStorage njs_engine="0"; ?engine=js forces
    on. Demo runs and custom run contexts always use the built-in path.
    ===================================================================== */
-// lipsync is NOT delegated yet: the library lacks the built-in's charged-aware duration-trim retry
-// ladder — delegating would change what a paid request does. Re-add once nanoodle-js closes that
-// gap (see njsRunFor's vetoes too — wired video refs stay vetoed here for a different reason).
-const NJS_TYPES = { llm:1, vision:1, image:1, edit:1, draw:1, inpaint:1, tvideo:1, ivideo:1, vedit:1, music:1, tts:1, remix:1, transcribe:1 };
+// every network type delegates (wired video refs stay vetoed per-run — see njsRunFor)
+const NJS_TYPES = { llm:1, vision:1, image:1, edit:1, draw:1, inpaint:1, tvideo:1, ivideo:1, vedit:1, lipsync:1, music:1, tts:1, remix:1, transcribe:1 };
 function njsOn(){
   try{
     const q = new URLSearchParams(location.search).get("engine");
@@ -8128,6 +8126,13 @@ function njsCtx(E, n){
     signal: io.signal,
     catalog: null,   // filled per run by njsRunFor (async prefetch, then cached)
     maskToSource: (mask, source)=> maskToSource(mask, source),   // canvas compositor — handles JPEG/WebP sources
+    // lipsync's charged-aware retry ladder trims with THIS page's Web Audio decoder, so the
+    // retry bytes are identical to the built-in runner's (the library's pure-JS/ffmpeg trimmer
+    // isn't available in a browser)
+    trimAudio: async (url, start, len, rate)=>{
+      const tmp = await trimAudioToWavUrl(url, start, len, rate);
+      try{ return await urlToDataUrl(tmp); } finally { URL.revokeObjectURL(tmp); }
+    },
     progress: (msg)=> setNodeProgress(n, msg),
   };
 }

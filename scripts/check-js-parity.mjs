@@ -356,6 +356,17 @@ const SCENARIOS = [
     },
   },
   {
+    name: "lipsync: image + local audio + dims (happy path, no retry)",
+    data: {
+      nodes: [
+        node("u1", "upload", { image: IMG }),
+        node("a1", "aupload", { audio: AUD }),
+        node("l1", "lipsync", { model: "x", prompt: "subtle head movement", resolution: "720p" }),
+      ],
+      links: [link("u1", "image", "l1", "image"), link("a1", "audio", "l1", "audio")],
+    },
+  },
+  {
     name: "inpaint: mask composited onto black @ source size (pixel-level)",
     data: {
       nodes: [node("p1", "inpaint", { model: "x", prompt: "a straw hat", image: INPAINT_SRC, mask: INPAINT_MASK })],
