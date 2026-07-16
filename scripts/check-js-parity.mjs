@@ -29,6 +29,8 @@ if (!existsSync(join(JS_ROOT, "src/index.mjs"))) {
 }
 
 const { Workflow } = await import(pathToFileURL(join(JS_ROOT, "src/index.mjs")).href);
+const { decodePng, encodePngRgba } =
+  await import(pathToFileURL(join(JS_ROOT, "src/local-media.mjs")).href);
 
 const node = (id, type, fields) => ({ id, type, x: 0, y: 0, fields: fields || {} });
 let _l = 0;
@@ -41,7 +43,82 @@ const link = (from, fromPort, to, toPort) => ({
 const IMG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
 const AUD = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=";
 
-const DEFAULT_SYSTEM = "You are a helpful, concise assistant.";
+// ---- inpaint fixtures + headless canvas/Image shim -------------------------
+// play's maskToSource composites via <canvas>; the vm context has no DOM, so we
+// back Image/canvas with real pixel buffers (same-size composite only — canvas
+// resampling is implementation-defined in real browsers, so scaled-mask parity
+// is pixel-contract territory the library's own tests cover, not this harness).
+
+// await-wrapped: the sibling's PNG codec is sync today but goes async in the
+// browser-safe local-media split (DecompressionStream has no sync form) — await
+// keeps this harness working across both versions.
+async function pngDataUrl(w, h, rgba) {
+  return "data:image/png;base64," + Buffer.from(await encodePngRgba(w, h, rgba)).toString("base64");
+}
+async function decodePngUrl(u) {
+  return decodePng(Buffer.from(String(u).replace(/^data:[^,]*,/, ""), "base64"));
+}
+function px(w, h, paint) { // paint(x, y) → [r, g, b, a]
+  const out = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const [r, g, b, a] = paint(x, y), o = (y * w + x) * 4;
+    out[o] = r; out[o + 1] = g; out[o + 2] = b; out[o + 3] = a;
+  }
+  return out;
+}
+const INPAINT_SRC = await pngDataUrl(4, 4, px(4, 4, () => [200, 30, 30, 255]));           // opaque red
+const INPAINT_MASK = await pngDataUrl(4, 4, px(4, 4, (x, y) => y < 2 ? [255, 255, 255, 255] : [0, 0, 0, 0])); // brush: top half white, rest transparent
+
+class ImageShim {
+  set src(u) {
+    decodePngUrl(u).then(
+      (p) => {
+        this.__px = p;
+        this.naturalWidth = p.w;
+        this.naturalHeight = p.h;
+        this.onload && this.onload();
+      },
+      (e) => { this.onerror && this.onerror(e); },
+    );
+  }
+}
+function makeCanvasShim() {
+  const c = {
+    width: 0, height: 0, __buf: null,
+    getContext() {
+      return {
+        fillStyle: "",
+        fillRect(x, y, w, h) {
+          if (x || y || w !== c.width || h !== c.height || !/^#0{3,6}$/.test(this.fillStyle))
+            throw new Error("canvas shim: only a full-canvas black fill is supported");
+          c.__buf = new Uint8ClampedArray(c.width * c.height * 4);
+          for (let i = 3; i < c.__buf.length; i += 4) c.__buf[i] = 255;
+        },
+        drawImage(img, dx, dy, dw, dh) {
+          const p = img && img.__px;
+          if (!p) throw new Error("canvas shim: drawImage needs a decoded ImageShim");
+          if (dx || dy || dw !== c.width || dh !== c.height || p.w !== c.width || p.h !== c.height)
+            throw new Error("canvas shim: only same-size full-canvas drawImage is supported — use same-size fixtures");
+          const dst = c.__buf, src = p.rgba;
+          for (let i = 0; i < c.width * c.height; i++) {
+            const o = i * 4, a = src[o + 3] / 255;   // source-over onto opaque dst
+            dst[o] = Math.round(src[o] * a + dst[o] * (1 - a));
+            dst[o + 1] = Math.round(src[o + 1] * a + dst[o + 1] * (1 - a));
+            dst[o + 2] = Math.round(src[o + 2] * a + dst[o + 2] * (1 - a));
+            dst[o + 3] = 255;
+          }
+        },
+      };
+    },
+    // returns a Promise — play's maskToSource resolve()s it, which flattens fine
+    toDataURL() { return pngDataUrl(c.width, c.height, c.__buf); },
+  };
+  return c;
+}
+const extendDom = (ctx) => {
+  ctx.Image = ImageShim;
+  ctx.__createElement = (tag) => (tag === "canvas" ? makeCanvasShim() : null);
+};
 
 /** Deep-sort object keys so video dim key order etc. doesn't false-fail. */
 function canon(v) {
@@ -57,21 +134,20 @@ function canon(v) {
 /**
  * Normalize a recorded request for deep equality across engines.
  *
- * Intentional known gap (stripped for compare, not a bug either side):
- * nanoodle-js injects the editor's default system string when fields.system is
- * blank (CLI/graphs that never set it). play RUNTIME_JS only sends a system
- * message when the field is non-empty (editor-saved graphs usually have it).
- * When replacing the browser executor, graphs still carry the prefilled field
- * from the editor, so live traffic matches. Dual-run of minimal fixtures
- * without that field is the only place this shows up.
+ * No engine-difference allowances: runJs passes { defaults: false } so the
+ * library treats graph fields as authoritative, exactly like play RUNTIME_JS
+ * (play's UI materializes input defs into node.fields before running — the
+ * engine itself never backfills). Parity here is literal.
  */
-function normReq(r) {
+async function normReq(r) {
   const url = String(r.url).replace(/\/+$/, "");
   const path = url.replace(/^https?:\/\/[^/]+/i, "");
-  let body = r.body == null ? null : JSON.parse(JSON.stringify(r.body));
-  if (body && Array.isArray(body.messages) && body.messages[0]?.role === "system"
-      && body.messages[0].content === DEFAULT_SYSTEM) {
-    body = { ...body, messages: body.messages.slice(1) };
+  const body = r.body == null ? null : JSON.parse(JSON.stringify(r.body));
+  // maskDataUrl is engine-encoded PNG (canvas toDataURL vs the library's encoder):
+  // the API contract is the PIXELS, not the encoder's byte stream — compare decoded.
+  if (body && typeof body.maskDataUrl === "string" && body.maskDataUrl.startsWith("data:image/png")) {
+    const { w, h, rgba } = await decodePngUrl(body.maskDataUrl);
+    body.maskDataUrl = `png-pixels:${w}x${h}:${Buffer.from(rgba).toString("base64")}`;
   }
   return { path, body: canon(body) };
 }
@@ -81,8 +157,9 @@ function stableKey(req) {
 }
 
 /** Sort requests so parallel-lane ordering differences don't false-fail. */
-function sortReqs(reqs) {
-  return reqs.map(normReq).sort((a, b) => stableKey(a).localeCompare(stableKey(b)));
+async function sortReqs(reqs) {
+  const normed = await Promise.all(reqs.map(normReq));
+  return normed.sort((a, b) => stableKey(a).localeCompare(stableKey(b)));
 }
 
 function recordingFetchFactory(bucket) {
@@ -125,7 +202,9 @@ async function runJs(data) {
   const fetchFn = recordingFetchFactory(bucket);
   const wf = Workflow.fromJSON(data, { apiKey: "test-key", fetch: fetchFn, quiet: true });
   try {
-    await wf.run({});
+    // defaults:false = the play-delegation contract: fields are authoritative,
+    // the engine never backfills input defs (play's UI does that itself)
+    await wf.run({}, { defaults: false });
   } catch {
     // RunError on sink failure is fine — we only compare paid requests
   }
@@ -259,6 +338,13 @@ const SCENARIOS = [
       links: [link("s1", "video", "v1", "video")],
     },
   },
+  {
+    name: "inpaint: mask composited onto black @ source size (pixel-level)",
+    data: {
+      nodes: [node("p1", "inpaint", { model: "x", prompt: "a straw hat", image: INPAINT_SRC, mask: INPAINT_MASK })],
+      links: [],
+    },
+  },
 ];
 
 function diffReqs(playReqs, jsReqs) {
@@ -278,17 +364,17 @@ function diffReqs(playReqs, jsReqs) {
 
 async function main() {
   // Warm play engine once (uses scripts/play-engine.mjs recordingFetch → calls[])
-  loadEngine();
+  loadEngine(extendDom);
 
   let failed = 0;
   for (const sc of SCENARIOS) {
     _l = 0;
     calls.length = 0;
-    const playApp = loadEngine();
+    const playApp = loadEngine(extendDom);
     const g = playApp.materialize(sc.data);
     await playApp.runGraph(g, {}).catch(() => {});
     // Filter to paid API traffic only (skip catalog GETs if any)
-    const playReqs = sortReqs(calls.filter((c) =>
+    const playReqs = await sortReqs(calls.filter((c) =>
       /\/(chat\/completions|images\/generations|generate-video|audio\/speech|transcriptions)/.test(c.url)));
 
     const jsReqs = (await runJs(sc.data)).filter((r) =>
