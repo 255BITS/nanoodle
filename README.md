@@ -19,7 +19,8 @@ self-contained `.html` file.
 
 ## Privacy architecture
 
-nanoodle is three static HTML pages. There is no backend, and that is the
+nanoodle is a folder of static HTML pages — three core pages plus a
+changelog, guides and landing pages. There is no backend, and that is the
 design, not a limitation:
 
 - **No analytics, no tracking, no third-party scripts.** Nothing phones home.
@@ -93,6 +94,16 @@ Replace the code with your own (or delete the parameter and use bare
   [patchling](https://github.com/255BITS/patchling), share via `#a=`
   link, or export a self-contained `.html`.
 - **`legal.html`** — terms, privacy, FAQ (`/legal`).
+- **`changelog.html`** — release notes (`/changelog`), generated from
+  `updates.json` by `scripts/gen-changelog.mjs`, plus an Atom feed
+  (`feed.xml`).
+- **`guide/`** — static docs (`/guide/`): the `noodle-graph.json` format,
+  running workflows headlessly, self-hosting, and how share links work.
+  Zero scripts, zero network.
+- The rest is landing pages: comparisons (`nanoodle-vs-comfyui.html`,
+  `nanoodle-vs-n8n.html`, `comfyui-alternative.html`,
+  `comfyui-alternative-no-gpu.html`) and localized home pages (`es/`,
+  `fr/`, `de/`, `pt/`, `ja/`).
 
 ## Run workflows from code
 
@@ -119,8 +130,13 @@ Everything lives under the [nanoodlecom](https://github.com/nanoodlecom) GitHub 
 | Repo | What it is |
 | --- | --- |
 | [nanoodle](https://github.com/nanoodlecom/nanoodle) | The playground — editor, app builder, the whole site (this repo) |
-| [nanoodle-js](https://github.com/nanoodlecom/nanoodle-js) | Zero-dependency JS executor — run saved noodle graphs from Node |
-| [nanoodle-py](https://github.com/nanoodlecom/nanoodle-py) | Zero-dependency Python executor — same graphs, same results |
+| [nanoodle-js](https://github.com/nanoodlecom/nanoodle-js) | Zero-dependency JS executor — use when running saved graphs from Node or the CLI |
+| [nanoodle-py](https://github.com/nanoodlecom/nanoodle-py) | Zero-dependency Python executor — use when your scripts speak Python |
+| [nanoodle-mcp](https://github.com/nanoodlecom/nanoodle-mcp) | MCP server exposing saved graphs as tools — use when an AI agent should run your workflows |
+| [run-noodle-action](https://github.com/nanoodlecom/run-noodle-action) | GitHub Action — use when a graph should run in CI |
+| [nanoodle-skill](https://github.com/nanoodlecom/nanoodle-skill) | One agent skill that teaches an agent to build any graph — use when the agent should author workflows itself |
+| [noodle-skills](https://github.com/nanoodlecom/noodle-skills) | Prebuilt one-task agent skills — use when you want a ready-made skill, no graph editing |
+| [awesome-noodles](https://github.com/nanoodlecom/awesome-noodles) | Gallery of ready-to-open graphs — use when you want examples to start from |
 
 Naming note: the package is `nanoodle` on **both** registries while the repos are
 `nanoodle-js` / `nanoodle-py` — so it's `npm install nanoodle` and `pip install nanoodle`.
