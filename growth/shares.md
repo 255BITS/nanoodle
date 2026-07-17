@@ -2,6 +2,17 @@
 
 One new place a day. Quality of fit > reach. No spam — contribute value, honor the no-analytics / no-server / BYO-key pitch.
 
+## ⚠️ Pending launches — drafted, past their planned date, not yet posted
+
+The three highest-leverage venues in the whole plan. Each is fully drafted; they slipped when the Cookoff wrapped. Post-Cookoff was the *chosen* window (maker can live in comments), so these are ready now, not stale:
+
+1. **Show HN** — draft in `show-hn-draft.md`; planned Jul 14–15. Angle: single-file .html export + no server/analytics; NO crypto framing. Coordinate with the old PR #32 proposal so we don't double-post.
+2. **Product Hunt** — draft in `product-hunt-draft.md`; planned Jul 14–15. Asset: signed-out demo Run; honest pay-per-call pricing.
+3. **AlternativeTo** — ComfyUI-alternative listing; account age gate lifted Jul 13, so submittable **now**. Evergreen directory long-tail; disclose maker.
+4. **r/mcp** (today's beat) — draft in `2026-07-17-ecosystem-shares.md`; gated on `nanoodle-mcp` landing on npm (or swap the install line for the git-clone path).
+
+When one goes out, move it into the table below with the result.
+
 Columns: date · venue · angle used · result (upvotes, comments, signups, what landed)
 
 | Date | Venue | Angle | Result |
@@ -20,6 +31,15 @@ Columns: date · venue · angle used · result (upvotes, comments, signups, what
 | Jul 5 | Zenn (zenn.dev, JA dev platform) — pivot | Same JA angle as an Idea article + 🎛 Remix node fresh-today hook + single-HTML/no-build technical angle for the dev crowd (draft: 2026-07-05-zenn-ja.md); GitHub sign-in works from abroad; articles compound vs timeline posts | drafted — pending human post |
 | Jul 5 | X thread re-bump (bonus, not the "new place") | bilingual 🇯🇵 reply on the performing thread: JA support + /ja/ link + Cookoff Jul 12 urgency (Nano-adjacent audience, crypto framing OK here) | drafted — rides the 405-view momentum per Jul-4 plan note |
 | Jul 5 | AlternativeTo (attempted) | ComfyUI-alternative listing (draft PR #243) | ⏳ blocked — new-account 7-day age gate; submittable after **Jul 13 05:49 Stockholm**. Do NOT re-attempt before then. Re-slot for Jul 13–14 alongside Cookoff results (listing can reference winner-built examples). Zenn = today's "new place" instead. |
+| Jul 6 | Official Nano Discord (chat.nano.org) | Cookoff one-week-left, crypto framing OK (draft: 2026-07-06-nano-discord.md) | drafted — outcome not logged; backfill |
+| Jul 7 | Indie Hackers | builder story, BYO-key + single-file export (draft: 2026-07-07-indiehackers.md) | drafted — outcome not logged; backfill |
+| Jul 8 | Banodoco Discord | creative-AI piece-not-pitch (draft: 2026-07-08-banodoco.md) | drafted — outcome not logged; backfill |
+| Jul 10 | nano-gpt Discord + r/nanocurrency | 48h Cookoff bump ×2 + r/nocode graph→app story (drafts: 3 files dated 07-10) | drafted — outcome not logged; backfill |
+| Jul 11 | r/webdev Showoff Saturday + Nano last-24h blast | one HTML file, no build step (draft: 2026-07-11-showoff-saturday.md) | drafted — outcome not logged; backfill |
+| Jul 12 | Nano venues | deadline-day final call + judging notes (draft: 2026-07-12-deadline-and-judging.md) | drafted — Cookoff wrapped privately, 3 of 4 entries awarded |
+| Jul 17 | r/mcp (+ AlternativeTo) | "ecosystem went open source" — org public, workflows as MCP tools (draft: 2026-07-17-ecosystem-shares.md) | pending — gated on nanoodle-mcp npm publish (see Pending launches) |
+
+> **Jul 17 log hygiene note:** rows Jul 6–12 were backfilled from the per-day draft files; actual post URLs/results were never logged. If a day's post went out, replace "outcome not logged" with the real result — the log only compounds if it's true.
 
 > Jul 5: Venue call for the JA share = **Misskey.io** over JP AI-art Twitter hashtags (X isn't a *new* place; Misskey.io is the largest JP fediverse instance and notably genAI-tolerant — the Mastodon anti-genAI pile-on risk on the avoid list specifically doesn't apply there) and over Zenn/Qiita (article-sized lift, save for the single-file-architecture writeup). Needs a one-time account creation. Cookoff/XNO kept OUT of the Misskey post per the non-Nano-venue rule; it goes in the X re-bump instead where the audience is already Nano-adjacent.
 >

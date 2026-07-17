@@ -137,6 +137,9 @@ Everything lives under the [nanoodlecom](https://github.com/nanoodlecom) GitHub 
 | [nanoodle-skill](https://github.com/nanoodlecom/nanoodle-skill) | One agent skill that teaches an agent to build any graph — use when the agent should author workflows itself |
 | [noodle-skills](https://github.com/nanoodlecom/noodle-skills) | Prebuilt one-task agent skills — use when you want a ready-made skill, no graph editing |
 | [awesome-noodles](https://github.com/nanoodlecom/awesome-noodles) | Gallery of ready-to-open graphs — use when you want examples to start from |
+| [built-with-nanoodle](https://github.com/nanoodlecom/built-with-nanoodle) | Showcase of apps people shipped — use when you want to see (or show) what nanoodle makes |
+| [noodle-embed](https://github.com/nanoodlecom/noodle-embed) | `<noodle-embed>` web component — use when a page should render a workflow read-only |
+| [mp4cat](https://github.com/nanoodlecom/mp4cat) | Lossless mp4 concat, browser or Node — use when you just need to join clips, no ffmpeg |
 
 Naming note: the package is `nanoodle` on **both** registries while the repos are
 `nanoodle-js` / `nanoodle-py` — so it's `npm install nanoodle` and `pip install nanoodle`.
