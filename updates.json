@@ -1,7 +1,36 @@
 [
   {
+    "date": "2026-07-17",
+    "text": "🔗 Share links now shorten through nanoodle's own link.nanoodle.com — no third party sees your workflow, and each short link unfurls with a preview card of your graph's structure (never your prompts or media). Prefer an independent shortener? da.gd is still there, clearly labeled.",
+    "i18n": {
+      "es": "🔗 Los enlaces para compartir ahora se acortan a través del propio link.nanoodle.com de nanoodle: ningún tercero ve tu flujo de trabajo, y cada enlace corto se despliega con una tarjeta de vista previa de la estructura de tu gráfico (nunca tus indicaciones ni tu contenido multimedia). ¿Prefieres un acortador independiente? da.gd sigue disponible, claramente identificado.",
+      "pt": "🔗 Links de compartilhamento agora são encurtados pelo próprio link.nanoodle.com do nanoodle — nenhum terceiro vê seu fluxo de trabalho, e cada link curto exibe um cartão de pré-visualização da estrutura do seu grafo (nunca seus prompts ou mídia). Prefere um encurtador independente? da.gd ainda está por lá, claramente identificado.",
+      "ja": "🔗 共有リンクは、nanoodle 独自の link.nanoodle.com を使って短縮されるようになりました。サードパーティにワークフローが見られることはなく、短縮リンクにはグラフ構造のプレビューカードが展開されます（プロンプトやメディアは一切含まれません）。独立した短縮サービスがお好みなら、da.gd も引き続き明確にラベル付きで利用できます。",
+      "fr": "🔗 Les liens de partage sont désormais raccourcis par link.nanoodle.com, le propre raccourcisseur de nanoodle — aucun tiers ne consulte votre workflow, et chaque lien court s'affiche avec une carte d'aperçu de la structure de votre graphe (jamais vos prompts ou vos médias). Vous préférez un service indépendant ? da.gd reste disponible, clairement identifié.",
+      "de": "🔗 Geteilte Links werden jetzt über nanoodles eigenen link.nanoodle.com gekürzt – kein Drittanbieter sieht deinen Workflow, und jeder Kurzlink zeigt eine Vorschaukarte der Struktur deines Graphen (niemals deine Prompts oder Medien). Du bevorzugst einen unabhängigen Shortener? da.gd ist weiterhin da und klar beschriftet."
+    }
+  },
+  {
+    "date": "2026-07-17",
+    "text": "🗣️ Bring your own cloned voice — the Speech node's Voice field now accepts custom voice IDs typed straight in, with the catalog voices still one click away as suggestions.",
+    "i18n": {
+      "es": "🗣️ Usa tu propia voz clonada: el campo Voice del nodo Speech ahora acepta IDs de voz personalizados escritos directamente, con las voces del catálogo aún a un clic como sugerencias.",
+      "pt": "🗣️ Traga sua própria voz clonada — o campo Voice do nó Speech agora aceita IDs de voz personalizados digitados diretamente, com as vozes do catálogo ainda acessíveis em um clique como sugestões.",
+      "ja": "🗣️ クローンした自分の音声を使えます。Speech ノードの Voice フィールドに、カスタム voice ID を直接入力できるようになりました。カタログの音声は相変わらずワンクリックで候補として選べます。",
+      "fr": "🗣️ Apportez votre propre voix clonée — le champ Voice du nœud Speech accepte désormais les IDs de voix personnalisés saisis directement, tandis que les voix du catalogue restent accessibles en un clic comme suggestions.",
+      "de": "🗣️ Bring deine eigene geklonte Stimme mit – das Voice-Feld des Speech-Knotens nimmt jetzt direkt eigene Voice-IDs entgegen, während die Katalogstimmen weiterhin als Vorschläge nur einen Klick entfernt sind."
+    }
+  },
+  {
     "date": "2026-07-16",
-    "text": "the open-source nanoodle-js engine now powers runs by default — byte-identical requests, one engine across the editor, shared apps, exports and the CLI."
+    "text": "the open-source nanoodle-js engine now powers runs by default — byte-identical requests, one engine across the editor, shared apps, exports and the CLI.",
+    "i18n": {
+      "es": "El motor de código abierto nanoodle-js ahora impulsa las ejecuciones por defecto: peticiones idénticas byte a byte, un único motor para el editor, apps compartidas, exportaciones y la CLI.",
+      "pt": "o motor nanoodle-js de código aberto agora alimenta as execuções por padrão — requisições idênticas byte a byte, um único motor no editor, em apps compartilhados, exportações e CLI.",
+      "ja": "オープンソースの nanoodle-js エンジンがデフォルトで実行を担当するようになりました。リクエストはバイト単位で同一、エディタ・共有アプリ・エクスポート・CLI のすべてをひとつのエンジンで統一しています。",
+      "fr": "Le moteur open source nanoodle-js est désormais utilisé par défaut pour les exécutions — des requêtes identiques à l'octet près, un seul moteur dans l'éditeur, les apps partagées, les exports et le CLI.",
+      "de": "Die Open-Source-Engine nanoodle-js ist jetzt standardmäßig für Ausführungen zuständig – byte-identische Anfragen, eine Engine für Editor, geteilte Apps, Exports und die CLI."
+    }
   },
   {
     "date": "2026-07-11",
