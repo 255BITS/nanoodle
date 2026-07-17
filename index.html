@@ -3929,7 +3929,7 @@ const AUDIO_PARAMS = {
     { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3", advanced:true },
   ],
   tts: [
-    { id:"voice",           label:"Voice",           type:"select",   appliesTo:"cat:voices" },
+    { id:"voice",           label:"Voice",           type:"combo",    appliesTo:"cat:voices", hint:"pick a catalog voice, or paste a custom voice ID (e.g. from a voice-clone model)" },
     { id:"speed",           label:"Speed",           type:"number",   appliesTo:"all", min:0.25, max:2, default:1, advanced:true },
     { id:"instructions",    label:"Instructions",    type:"textarea", appliesTo:"all", advanced:true, ph:"e.g. warm and cheerful, slight British accent", hint:"how to speak — tone, accent, emotion (some models ignore this)" },
     { id:"response_format", label:"Format",          type:"select",   appliesTo:"all", options:["mp3","opus","aac","flac","wav","pcm"], default:"mp3", advanced:true },
@@ -3975,6 +3975,13 @@ function audioFieldHTML(n, f){
     return `<div><label>${esc(f.label)}</label><select data-pf="${f.id}">${
       opts.map(o=>`<option value="${esc(o)}"${o===val?" selected":""}>${esc(o)}</option>`).join("")}</select>${hint}</div>`;
   }
+  if(f.type==="combo"){   // catalog options as suggestions, free text allowed (custom / cloned voice IDs)
+    const opts = f.options || [];
+    const val = (cur!=null && cur!=="") ? cur : (f.default ?? opts[0] ?? "");
+    const dl = `dl_${n.id}_${f.id}`;
+    return `<div><label>${esc(f.label)}</label><input data-pf="${f.id}" list="${dl}" value="${esc(val)}" placeholder="${esc(f.label)}"/><datalist id="${dl}">${
+      opts.map(o=>`<option value="${esc(o)}"></option>`).join("")}</datalist>${hint}</div>`;
+  }
   if(f.type==="boolean")
     return `<label class="chk"><input type="checkbox" data-pf="${f.id}"${(cur===true||cur==="true")?" checked":""}/> ${esc(f.label)}</label>${hint}`;
   if(f.type==="number"){
@@ -3995,8 +4002,18 @@ function refreshAudioParams(n){
   const advBox = n.el.querySelector("[data-advparams]");
   if(!it){ box.innerHTML=""; if(advBox) advBox.innerHTML=""; return; }
   const fields = audioFields(n.type, it);
-  for(const f of fields)   // normalize selects so a switched model lands on a valid value
+  for(const f of fields){  // normalize selects so a switched model lands on a valid value
     if(f.type==="select" && !(f.options||[]).includes(n.fields[f.id])) n.fields[f.id] = f.default ?? (f.options||[])[0];
+    // combo (voice): a value outside the catalog list is a deliberate custom/cloned voice ID and
+    // must survive param rebuilds and model swaps. Reset only when empty, or when the value is
+    // ANOTHER model's stock voice — that's a stale leftover from a model swap the API would reject.
+    if(f.type==="combo"){
+      const v = n.fields[f.id];
+      if(v==null || v==="" ||
+         (!(f.options||[]).includes(v) && (catalogs.audio||[]).some(m=>Array.isArray(m.voices)&&m.voices.includes(v))))
+        n.fields[f.id] = f.default ?? (f.options||[])[0];
+    }
+  }
   const basicFields = fields.filter(f=>!f.advanced);
   const advancedFields = fields.filter(f=>f.advanced);
   box.innerHTML = basicFields.map(f=>audioFieldHTML(n,f)).join("");
@@ -11128,7 +11145,7 @@ $("signout").onclick = ()=> setKey(null);
       lyrics:"lyrics to continue (song-extend models)", duration:"seconds when billed per-second",
     }, note:"audio + text → audio; wire the source track into the audio port" },
     tts:{ main:"prompt", fields:{
-      model:"tts model id (optional)", prompt:"text to speak", voice:"voice id from catalog (optional)",
+      model:"tts model id (optional)", prompt:"text to speak", voice:"voice id — catalog voice or a custom/cloned voice id (optional)",
       speed:"0.25–2 (default 1)", instructions:"tone/accent/emotion (some models ignore)",
     } },
     trim:{ fields:{ start:"seconds", length:"seconds" }, note:"outputs mono WAV small enough to send to models" },
