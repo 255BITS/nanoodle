@@ -1,0 +1,47 @@
+name: checks
+
+# The full scripts/check-*.mjs suite — the same guards .githooks/pre-commit
+# runs locally, but unconditionally, so nothing lands on main unchecked and
+# js-engine parity can never silently skip (the sibling is always cloned).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout nanoodle-js (js-engine parity sibling)
+        uses: actions/checkout@v4
+        with:
+          repository: nanoodlecom/nanoodle-js
+          path: nanoodle-js-sibling
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run check suite
+        env:
+          NANOODLE_JS: ${{ github.workspace }}/nanoodle-js-sibling
+        run: |
+          fails=0
+          for f in scripts/check-*.mjs; do
+            echo "::group::$f"
+            if ! node "$f"; then
+              fails=$((fails+1))
+              echo "::error file=$f::check failed"
+            fi
+            echo "::endgroup::"
+          done
+          # parity must have actually run, not skipped
+          if node scripts/check-js-parity.mjs | grep -q '^⊘ skip'; then
+            echo "::error::js-engine parity skipped — sibling checkout missing"
+            fails=$((fails+1))
+          fi
+          exit $fails
