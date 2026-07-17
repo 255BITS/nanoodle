@@ -814,7 +814,8 @@
             background:var(--panel2); border:1px solid var(--line); color:var(--ink); text-decoration:none;
             display:inline-flex; align-items:center; gap:.3rem; }
   .sm-svc button:hover, .sm-social a:hover{ background:var(--panel); border-color:var(--accent); }
-  /* nanolink — nanoodle's own first-party shortener — is the one shorten button.
+  /* nanolink — nanoodle's own first-party shortener — is the primary shorten button
+     (da.gd sits beside it, unemphasized, as the labeled third-party alternative).
      Emphasized (bright accent ring + ✓) but still clearly a button in the row, not a filled tag. */
   .sm-svc button.sm-primary{ background:#7c8cff22; border-color:var(--accent); color:var(--ink);
             font-weight:700; box-shadow:inset 0 0 0 1px var(--accent); }
@@ -999,9 +1000,10 @@
   <p class="sm-note">This link opens your exact workflow for anyone to run or remix.</p>
 
   <div class="sm-head">Make it shorter — optional</div>
-  <p class="sm-warn">Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. <a href="https://github.com/nanoodlecom/nanolink" target="_blank" rel="noopener">view source</a></p>
+  <p class="sm-warn">nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens. <a href="https://github.com/nanoodlecom/nanolink" target="_blank" rel="noopener">view nanolink source</a></p>
   <div class="sm-svc">
     <button data-svc="nanolink" class="sm-primary" title="nanoodle’s own first-party shortener — handles very long links (workflow links can get big)">nanolink</button>
+    <button data-svc="dagd" title="Third-party alternative — handles links up to ~9 kB">da.gd</button>
   </div>
   <p id="sm-toolong" class="sm-warn" hidden></p>
 
@@ -1183,8 +1185,9 @@ const I18N = {
     "Open one of your saved apps — created or imported":"Abre una de tus apps guardadas — creadas o importadas",
     "Save this as a brand-new app — the one you’re editing stays untouched":"Guarda esto como una app totalmente nueva — la que estás editando queda intacta",
     "Search nodes… (image, voice, video)":"Buscar nodos… (imagen, voz, vídeo)",
-    "Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics.":"Tu enlace se guarda en el acortador propio de nanoodle — un Cloudflare Worker + KV sin registros ni analíticas.",
-    "view source":"ver el código",
+    "nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens.":"nanolink es el acortador propio de nanoodle — un Cloudflare Worker + KV sin registros ni analíticas. da.gd es un servicio independiente de terceros que ve y guarda cada enlace que acorta.",
+    "view nanolink source":"ver el código de nanolink",
+    "Third-party alternative — handles links up to ~9 kB":"Alternativa de terceros — admite enlaces de hasta ~9 kB",
     "Got it":"Entendido",
     "Terms · Privacy":"Términos · Privacidad",
     "Open source":"Código abierto",
@@ -1656,8 +1659,9 @@ const I18N = {
     "Open one of your saved apps — created or imported":"Ouvrez une de vos apps enregistrées — créées ou importées",
     "Save this as a brand-new app — the one you’re editing stays untouched":"Enregistrer ceci comme une toute nouvelle app — celle que vous modifiez reste inchangée",
     "Search nodes… (image, voice, video)":"Rechercher des nœuds… (image, voix, vidéo)",
-    "Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics.":"Votre lien est stocké sur le raccourcisseur maison de nanoodle — un Worker Cloudflare + KV, sans journaux ni analytique.",
-    "view source":"voir le code",
+    "nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens.":"nanolink est le raccourcisseur maison de nanoodle — un Worker Cloudflare + KV, sans journaux ni analytique. da.gd est un service tiers indépendant qui voit et conserve chaque lien qu’il raccourcit.",
+    "view nanolink source":"voir le code de nanolink",
+    "Third-party alternative — handles links up to ~9 kB":"Alternative tierce — gère les liens jusqu’à ~9 ko",
     "Got it":"Compris",
     "Terms · Privacy":"Conditions · Confidentialité",
     "Open source":"Open source",
@@ -2119,8 +2123,9 @@ const I18N = {
     "Open one of your saved apps — created or imported":"Öffne eine deiner gespeicherten Apps — erstellt oder importiert",
     "Save this as a brand-new app — the one you’re editing stays untouched":"Dies als brandneue App speichern — die, die du gerade bearbeitest, bleibt unverändert",
     "Search nodes… (image, voice, video)":"Nodes suchen… (Bild, Stimme, Video)",
-    "Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics.":"Dein Link wird in nanoodles eigenem Kürzungsdienst gespeichert — ein Cloudflare Worker + KV, ohne Logs und ohne Analytics.",
-    "view source":"Quellcode ansehen",
+    "nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens.":"nanolink ist nanoodles eigener Kürzungsdienst — ein Cloudflare Worker + KV, ohne Logs und ohne Analytics. da.gd ist ein unabhängiger Drittanbieter-Dienst, der jeden gekürzten Link sieht und speichert.",
+    "view nanolink source":"Quellcode von nanolink ansehen",
+    "Third-party alternative — handles links up to ~9 kB":"Drittanbieter-Alternative — verarbeitet Links bis ~9 kB",
     "Got it":"Alles klar",
     "Terms · Privacy":"AGB · Datenschutz",
     "Open source":"Open Source",
@@ -2585,8 +2590,9 @@ const I18N = {
     "Open one of your saved apps — created or imported":"Abra um dos seus apps salvos — criados ou importados",
     "Save this as a brand-new app — the one you’re editing stays untouched":"Salve isto como um app totalmente novo — o que você está editando permanece inalterado",
     "Search nodes… (image, voice, video)":"Buscar nós… (imagem, voz, vídeo)",
-    "Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics.":"Seu link fica guardado no encurtador próprio do nanoodle — um Cloudflare Worker + KV, sem logs e sem analytics.",
-    "view source":"ver o código",
+    "nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens.":"nanolink é o encurtador próprio do nanoodle — um Cloudflare Worker + KV, sem logs e sem analytics. da.gd é um serviço independente de terceiros que vê e guarda cada link que encurta.",
+    "view nanolink source":"ver o código do nanolink",
+    "Third-party alternative — handles links up to ~9 kB":"Alternativa de terceiros — aceita links de até ~9 kB",
     "Got it":"Entendi",
     "Terms · Privacy":"Termos · Privacidade",
     "Open source":"Código aberto",
@@ -3049,8 +3055,9 @@ const I18N = {
     "Open one of your saved apps — created or imported":"保存したアプリを開く — 作成またはインポートしたもの",
     "Save this as a brand-new app — the one you’re editing stays untouched":"これを新しいアプリとして保存 — 編集中のアプリはそのまま残ります",
     "Search nodes… (image, voice, video)":"ノードを検索… (画像、音声、動画)",
-    "Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics.":"リンクはnanoodle自身の短縮サービス（Cloudflare Worker + KV）に保存されます — ログも解析もありません。",
-    "view source":"ソースを見る",
+    "nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens.":"nanolinkはnanoodle自身の短縮サービス（Cloudflare Worker + KV）です — ログも解析もありません。da.gdは独立した第三者のサービスで、短縮するすべてのリンクを閲覧・保存します。",
+    "view nanolink source":"nanolinkのソースを見る",
+    "Third-party alternative — handles links up to ~9 kB":"第三者の代替サービス — 約9 kBまでのリンクに対応",
     "Got it":"了解",
     "Terms · Privacy":"利用規約 · プライバシー",
     "Open source":"オープンソース",
@@ -10093,6 +10100,9 @@ async function buildShareUrl(target){
 // URL shortening — FIRST-PARTY via nanolink (github.com/nanoodlecom/nanolink), our own
 // Cloudflare Worker + KV. It replaced the third-party shorteners (da.gd/TinyURL), which saw
 // every shortened workflow — a privacy hole in a product whose promise is "no third parties".
+// da.gd is back as a clearly-LABELED alternative button (the popover says it sees and stores
+// what it shortens); it only ever runs on an explicit click — auto-shorten (the social-intent
+// path below) always uses nanolink.
 // The editor's connect-src allows https: and runs only first-party code over declarative
 // graphs — no untrusted app — so calling the shortener here has no exfiltration surface
 // (unlike play.html's preview, sealed by PREVIEW_CSP).
@@ -10104,7 +10114,9 @@ const NANOLINK_ORIGIN = "https://link.nanoodle.com";
 // 200 HTML "body bounce" — the target URL rides in the response BODY — so the old da.gd
 // hazard (Cloudflare's h3 edge stalling on >~10k Location headers) doesn't apply. Past the
 // ceiling the button greys out with a note instead of round-tripping into a guaranteed 4xx.
-const SHORTEN_CEILING = { nanolink: 131072 };
+// da.gd keeps its old ~9k ceiling: its redirect DOES echo the full target as a Location
+// header, and CF's h3 edge stalls past ~10k — the binding limit is what recipients can load.
+const SHORTEN_CEILING = { nanolink: 131072, dagd: 9000 };
 // Even though nanolink can store ~128 kB, the RAW link is what most people paste into chat
 // apps, and messengers reliably cut multi-kB URLs — so packShareFit keeps trimming the share
 // payload toward this budget (the same ~9k figure the old shortener pipeline imposed).
@@ -10191,7 +10203,18 @@ async function shareCardB64(longUrl){
 }
 async function shortenWith(svc, longUrl){
   const max = SHORTEN_CEILING[svc];   // fail fast (and cheap) on links the service is known to reject
-  if(max && longUrl.length > max) throw new Error(`link is ${(longUrl.length/1024).toFixed(0)} kB — past the ~${Math.round(max/1024)} kB nanolink can store`);
+  if(max && longUrl.length > max) throw new Error(`link is ${(longUrl.length/1024).toFixed(0)} kB — past the ~${Math.round(max/1024)} kB ${svc==="dagd" ? "da.gd serves reliably" : "nanolink can store"}`);
+  if(svc==="dagd"){
+    // Third-party POST — explicit-click only. Same stance as nanolink: any failure (or the
+    // 5s timeout) just falls back to the full-length link, which always works.
+    const r = await fetch("https://da.gd/shorten", { method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body:"url="+encodeURIComponent(longUrl),
+        signal: AbortSignal.timeout(5000) });
+    const txt = (await r.text()).trim();
+    // Failure bodies are often whole HTML error pages — report the status, not tag soup.
+    if(!/^https?:\/\/\S+$/.test(txt)) throw new Error(txt.startsWith("<") ? "HTTP "+r.status : (txt.slice(0,80) || "no link returned"));
+    return txt;
+  }
   if(svc!=="nanolink") throw new Error("unknown service");
   // POST /api/links → {slug, shortUrl}. A few-second timeout: shortening is a nicety and the
   // full-length link in the popover always works, so ANY failure just falls back to it.

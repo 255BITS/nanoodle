@@ -174,7 +174,8 @@
             background:var(--panel2); border:1px solid var(--line); color:var(--text); text-decoration:none;
             display:inline-flex; align-items:center; gap:.3rem; }
   .sm-svc button:hover, .sm-social a:hover{ background:var(--accent-soft); border-color:var(--accent-line); }
-  /* nanolink — nanoodle's own first-party shortener — is the one shorten button.
+  /* nanolink — nanoodle's own first-party shortener — is the primary shorten button
+     (da.gd sits beside it, unemphasized, as the labeled third-party alternative).
      Emphasized (bright accent ring + ✓) but still clearly a button in the row, not a filled tag. */
   .sm-svc button.sm-primary{ background:var(--accent-soft); border-color:var(--accent); color:var(--text);
             font-weight:700; box-shadow:inset 0 0 0 1px var(--accent); }
@@ -444,9 +445,10 @@
   </label>
 
   <div class="am-head">Make it shorter — optional</div>
-  <p class="sm-warn" data-no-i18n>Your link is stored on nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. <a href="https://github.com/nanoodlecom/nanolink" target="_blank" rel="noopener">view source</a></p>
+  <p class="sm-warn" data-no-i18n>nanolink is nanoodle’s own shortener — a Cloudflare Worker + KV with no logs and no analytics. da.gd is an independent third-party service that sees and stores every link it shortens. <a href="https://github.com/nanoodlecom/nanolink" target="_blank" rel="noopener">view nanolink source</a></p>
   <div class="sm-svc">
     <button data-svc="nanolink" class="sm-primary" title="nanoodle’s own first-party shortener — handles very long links (app links can get big)">nanolink</button>
+    <button data-svc="dagd" title="Third-party alternative — handles links up to ~9 kB">da.gd</button>
   </div>
   <p id="sm-toolong" class="sm-warn" hidden></p>
 
@@ -4864,6 +4866,7 @@ const PLAY_I18N_B = {
   "New app from this workflow":{es:"Nueva app desde este flujo",fr:"Nouvelle app depuis ce flux",de:"Neue App aus diesem Workflow",pt:"Novo app a partir deste fluxo",ja:"このワークフローから新規アプリ"},
   "Share this app":{es:"Comparte esta app",fr:"Partager cette app",de:"Diese App teilen",pt:"Compartilhe este app",ja:"このアプリを共有"},
   "nanoodle’s own first-party shortener — handles very long links (app links can get big)":{es:"El acortador propio de nanoodle — admite enlaces muy largos (los enlaces de apps pueden crecer mucho)",fr:"Le raccourcisseur maison de nanoodle — gère les liens très longs (les liens d’app peuvent devenir gros)",de:"nanoodles eigener Kürzungsdienst — verarbeitet sehr lange Links (App-Links können groß werden)",pt:"O encurtador próprio do nanoodle — lida com links muito longos (links de apps podem ficar grandes)",ja:"nanoodle自身の短縮サービス — とても長いリンクにも対応（アプリのリンクは大きくなることがあります）"},
+  "Third-party alternative — handles links up to ~9 kB":{es:"Alternativa de terceros — admite enlaces de hasta ~9 kB",fr:"Alternative tierce — gère les liens jusqu’à ~9 ko",de:"Drittanbieter-Alternative — verarbeitet Links bis ~9 kB",pt:"Alternativa de terceiros — aceita links de até ~9 kB",ja:"第三者の代替サービス — 約9 kBまでのリンクに対応"},
   "save key":{es:"guardar clave",fr:"enregistrer la clé",de:"Schlüssel speichern",pt:"salvar chave",ja:"キーを保存"},
   "Open a workflow from the editor":{es:"Abre un flujo desde el editor",fr:"Ouvrir un flux depuis l’éditeur",de:"Öffne einen Workflow aus dem Editor",pt:"Abra um fluxo no editor",ja:"エディターからワークフローを開く"},
   "→ Open the editor":{es:"→ Abrir el editor",fr:"→ Ouvrir l’éditeur",de:"→ Editor öffnen",pt:"→ Abrir o editor",ja:"→ エディターを開く"},
@@ -12285,6 +12288,8 @@ const SOCIAL_SHORTEN_MAX = 2000;
 // URL shortening — FIRST-PARTY via nanolink (github.com/nanoodlecom/nanolink), our own
 // Cloudflare Worker + KV. It replaced the third-party shorteners (da.gd/TinyURL), which saw
 // every shortened app — a privacy hole in a product whose promise is "no third parties".
+// da.gd is back as a clearly-LABELED alternative button (the popover says it sees and stores
+// what it shortens); it only ever runs on an explicit click — auto-shorten always uses nanolink.
 // NANOLINK_ORIGIN is the deployed worker (canonical host; see the nanolink repo's
 // "Deploy for nanoodle.com" quickstart). If it isn't deployed or reachable, shortenWith
 // fails fast and the popover keeps offering the full-length link — which always works.
@@ -12293,7 +12298,9 @@ const NANOLINK_ORIGIN = "https://link.nanoodle.com";
 // 200 HTML "body bounce" — the target URL rides in the response BODY — so the old da.gd
 // hazard (Cloudflare's h3 edge stalling on >~10k Location headers) doesn't apply. Past the
 // ceiling the button greys out with a note instead of round-tripping into a guaranteed 4xx.
-const SHORTEN_CEILING = { nanolink: 131072 };
+// da.gd keeps its old ~9k ceiling: its redirect DOES echo the full target as a Location
+// header, and CF's h3 edge stalls past ~10k — the binding limit is what recipients can load.
+const SHORTEN_CEILING = { nanolink: 131072, dagd: 9000 };
 // Even though nanolink can store ~128 kB, the RAW link is what most people paste into chat
 // apps, and messengers reliably cut multi-kB URLs — so packShareFit keeps trimming the share
 // payload toward this budget (the same ~9k figure the old shortener pipeline imposed).
@@ -12417,7 +12424,18 @@ async function shareCardB64(longUrl){
 }
 async function shortenWith(svc, longUrl){
   const max = SHORTEN_CEILING[svc];   // fail fast (and cheap) on links the service is known to reject
-  if(max && longUrl.length > max) throw new Error(`link is ${(longUrl.length/1024).toFixed(0)} kB — past the ~${Math.round(max/1024)} kB nanolink can store`);
+  if(max && longUrl.length > max) throw new Error(`link is ${(longUrl.length/1024).toFixed(0)} kB — past the ~${Math.round(max/1024)} kB ${svc==="dagd" ? "da.gd serves reliably" : "nanolink can store"}`);
+  if(svc==="dagd"){
+    // Third-party POST — explicit-click only. Same stance as nanolink: any failure (or the
+    // 5s timeout) just falls back to the full-length link, which always works.
+    const r = await fetch("https://da.gd/shorten", { method:"POST",
+        headers:{ "Content-Type":"application/x-www-form-urlencoded" }, body:"url="+encodeURIComponent(longUrl),
+        signal: AbortSignal.timeout(5000) });
+    const txt = (await r.text()).trim();
+    // Failure bodies are often whole HTML error pages — report the status, not tag soup.
+    if(!/^https?:\/\/\S+$/.test(txt)) throw new Error(txt.startsWith("<") ? "HTTP "+r.status : (txt.slice(0,80) || "no link returned"));
+    return txt;
+  }
   if(svc!=="nanolink") throw new Error("unknown service");
   // POST /api/links → {slug, shortUrl}. A few-second timeout: shortening is a nicety and the
   // full-length link in the popover always works, so ANY failure just falls back to it.

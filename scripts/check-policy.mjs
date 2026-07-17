@@ -23,11 +23,14 @@ import { execFileSync } from "node:child_process";
 // The ONLY external origin any page may load or connect to. Subdomains allowed.
 const ALLOWED_HOSTS = ["nano-gpt.com"];
 
-// NOTE: the Share popover's opt-in "shorten" button used to be the one allowed
-// third-party fetch sink (tinyurl.com, da.gd). It now calls our own nanolink
-// worker (NANOLINK_ORIGIN, a first-party Cloudflare Worker + KV), so there is
-// no shortener exception anymore — every literal third-party connection sink
-// is a violation again.
+// NOTE: the Share popover's shorten button calls our own nanolink worker
+// (NANOLINK_ORIGIN, a first-party Cloudflare Worker + KV) by default. da.gd is
+// the ONE sanctioned third-party CONNECT sink: the popover's clearly-labeled
+// alternative shorten button, disclosed in the UI ("sees and stores every link
+// it shortens") and only ever called on an explicit click — auto-shorten paths
+// must stay on nanolink. CONNECT-only: LOADING anything from it is still a
+// violation, and so is any new da.gd call site that isn't that opt-in button.
+const CONNECT_ALLOWED_HOSTS = ["da.gd"];
 
 function htmlFiles(argv) {
   if (argv.length) return argv;
@@ -87,7 +90,7 @@ function scan(file, html, out) {
   let s;
   while ((s = sink.exec(html))) {
     const host = disallowedHost(s[1]);
-    if (host) add(s.index, `connects to third-party origin "${host}" — only ${ALLOWED_HOSTS.join(", ")} is allowed`);
+    if (host && !CONNECT_ALLOWED_HOSTS.includes(host)) add(s.index, `connects to third-party origin "${host}" — only ${ALLOWED_HOSTS.concat(CONNECT_ALLOWED_HOSTS).join(", ")} is allowed`);
   }
 
   // CSP-unsafe: eval / new Function / string-argument timers (all blocked by CSP).
