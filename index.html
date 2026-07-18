@@ -362,6 +362,12 @@
   .rf-alt a{ color:var(--dim) }
   #cost{font-family:ui-monospace,monospace; font-size:.78rem; color:var(--dim)}
   #cost b{color:var(--ink)}
+  /* signed in → the chip is a link into the Nano top-up panel: dotted-underlined amount + accent "+" */
+  #cost:not(:empty){ cursor:pointer }
+  #cost:not(:empty) b{ text-decoration:underline dotted; text-underline-offset:2px }
+  #cost:not(:empty):hover b, #cost:not(:empty):focus-visible b{ text-decoration:underline solid; color:var(--accent) }
+  #cost .costadd{ display:inline-block; margin-left:.28rem; font-weight:800; color:var(--accent) }
+  #cost:not(:empty):hover .costadd{ filter:brightness(1.2) }
 
   /* ---------- editor surface ---------- */
   /* the quiet site-links row: "Open source" (the no-tracking promise is verifiable — the whole
@@ -987,7 +993,7 @@
     </div>
     <p id="refuelwait" class="rf-status">Waiting for your deposit — the balance re-checks every few seconds.</p>
     <p id="refuelok" class="rf-ok" hidden>✓ Balance topped up — run again when ready.</p>
-    <p class="rf-alt"><a href="https://nano-gpt.com" target="_blank" rel="noopener">or top up with a card at nano-gpt.com ↗</a></p>
+    <p class="rf-alt"><a href="https://nano-gpt.com" target="_blank" rel="noopener">or top up at nano-gpt.com ↗</a></p>
   </div>
 </div>
 
@@ -1496,7 +1502,7 @@ const I18N = {
     "Top up with Nano — show my deposit QR":"Recarga con Nano — mostrar mi QR de depósito",
     "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"No se pudo cargar tu dirección de depósito Nano — recarga en nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Saldo recargado — vuelve a ejecutar cuando quieras.",
-    "or top up with a card at nano-gpt.com ↗":"o recarga con tarjeta en nano-gpt.com ↗",
+    "or top up at nano-gpt.com ↗":"o recarga en nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"No se pudo copiar — selecciona la dirección y cópiala manualmente",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"tu clave API guardada contiene un carácter que no se puede enviar (normalmente un guion tipográfico o un carácter invisible al escribir/copiar) — cópiala de nuevo desde nano-gpt.com → Ajustes → API y pégala otra vez",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"no se pudo conectar con nano-gpt.com — un bloqueador de anuncios, VPN o filtro de red podría estar bloqueándolo; comprueba la conexión y vuelve a ejecutar",
@@ -1971,7 +1977,7 @@ const I18N = {
     "Top up with Nano — show my deposit QR":"Recharger avec Nano — afficher mon QR de dépôt",
     "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Impossible de charger votre adresse de dépôt Nano — rechargez sur nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Solde rechargé — relancez quand vous voulez.",
-    "or top up with a card at nano-gpt.com ↗":"ou rechargez par carte sur nano-gpt.com ↗",
+    "or top up at nano-gpt.com ↗":"ou rechargez sur nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"Impossible de copier — sélectionnez l'adresse et copiez-la manuellement",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"votre clé API enregistrée contient un caractère qui ne peut pas être envoyé (souvent un tiret typographique ou un caractère invisible collé en tapant/copiant) — recopiez-la depuis nano-gpt.com → Paramètres → API et collez-la à nouveau",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"impossible de joindre nano-gpt.com — un bloqueur de pub, un VPN ou un filtre réseau le bloque peut-être ; vérifiez la connexion et relancez",
@@ -2446,7 +2452,7 @@ const I18N = {
     "Top up with Nano — show my deposit QR":"Mit Nano aufladen — meinen Einzahlungs-QR anzeigen",
     "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Deine Nano-Einzahlungsadresse konnte nicht geladen werden — lade stattdessen bei nano-gpt.com auf",
     "✓ Balance topped up — run again when ready.":"✓ Guthaben aufgeladen — führe jederzeit erneut aus.",
-    "or top up with a card at nano-gpt.com ↗":"oder per Karte aufladen auf nano-gpt.com ↗",
+    "or top up at nano-gpt.com ↗":"oder auf nano-gpt.com aufladen ↗",
     "Couldn't copy — select the address and copy it manually":"Kopieren fehlgeschlagen — wähle die Adresse aus und kopiere sie manuell",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"dein gespeicherter API-Schlüssel enthält ein Zeichen, das nicht gesendet werden kann (meist ein Sonderstrich oder ein unsichtbares Zeichen beim Tippen/Kopieren) — kopiere ihn erneut von nano-gpt.com → Einstellungen → API und füge ihn erneut ein",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.com konnte nicht erreicht werden — ein Werbeblocker, VPN oder Netzwerkfilter blockiert es möglicherweise; Verbindung prüfen und erneut ausführen",
@@ -2921,7 +2927,7 @@ const I18N = {
     "Top up with Nano — show my deposit QR":"Recarregue com Nano — mostrar meu QR de depósito",
     "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Não foi possível carregar seu endereço de depósito Nano — recarregue em nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Saldo recarregado — execute novamente quando quiser.",
-    "or top up with a card at nano-gpt.com ↗":"ou recarregue com cartão em nano-gpt.com ↗",
+    "or top up at nano-gpt.com ↗":"ou recarregue em nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"Não foi possível copiar — selecione o endereço e copie manualmente",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"sua chave de API salva contém um caractere que não pode ser enviado (geralmente um traço tipográfico ou um caractere invisível pego ao digitar/copiar) — copie-a novamente em nano-gpt.com → Configurações → API e cole de novo",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"não foi possível alcançar o nano-gpt.com — um bloqueador de anúncios, VPN ou filtro de rede pode estar bloqueando; verifique a conexão e execute novamente",
@@ -3396,7 +3402,7 @@ const I18N = {
     "Top up with Nano — show my deposit QR":"Nanoでチャージ — 入金用QRを表示",
     "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Nano入金アドレスを読み込めませんでした — nano-gpt.comでチャージしてください",
     "✓ Balance topped up — run again when ready.":"✓ 残高がチャージされました — いつでも再実行できます。",
-    "or top up with a card at nano-gpt.com ↗":"またはnano-gpt.comでカードでチャージ ↗",
+    "or top up at nano-gpt.com ↗":"またはnano-gpt.comでチャージ ↗",
     "Couldn't copy — select the address and copy it manually":"コピーできませんでした — アドレスを選択して手動でコピーしてください",
     "your saved API key contains a character that can't be sent (usually a smart-dash or an invisible character picked up while typing/copying) — re-copy it from nano-gpt.com → Settings → API and paste it again":"保存されたAPIキーに送信できない文字が含まれています（多くは特殊なダッシュや、入力・コピー時に紛れ込んだ不可視文字です） — nano-gpt.com → 設定 → API から再度コピーして貼り付け直してください",
     "couldn't reach nano-gpt.com — an ad-blocker, VPN or network filter may be blocking it; check the connection and run again":"nano-gpt.comに接続できませんでした — 広告ブロッカー、VPN、ネットワークフィルターが原因の可能性があります。接続を確認して再実行してください",
@@ -7547,7 +7553,7 @@ function restoreCachedBalance(){
 }
 let _costPainted = "";
 function paintCost(){
-  const s = stats.balance==null ? "" : `bal $<b>${stats.balance.toFixed(2)}</b>`;   // empty → show only the running balance
+  const s = stats.balance==null ? "" : `bal $<b>${stats.balance.toFixed(2)}</b><span class="costadd">+</span>`;   // empty → show only the running balance; "+" = top-up affordance
   if(s === _costPainted) return;
   _costPainted = s;
   const el = $("cost");
