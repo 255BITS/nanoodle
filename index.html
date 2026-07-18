@@ -971,14 +971,15 @@
 <button id="examples" title="Load a ready-made example workflow">📚 <span>Examples</span></button>
 </div>
 
-<!-- ⛽ Refuel — opens ONLY when a run just failed for lack of credit: the account's permanent
-     Nano deposit address as a scannable nano: QR + copyable text, re-checking the balance while
-     open. The nano-gpt.com link stays as the card/other-methods route. -->
+<!-- ⛽ Refuel — opens when a run just failed for lack of credit, or from a click on the balance
+     chip: the account's permanent Nano deposit address as a scannable nano: QR + copyable text,
+     re-checking the balance while open. The title/hint swap per entry point (offerRefuel).
+     The nano-gpt.com link stays as the card/other-methods route. -->
 <div id="refuelmodal" hidden>
   <div id="refuelpanel" role="dialog" aria-modal="true" aria-label="Top up to keep running">
     <button id="refuelclose" class="hbtn" title="Close (Esc)" aria-label="Close">✕</button>
-    <h3 class="rf-title">Top up to keep running</h3>
-    <p class="rf-hint">Scan with your Nano wallet to top up — this panel updates automatically.</p>
+    <h3 class="rf-title" id="refueltitle">Top up to keep running</h3>
+    <p class="rf-hint" id="refuelhint">Scan with your Nano wallet to top up — this panel updates automatically.</p>
     <div id="refuelqr" data-no-i18n></div>
     <div class="rf-addrrow">
       <input id="refueladdr" type="text" readonly aria-label="Your Nano deposit address" />
@@ -1490,6 +1491,10 @@ const I18N = {
     "Scan with your Nano wallet to top up — this panel updates automatically.":"Escanea con tu cartera Nano para recargar — este panel se actualiza automáticamente.",
     "Your Nano deposit address":"Tu dirección de depósito Nano",
     "Waiting for your deposit — the balance re-checks every few seconds.":"Esperando tu depósito — el saldo se comprueba cada pocos segundos.",
+    "Add credit with Nano":"Añade crédito con Nano",
+    "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically.":"Esta es la dirección de depósito permanente de tu cuenta — envía Nano desde cualquier monedero y se convierte en crédito automáticamente.",
+    "Top up with Nano — show my deposit QR":"Recarga con Nano — mostrar mi QR de depósito",
+    "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"No se pudo cargar tu dirección de depósito Nano — recarga en nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Saldo recargado — vuelve a ejecutar cuando quieras.",
     "or top up with a card at nano-gpt.com ↗":"o recarga con tarjeta en nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"No se pudo copiar — selecciona la dirección y cópiala manualmente",
@@ -1961,6 +1966,10 @@ const I18N = {
     "Scan with your Nano wallet to top up — this panel updates automatically.":"Scannez avec votre portefeuille Nano pour recharger — ce panneau se met à jour automatiquement.",
     "Your Nano deposit address":"Votre adresse de dépôt Nano",
     "Waiting for your deposit — the balance re-checks every few seconds.":"En attente de votre dépôt — le solde est revérifié toutes les quelques secondes.",
+    "Add credit with Nano":"Ajouter du crédit avec Nano",
+    "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically.":"C'est l'adresse de dépôt permanente de votre compte — envoyez du Nano depuis n'importe quel portefeuille et il devient du crédit automatiquement.",
+    "Top up with Nano — show my deposit QR":"Recharger avec Nano — afficher mon QR de dépôt",
+    "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Impossible de charger votre adresse de dépôt Nano — rechargez sur nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Solde rechargé — relancez quand vous voulez.",
     "or top up with a card at nano-gpt.com ↗":"ou rechargez par carte sur nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"Impossible de copier — sélectionnez l'adresse et copiez-la manuellement",
@@ -2432,6 +2441,10 @@ const I18N = {
     "Scan with your Nano wallet to top up — this panel updates automatically.":"Zum Aufladen mit deiner Nano-Wallet scannen — dieses Panel aktualisiert sich automatisch.",
     "Your Nano deposit address":"Deine Nano-Einzahlungsadresse",
     "Waiting for your deposit — the balance re-checks every few seconds.":"Warten auf deine Einzahlung — das Guthaben wird alle paar Sekunden geprüft.",
+    "Add credit with Nano":"Guthaben mit Nano aufladen",
+    "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically.":"Das ist die dauerhafte Einzahlungsadresse deines Kontos — sende Nano aus einer beliebigen Wallet und es wird automatisch zu Guthaben.",
+    "Top up with Nano — show my deposit QR":"Mit Nano aufladen — meinen Einzahlungs-QR anzeigen",
+    "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Deine Nano-Einzahlungsadresse konnte nicht geladen werden — lade stattdessen bei nano-gpt.com auf",
     "✓ Balance topped up — run again when ready.":"✓ Guthaben aufgeladen — führe jederzeit erneut aus.",
     "or top up with a card at nano-gpt.com ↗":"oder per Karte aufladen auf nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"Kopieren fehlgeschlagen — wähle die Adresse aus und kopiere sie manuell",
@@ -2903,6 +2916,10 @@ const I18N = {
     "Scan with your Nano wallet to top up — this panel updates automatically.":"Escaneie com sua carteira Nano para recarregar — este painel atualiza automaticamente.",
     "Your Nano deposit address":"Seu endereço de depósito Nano",
     "Waiting for your deposit — the balance re-checks every few seconds.":"Aguardando seu depósito — o saldo é verificado a cada poucos segundos.",
+    "Add credit with Nano":"Adicione crédito com Nano",
+    "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically.":"Este é o endereço de depósito permanente da sua conta — envie Nano de qualquer carteira e ele vira crédito automaticamente.",
+    "Top up with Nano — show my deposit QR":"Recarregue com Nano — mostrar meu QR de depósito",
+    "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Não foi possível carregar seu endereço de depósito Nano — recarregue em nano-gpt.com",
     "✓ Balance topped up — run again when ready.":"✓ Saldo recarregado — execute novamente quando quiser.",
     "or top up with a card at nano-gpt.com ↗":"ou recarregue com cartão em nano-gpt.com ↗",
     "Couldn't copy — select the address and copy it manually":"Não foi possível copiar — selecione o endereço e copie manualmente",
@@ -3374,6 +3391,10 @@ const I18N = {
     "Scan with your Nano wallet to top up — this panel updates automatically.":"Nanoウォレットでスキャンしてチャージ — このパネルは自動的に更新されます。",
     "Your Nano deposit address":"あなたのNano入金アドレス",
     "Waiting for your deposit — the balance re-checks every few seconds.":"入金を待っています — 残高は数秒ごとに確認されます。",
+    "Add credit with Nano":"Nanoでクレジットを追加",
+    "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically.":"これはアカウントの恒久的な入金アドレスです — 任意のウォレットからNanoを送ると自動的にクレジットになります。",
+    "Top up with Nano — show my deposit QR":"Nanoでチャージ — 入金用QRを表示",
+    "Couldn't load your Nano deposit address — top up at nano-gpt.com instead":"Nano入金アドレスを読み込めませんでした — nano-gpt.comでチャージしてください",
     "✓ Balance topped up — run again when ready.":"✓ 残高がチャージされました — いつでも再実行できます。",
     "or top up with a card at nano-gpt.com ↗":"またはnano-gpt.comでカードでチャージ ↗",
     "Couldn't copy — select the address and copy it manually":"コピーできませんでした — アドレスを選択して手動でコピーしてください",
@@ -7529,7 +7550,17 @@ function paintCost(){
   const s = stats.balance==null ? "" : `bal $<b>${stats.balance.toFixed(2)}</b>`;   // empty → show only the running balance
   if(s === _costPainted) return;
   _costPainted = s;
-  $("cost").innerHTML = s;
+  const el = $("cost");
+  el.innerHTML = s;
+  // the chip doubles as the top-up entry point — but only while it shows a balance, so an
+  // empty span never sits in the tab order or carries a stale tooltip
+  if(s){
+    el.setAttribute("role","button"); el.tabIndex = 0;
+    el.title = t("Top up with Nano — show my deposit QR"); el.setAttribute("aria-label", el.title);
+  } else {
+    el.removeAttribute("role"); el.removeAttribute("tabindex");
+    el.removeAttribute("title"); el.removeAttribute("aria-label");
+  }
   layoutBar();   // the chip appears/changes width after sign-in — the bar may no longer fit on one line
 }
 // Show the balance the moment you're signed in — before any run prices it in. Generations keep it
@@ -9157,9 +9188,10 @@ function toast(msg, kind){
 }
 
 /* ======================================================================
-   SCAN-TO-REFUEL  (the out-of-balance dead-end → top up by Nano QR, in place)
-   The ONLY place any crypto UI appears: a run just failed for lack of
-   credit (httpRunError). /api/check-balance returns the account's permanent
+   SCAN-TO-REFUEL  (top up by Nano QR, in place)
+   Opens from two places: the out-of-balance dead-end (a run just failed
+   for lack of credit — httpRunError) and a click on the balance chip
+   (#cost). /api/check-balance returns the account's permanent
    Nano deposit address (and is CORS-open — the "no CORS header" note on
    refreshBalance predates that), so the panel shows it as a nano: QR +
    copyable text and re-checks the balance every ~9s while open. The
@@ -9555,17 +9587,28 @@ function refuelSawBalance(usd){  // write a freshly-polled figure through the no
   if(isNaN(usd)) return;
   stats.balance = usd; cacheBalance(); paintCost();
 }
-// Open the panel — fire-and-forget from the low-funds run error. Silent no-op when signed out,
-// already open, just dismissed, the endpoint fails, or the response carries no deposit address
-// (→ today's link-only error text stands unchanged).
-async function offerRefuel(){
+// Open the panel. Two entry points:
+//  - auto (no arg): fire-and-forget from the low-funds run error. Silent no-op when signed out,
+//    already open, just dismissed, the endpoint fails, or the response carries no deposit address
+//    (→ today's link-only error text stands unchanged).
+//  - manual (true): the user clicked the balance chip — skip the just-dismissed guard (they asked)
+//    and never fail silently: a click that does nothing reads as broken.
+async function offerRefuel(manual){
   const m = $("refuelmodal");
   const key = getKey();
   if(!m || !m.hidden || !key) return;
-  if(Date.now() - _refuelClosedAt < 60000) return;   // parallel groups fail together — closing once means closed
-  let info; try{ info = await fetchBalanceInfo(); }catch(_){ return; }
-  if(!info.addr || !m.hidden || getKey()!==key) return;
+  if(!manual && Date.now() - _refuelClosedAt < 60000) return;   // parallel groups fail together — closing once means closed
+  let info; try{ info = await fetchBalanceInfo(); }catch(_){ info = null; }
+  if(!info || !info.addr){
+    if(manual) toast("Couldn't load your Nano deposit address — top up at nano-gpt.com instead", "err");
+    return;
+  }
+  if(!m.hidden || getKey()!==key) return;
   refuelSawBalance(info.usd);
+  $("refueltitle").textContent = t(manual ? "Add credit with Nano" : "Top up to keep running");
+  $("refuelhint").textContent = t(manual
+    ? "This is your account's permanent deposit address — send Nano from any wallet and it lands as credit automatically."
+    : "Scan with your Nano wallet to top up — this panel updates automatically.");
   $("refueladdr").value = info.addr;
   const cb = $("refuelcopy"); cb.textContent = t("Copy"); cb.classList.remove("ok");
   renderNanoQr("nano:"+info.addr, $("refuelqr"));
@@ -9607,6 +9650,10 @@ function closeRefuel(){
   const m = $("refuelmodal"); if(m.hidden) return;
   m.hidden = true; _refuelToken++; _refuelClosedAt = Date.now();
 }
+// balance chip → same panel, softer copy (no-op while signed out / no balance painted yet)
+function refuelFromChip(){ if(getKey() && stats.balance!=null) offerRefuel(true); }
+$("cost").onclick = refuelFromChip;
+$("cost").addEventListener("keydown", e=>{ if(e.key==="Enter" || e.key===" "){ e.preventDefault(); refuelFromChip(); } });
 $("refuelclose").onclick = closeRefuel;
 $("refuelmodal").addEventListener("click", e=>{ if(e.target.id==="refuelmodal") closeRefuel(); });   // click the dim backdrop
 addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("refuelmodal").hidden) closeRefuel(); });

@@ -7,7 +7,7 @@ assets. The constraints are deliberate, not accidental:
 
 - **Dependency-free.** There is **no `package.json`** on purpose — no npm
   install, no lockfile, no supply chain. Every script and check runs on Node
-  built-ins only (Node ≥ 20; CI uses 22/24). Please don't add one.
+  built-ins only (Node ≥ 20; CI uses 22). Please don't add one.
 - **Two single-file apps.** `index.html` (the editor) and `play.html` (the
   app builder / exported-app runtime) each carry their entire UI and run
   engine inline. No bundler, no build step — what's in git is what ships.
