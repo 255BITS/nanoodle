@@ -9,6 +9,8 @@
 .assetsignore
 wrangler.jsonc
 README.md
+CONTRIBUTING.md
+NANOGPT-*.md
 *.log
 .DS_Store
 proof

@@ -1,8 +1,11 @@
-# Jul 15 — Product Hunt launch
+# Product Hunt launch
 
-**When:** PH days roll over at **12:01am PT**. Set the launch up the evening of
-Jul 14 (after the HN day winds down). Tue/Wed are the competitive-but-liquid days;
-Jul 15 is a Wednesday — fine. Plan to check in on comments across the day.
+> DRAFT — for a human to post. Nothing here is submitted anywhere.
+> Refreshed 2026-07-17; the original Jul 15 slot slipped — re-pick a Tue/Wed.
+
+**When:** PH days roll over at **12:01am PT**. Set the launch up the evening
+before (ideally after the Show HN day winds down). Tue/Wed are the
+competitive-but-liquid days. Plan to check in on comments across the day.
 **Framing:** product-led. No crypto in the listing. Honest pay-per-call pricing.
 **Account note:** if your PH account is brand-new, make it a few days early
 (done by Jul 11 at the latest) and follow/comment a little so the launch isn't a
@@ -27,7 +30,11 @@ nano-gpt key, pay per call.
 
 **Links:** add the GitHub repo (https://github.com/nanoodlecom/nanoodle — public + MIT
 as of Jul 10) in the listing's links section; PH surfaces it as an "Open Source"
-badge and it pre-answers the trust question.
+badge and it pre-answers the trust question. The whole org is public (11+ repos at
+https://github.com/nanoodlecom): headless runners on npm (`nanoodle` 0.4.0) and
+PyPI (`nanoodle` 0.2.0), an MCP server (nanoodle-mcp) and a GitHub Action
+(run-noodle-action) — worth a line in the description or first comment for the
+developer crowd.
 
 **Pricing:** select "Free options" / "Payment required to run models" per the
 form's choices — describe as "no signup to build; running models uses your own

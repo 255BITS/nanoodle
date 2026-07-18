@@ -1,4 +1,7 @@
-# Jul 14 — Show HN (full-attention day)
+# Show HN (full-attention day)
+
+> DRAFT — for a human to post. Nothing here is submitted anywhere.
+> Refreshed 2026-07-17; the original Jul 14 slot slipped — pick a new weekday.
 
 **Where:** https://news.ycombinator.com/submit — Show HN post with URL.
 **When:** ~8–10am ET on a weekday. Do NOT post and leave; the first two hours of
@@ -36,9 +39,16 @@ Constraints that fell out of that, which turned out to be the interesting part:
   there's a pre-commit hook whose only job is hunting backticks.
 - The editor and the exported app are two run-engines that must behave identically.
   Engine drift became the dominant bug class, so parity is enforced by hooks too.
-- No server means auth is OAuth PKCE browser→provider, persistence is IndexedDB +
-  share-links in URL fragments (the fragment never hits any server), and there's
-  zero analytics — not as a policy, but because there's nothing to receive it.
+- No server means auth is OAuth PKCE browser→provider, persistence is the
+  browser's localStorage + share-links in URL fragments (the fragment never hits
+  any server), and there's zero analytics — not as a policy, but because there's
+  nothing to receive it.
+
+The graph format is portable beyond the browser: the same noodle-graph.json runs
+headlessly via `npm install nanoodle` (a zero-dependency Node library/CLI) or
+`pip install nanoodle` (stdlib-only Python), and there's an MCP server and a
+GitHub Action. Everything lives under https://github.com/nanoodlecom — 11+
+public repos, all MIT.
 
 The honest tradeoff: it's bring-your-own-key. Building/browsing needs no signup,
 but running models goes through your own nano-gpt.com key, pay-per-call. I built
