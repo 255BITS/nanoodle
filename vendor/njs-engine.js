@@ -1,5 +1,5 @@
-/* data-hash=c82821b37ed52e3c */
-/* nanoodle-js browser engine — generated from nanoodle-js@src-e479622a9b36 (15 modules) */
+/* data-hash=62ff5318af367fc8 */
+/* nanoodle-js browser engine — generated from nanoodle-js@src-3e2d2be6fa3c (15 modules) */
 (function () {
   "use strict";
   var __mods = {};
@@ -402,7 +402,13 @@ class Workflow {
 
     const failedSinks = this.outputs.filter((o) => nodesRec[o.nodeId] && nodesRec[o.nodeId].status === "error");
     if (failedSinks.length) {
-      const detail = failedSinks.map((o) => `"${o.key}": ${nodesRec[o.nodeId].error}`).join("; ");
+      let detail = failedSinks.map((o) => `"${o.key}": ${nodesRec[o.nodeId].error}`).join("; ");
+      // "upstream failed: X" only names the sink's neighbor — name the node(s) that actually broke
+      const sinkIds = new Set(failedSinks.map((o) => o.nodeId));
+      const roots = errors.filter((e) => !sinkIds.has(e.nodeId) && !/^upstream failed: /.test(e.message));
+      if (roots.length) {
+        detail += ` (root cause — ${roots.map((e) => `"${e.name}": ${e.message}`).join("; ")})`;
+      }
       throw new RunError("run failed — " + detail, result);
     }
     return result;
@@ -4277,5 +4283,5 @@ __x.MP4CAT = MP4CAT;
 __x.default = MP4CAT;
 });
   window.NanoodleEngine = __req("browser.mjs");
-  window.NanoodleEngine.version = "src-e479622a9b36";
+  window.NanoodleEngine.version = "src-3e2d2be6fa3c";
 })();
