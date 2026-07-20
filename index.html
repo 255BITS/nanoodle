@@ -296,12 +296,19 @@
   #agentpop .ap-links{ font-size:.72rem; color:var(--dim); line-height:1.5; margin:.35rem .15rem .1rem }
   #agentpop a{ color:var(--dim) }
   #agentpop a:hover{ color:var(--ink) }
-  /* the MCP path folds behind one conditional line — native <details>, no JS state */
-  #agentpop details{ margin:.55rem .15rem .1rem }
-  #agentpop summary{ list-style:none; cursor:pointer; font-size:.75rem; color:var(--dim); line-height:1.45 }
+  /* the MCP path folds behind one conditional row — native <details>, no JS state.
+     Bordered like the command field above so it reads as interactive, not prose;
+     the trailing chevron rotates open. */
+  #agentpop details{ margin:.55rem .15rem .1rem; border:1px solid var(--line); border-radius:.55rem;
+                     padding:.1rem .55rem; transition:border-color .15s }
+  #agentpop details:hover{ border-color:color-mix(in srgb, var(--accent) 40%, var(--line)) }
+  #agentpop details[open]{ padding-bottom:.5rem }
+  #agentpop summary{ list-style:none; cursor:pointer; font-size:.75rem; color:var(--dim); line-height:1.45;
+                     display:flex; align-items:center; gap:.55rem; padding:.35rem 0 }
   #agentpop summary::-webkit-details-marker{ display:none }
-  #agentpop summary::before{ content:"▸ " }
-  #agentpop details[open] summary::before{ content:"▾ " }
+  #agentpop summary::after{ content:"›"; margin-left:auto; flex:none; color:var(--accent);
+                            font-size:1.05rem; line-height:1; transition:transform .15s }
+  #agentpop details[open] summary::after{ transform:rotate(90deg) }
   #agentpop summary:hover, #agentpop details[open] summary{ color:var(--ink) }
   @media (max-width:700px){ #agentpill .lbl{ display:none } #agentpill > a, #agentpill > button{ padding:.55rem .7rem } }
 
