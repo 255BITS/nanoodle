@@ -1,6 +1,83 @@
 [
   {
     "date": "2026-07-19",
+    "text": "New LLM model: Qwen3.8 Max Preview — Qwen3.8 Max Preview is now available! Qwen's 2.4T-parameter flagship preview improves on Qwen3.7 Max for coding, professional productivity, full-stack development, data analysis, and office workflows. It uses…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Qwen3.8 Max Preview — ¡Qwen3.8 Max Preview ya está disponible! El preview insignia de 2.4T parámetros de Qwen mejora respecto a Qwen3.7 Max en programación, productividad profesional, desarrollo full-stack, análisis de datos y flujos de trabajo de oficina. Usa…",
+      "fr": "Nouveau modèle LLM : Qwen3.8 Max Preview — Qwen3.8 Max Preview est désormais disponible ! Le modèle phare en préversion de Qwen, avec 2,4T de paramètres, améliore Qwen3.7 Max pour le code, la productivité professionnelle, le développement full-stack, l'analyse de données et les flux de travail bureautiques. Il utilise…",
+      "de": "Neues LLM-Modell: Qwen3.8 Max Preview — Qwen3.8 Max Preview ist jetzt verfügbar! Qwens 2,4T-Parameter-Flaggschiff-Preview verbessert Qwen3.7 Max bei Programmierung, professioneller Produktivität, Full-Stack-Entwicklung, Datenanalyse und Office-Workflows. Es nutzt…",
+      "pt": "Novo modelo de LLM: Qwen3.8 Max Preview — Qwen3.8 Max Preview já está disponível! A prévia do modelo flagship de 2.4T de parâmetros da Qwen melhora o Qwen3.7 Max em programação, produtividade profissional, desenvolvimento full-stack, análise de dados e fluxos de trabalho de escritório. Ele usa…",
+      "ja": "新規LLMモデル: Qwen3.8 Max Preview — Qwen3.8 Max Previewが利用可能になりました！Qwenの2.4Tパラメータのフラッグシッププレビューは、コーディング、プロフェッショナルな生産性、フルスタック開発、データ分析、オフィスワークフローにおいてQwen3.7 Maxを改善しています。…"
+    }
+  },
+  {
+    "date": "2026-07-18",
+    "text": "New LLM model: Doubao Seed Character — built for roleplay, persona consistency, natural dialogue, and creative character interactions. The model supports text and image input, reasoning, and a 128K-token context window for rich characters and long-running…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Doubao Seed Character — diseñado para roleplay, consistencia de personajes, diálogo natural e interacciones creativas con personajes. El modelo admite entrada de texto e imagen, razonamiento y una ventana de contexto de 128K tokens para personajes ricos y sesiones…",
+      "fr": "Nouveau modèle LLM : Doubao Seed Character — conçu pour le roleplay, la cohérence des personas, le dialogue naturel et les interactions créatives avec des personnages. Le modèle prend en charge les entrées texte et image, le raisonnement et une fenêtre de contexte de 128K tokens pour des personnages riches et de longues…",
+      "de": "Neues LLM-Modell: Doubao Seed Character — entwickelt für Rollenspiel, Persona-Konsistenz, natürliche Dialoge und kreative Charakter-Interaktionen. Das Modell unterstützt Text- und Bild-Eingabe, Reasoning und ein 128K-Token-Kontextfenster für reichhaltige Charaktere und lange…",
+      "pt": "Novo modelo de LLM: Doubao Seed Character — feito para roleplay, consistência de persona, diálogos naturais e interações criativas com personagens. O modelo suporta entrada de texto e imagem, raciocínio e uma janela de contexto de 128K tokens para personagens ricos e…",
+      "ja": "新規LLMモデル: Doubao Seed Character — ロールプレイ、ペルソナの一貫性、自然な対話、クリエイティブなキャラクターインタラクションのために構築されました。テキストと画像の入力、推論、128Kトークンのコンテキストウィンドウをサポートし、豊かなキャラクターと長時間の…"
+    }
+  },
+  {
+    "date": "2026-07-17",
+    "text": "New LLM model: GPT-OSS 120B — Aster is now available in provider selection for GPT-OSS 120B and GLM 5.2, including GLM 5.2 Thinking. GPT-OSS 120B also has an Aster Fast option for higher-speed inference. Choose Aster from provider selection, or…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: GPT-OSS 120B — Aster ya está disponible en la selección de proveedores para GPT-OSS 120B y GLM 5.2, incluyendo GLM 5.2 Thinking. GPT-OSS 120B también tiene una opción Aster Fast para inferencia más rápida. Elige Aster en la selección de proveedores, o…",
+      "fr": "Nouveau modèle LLM : GPT-OSS 120B — Aster est désormais disponible dans la sélection du fournisseur pour GPT-OSS 120B et GLM 5.2, y compris GLM 5.2 Thinking. GPT-OSS 120B propose également une option Aster Fast pour une inférence plus rapide. Choisissez Aster dans la sélection du fournisseur, ou…",
+      "de": "Neues LLM-Modell: GPT-OSS 120B — Aster ist jetzt in der Anbieterauswahl für GPT-OSS 120B und GLM 5.2 verfügbar, inklusive GLM 5.2 Thinking. GPT-OSS 120B hat außerdem eine Aster Fast-Option für schnellere Inferenz. Wähle Aster in der Anbieterauswahl oder…",
+      "pt": "Novo modelo de LLM: GPT-OSS 120B — Aster já está disponível na seleção de provedor para GPT-OSS 120B e GLM 5.2, incluindo GLM 5.2 Thinking. GPT-OSS 120B também tem uma opção Aster Fast para inferência em alta velocidade. Escolha Aster na seleção de provedor, ou…",
+      "ja": "新規LLMモデル: GPT-OSS 120B — GPT-OSS 120BおよびGLM 5.2（GLM 5.2 Thinkingを含む）のプロバイダー選択でAsterが利用可能になりました。GPT-OSS 120Bには高速推論のためのAster Fastオプションもあります。プロバイダー選択からAsterを選ぶか、…"
+    }
+  },
+  {
+    "date": "2026-07-17",
+    "text": "New LLM model: GLM 5.2 — Aster is now available in provider selection for GPT-OSS 120B and GLM 5.2, including GLM 5.2 Thinking. GPT-OSS 120B also has an Aster Fast option for higher-speed inference. Choose Aster from provider selection, or…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: GLM 5.2 — Aster ya está disponible en la selección de proveedores para GPT-OSS 120B y GLM 5.2, incluyendo GLM 5.2 Thinking. GPT-OSS 120B también tiene una opción Aster Fast para inferencia más rápida. Elige Aster en la selección de proveedores, o…",
+      "fr": "Nouveau modèle LLM : GLM 5.2 — Aster est désormais disponible dans la sélection du fournisseur pour GPT-OSS 120B et GLM 5.2, y compris GLM 5.2 Thinking. GPT-OSS 120B propose également une option Aster Fast pour une inférence plus rapide. Choisissez Aster dans la sélection du fournisseur, ou…",
+      "de": "Neues LLM-Modell: GLM 5.2 — Aster ist jetzt in der Anbieterauswahl für GPT-OSS 120B und GLM 5.2 verfügbar, inklusive GLM 5.2 Thinking. GPT-OSS 120B hat außerdem eine Aster Fast-Option für schnellere Inferenz. Wähle Aster in der Anbieterauswahl oder…",
+      "pt": "Novo modelo de LLM: GLM 5.2 — Aster já está disponível na seleção de provedor para GPT-OSS 120B e GLM 5.2, incluindo GLM 5.2 Thinking. GPT-OSS 120B também tem uma opção Aster Fast para inferência em alta velocidade. Escolha Aster na seleção de provedor, ou…",
+      "ja": "新規LLMモデル: GLM 5.2 — GPT-OSS 120BおよびGLM 5.2（GLM 5.2 Thinkingを含む）のプロバイダー選択でAsterが利用可能になりました。GPT-OSS 120Bには高速推論のためのAster Fastオプションもあります。プロバイダー選択からAsterを選ぶか、…"
+    }
+  },
+  {
+    "date": "2026-07-16",
+    "text": "New LLM model: Kimi K3 — a frontier reasoning and agentic model built for coding, complex problem-solving, tool use, and long-running workflows. It supports text, image, and video inputs, structured outputs, and a 1M-token context window,…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Kimi K3 — un modelo frontera de razonamiento y agentic diseñado para programación, resolución de problemas complejos, uso de herramientas y flujos de trabajo prolongados. Admite entradas de texto, imagen y video, salidas estructuradas y una ventana de contexto de 1M tokens,…",
+      "fr": "Nouveau modèle LLM : Kimi K3 — un modèle de pointe pour le raisonnement et les agents, conçu pour le code, la résolution de problèmes complexes, l'utilisation d'outils et les flux de travail longs. Il prend en charge les entrées texte, image et vidéo, les sorties structurées et une fenêtre de contexte de 1M de tokens,…",
+      "de": "Neues LLM-Modell: Kimi K3 — ein fortschrittliches Reasoning- und Agentenmodell, entwickelt für Programmierung, komplexe Problemlösung, Werkzeugnutzung und langlaufende Workflows. Es unterstützt Text-, Bild- und Video-Eingaben, strukturierte Ausgaben und ein 1M-Token-Kontextfenster,…",
+      "pt": "Novo modelo de LLM: Kimi K3 — um modelo de raciocínio e agentic de ponta feito para programação, resolução de problemas complexos, uso de ferramentas e fluxos de trabalho de longa duração. Suporta entradas de texto, imagem e vídeo, saídas estruturadas e uma janela de contexto de 1M tokens,…",
+      "ja": "新規LLMモデル: Kimi K3 — コーディング、複雑な問題解決、ツール使用、長時間のワークフローのために構築された最先端の推論・エージェントモデルです。テキスト、画像、動画の入力、構造化出力、1Mトークンのコンテキストウィンドウをサポートし、…"
+    }
+  },
+  {
+    "date": "2026-07-16",
+    "text": "New LLM model: Inkling Thinking — Inkling Thinking and Inkling are now available! Thinking Machines trained this open-weights Mixture-of-Experts model from scratch with 975B total parameters and 41B active. It works natively across text, images, and…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Inkling Thinking — ¡Inkling Thinking e Inkling ya están disponibles! Thinking Machines entrenó este modelo Mixture-of-Experts de pesos abiertos desde cero con 975B parámetros totales y 41B activos. Funciona de forma nativa con texto, imágenes y…",
+      "fr": "Nouveau modèle LLM : Inkling Thinking — Inkling Thinking et Inkling sont désormais disponibles ! Thinking Machines a entraîné ce modèle Mixture-of-Experts à poids ouverts from scratch avec 975B de paramètres totaux et 41B actifs. Il fonctionne nativement sur le texte, les images et…",
+      "de": "Neues LLM-Modell: Inkling Thinking — Inkling Thinking und Inkling sind jetzt verfügbar! Thinking Machines hat dieses Open-Weights-Mixture-of-Experts-Modell von Grund auf mit 975B Gesamtparametern und 41B aktiven Parametern trainiert. Es funktioniert nativ mit Text, Bildern und…",
+      "pt": "Novo modelo de LLM: Inkling Thinking — Inkling Thinking e Inkling já estão disponíveis! A Thinking Machines treinou este modelo Mixture-of-Experts de pesos abertos do zero, com 975B de parâmetros totais e 41B ativos. Funciona nativamente em texto, imagens e…",
+      "ja": "新規LLMモデル: Inkling Thinking — Inkling ThinkingとInklingが利用可能になりました！Thinking MachinesがこのオープンウェイトのMixture-of-Expertsモデルをゼロからトレーニングし、総パラメータ975B、アクティブ41Bです。テキスト、画像、…でネイティブに動作します。"
+    }
+  },
+  {
+    "date": "2026-07-16",
+    "text": "New LLM model: Inkling — Inkling Thinking and Inkling are now available! Thinking Machines trained this open-weights Mixture-of-Experts model from scratch with 975B total parameters and 41B active. It works natively across text, images, and…",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Inkling — ¡Inkling Thinking e Inkling ya están disponibles! Thinking Machines entrenó este modelo Mixture-of-Experts de pesos abiertos desde cero con 975B parámetros totales y 41B activos. Funciona de forma nativa con texto, imágenes y…",
+      "fr": "Nouveau modèle LLM : Inkling — Inkling Thinking et Inkling sont désormais disponibles ! Thinking Machines a entraîné ce modèle Mixture-of-Experts à poids ouverts from scratch avec 975B de paramètres totaux et 41B actifs. Il fonctionne nativement sur le texte, les images et…",
+      "de": "Neues LLM-Modell: Inkling — Inkling Thinking und Inkling sind jetzt verfügbar! Thinking Machines hat dieses Open-Weights-Mixture-of-Experts-Modell von Grund auf mit 975B Gesamtparametern und 41B aktiven Parametern trainiert. Es funktioniert nativ mit Text, Bildern und…",
+      "pt": "Novo modelo de LLM: Inkling — Inkling Thinking e Inkling já estão disponíveis! A Thinking Machines treinou este modelo Mixture-of-Experts de pesos abertos do zero, com 975B de parâmetros totais e 41B ativos. Funciona nativamente em texto, imagens e…",
+      "ja": "新規LLMモデル: Inkling — Inkling ThinkingとInklingが利用可能になりました！Thinking MachinesがこのオープンウェイトのMixture-of-Expertsモデルをゼロからトレーニングし、総パラメータ975B、アクティブ41Bです。テキスト、画像、…でネイティブに動作します。"
+    }
+  },
+  {
+    "date": "2026-07-19",
     "text": "🔍 Failed runs now tell you the real culprit — the error names the node that actually broke (the root cause), not just the output next to it saying \"upstream failed\".",
     "i18n": {
       "es": "🔍 Las ejecuciones fallidas ahora te dicen el verdadero culpable: el error indica el nodo que realmente falló (la causa raíz), no solo la salida de al lado que dice \"upstream failed\".",

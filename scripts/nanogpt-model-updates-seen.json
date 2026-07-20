@@ -1,6 +1,13 @@
 {
   "_comment": "Tracks NanoGPT /updates chat-model entries (date|slug) already folded into ../updates.json. See scripts/sync-nanogpt-model-updates.mjs. Do not hand-edit unless backfilling/correcting history.",
   "seen": [
+    "2026-07-19|qwen3.8-max-preview",
+    "2026-07-18|bytedance/doubao-seed-character",
+    "2026-07-17|openai/gpt-oss-120b",
+    "2026-07-17|zai-org/glm-5.2",
+    "2026-07-16|moonshotai/kimi-k3",
+    "2026-07-16|thinkingmachines/inkling:thinking",
+    "2026-07-16|thinkingmachines/inkling",
     "2026-07-10|perplexity-academic-researcher",
     "2026-07-09|meta/muse-spark-1.1",
     "2026-07-09|gpt-5.6",
