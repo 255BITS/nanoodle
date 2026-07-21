@@ -1,6 +1,17 @@
 [
   {
     "date": "2026-07-21",
+    "text": "The 💬 Describe changes bar now shows its work — it lights up while editing your workflow, then flashes green with a bold \"✓ Done\" recap and a pulse on every node it touched.",
+    "i18n": {
+      "es": "La barra de 💬 Describe changes ahora te muestra lo que hace: se ilumina mientras editas tu workflow, luego parpadea en verde con un resumen \"✓ Done\" en negrita y un pulso en cada nodo que tocó.",
+      "fr": "La barre 💬 Describe changes montre maintenant ce qu'elle fait — elle s'illumine pendant l'édition de ton workflow, puis clignote en vert avec un récap « ✓ Done » en gras et une pulsation sur chaque nœud modifié.",
+      "de": "Die 💬 Describe changes-Leiste zeigt jetzt, was sie tut — sie leuchtet auf, während du deinen Workflow bearbeitest, und blinkt dann grün mit einer „✓ Done“-Zusammenfassung und einem Pulseffekt auf jedem Knoten, den sie verändert hat.",
+      "pt": "A barra de 💬 Describe changes agora mostra o que fez — ela acende enquanto você edita seu fluxo de trabalho, depois pisca em verde com um resumo \"✓ Done\" em negrito e um pulso em cada nó que tocou.",
+      "ja": "💬 変更内容の説明バーが作業過程を表示するようになりました — ワークフローを編集中はバーが光り、完了すると緑色に点滅して太字の「✓ Done」でまとめが表示され、触れたすべてのノードがパルスします。"
+    }
+  },
+  {
+    "date": "2026-07-21",
     "text": "Every nanoodle app now works in your coding agent — open any app on /play, hit 🤖 Agent, and copy one command that runs it from Claude Code, Cursor, or any terminal on your own key.",
     "i18n": {
       "es": "Ahora todas las apps de nanoodle funcionan en tu agente de programación — abre cualquier app en /play, pulsa 🤖 Agent, y copia un comando que la ejecuta desde Claude Code, Cursor o cualquier terminal con tu propia clave.",
