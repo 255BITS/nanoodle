@@ -359,8 +359,14 @@
   #describeversions .ver.seed{ font-style:italic; }
   .db-spin{ display:inline-block; width:.85rem; height:.85rem; border:2px solid #ffffff33; border-top-color:var(--accent); border-radius:50%; animation:dbspin .7s linear infinite; vertical-align:-.1rem; margin-right:.3rem; }
   @keyframes dbspin{ to{ transform:rotate(360deg) } }
-  @keyframes dbpulse{ 0%{ box-shadow:0 0 0 0 var(--accent) } 100%{ box-shadow:0 0 0 14px transparent } }
-  .node.db-pulse{ animation:dbpulse 1s ease-out 2 }
+  @keyframes dbpulse{ 0%{ box-shadow:0 0 0 0 var(--accent) } 100%{ box-shadow:0 0 0 18px transparent } }
+  .node.db-pulse{ animation:dbpulse 1s ease-out 3 }
+  /* Busy: the bar goes full-bright with a live accent edge — unmissable "I'm editing your workflow right now".
+     Done: a one-shot green flash on the same edge marks the exact moment the edit landed. */
+  #describebar.db-busy{ opacity:1; border-top-color:var(--accent); box-shadow:0 -8px 24px #0005, 0 -1px 0 var(--accent); }
+  @keyframes dbdone{ 0%{ border-top-color:var(--good); box-shadow:0 -8px 24px #0005, 0 -2px 0 var(--good), 0 -2px 26px color-mix(in srgb, var(--good) 45%, transparent) } 100%{ border-top-color:var(--line); box-shadow:0 -8px 24px #0005 } }
+  #describebar.db-done{ animation:dbdone 1.6s ease-out 1 }
+  #describestatus .done{ font-size:.95rem; font-weight:700; }
   #cornerpills{ bottom:calc(var(--db-h,3rem) + .7rem); }   /* lift the corner pills above the composer */
   /* While an add/quick-add popover is open, drop the fixed bottom band below #top's stacking context
      (z:30) so the popover (and its taps) win, and hide the corner pills so they can't flash
@@ -368,7 +374,7 @@
      bar rather than raise the popover. */
   body:has(#addpop.open) #describebar, body:has(#quickadd.open) #describebar{ z-index:25 }
   body:has(#addpop.open) #cornerpills, body:has(#quickadd.open) #cornerpills, body:has(#mpick.open) #cornerpills{ visibility:hidden }
-  @media (prefers-reduced-motion:reduce){ .node.db-pulse{ animation:none } .db-spin{ animation:none } }
+  @media (prefers-reduced-motion:reduce){ .node.db-pulse{ animation:none } .db-spin{ animation:none } #describebar.db-done{ animation:none } }
   @media (max-width:620px){ .db-label{ display:none } #describemodel{ max-width:120px } #describegoal{ min-width:140px } }
   @media (max-width:380px){ #describemodel{ max-width:84px } }   /* ≤380px: shrink the model chip so ✦ Apply stays on one row instead of dropping to a stranded 2nd row (doubling bar height) */
   /* gradient copy button — used by the ⛽ Refuel dialog's address row */
@@ -12095,6 +12101,8 @@ RULES for the diff:
     busy = on; input.disabled = on; modelBtn.disabled = on; goBtn.disabled = false;
     goBtn.textContent = on ? "■ Stop" : "✦ Apply";
     goBtn.title = on ? "Stop this change" : "";
+    bar.classList.toggle("db-busy", on);
+    if(on) bar.classList.remove("db-done");
   }
   function setStatus(html, cls){ statusEl.innerHTML = html ? `<span class="${cls||""}">${html}</span>` : ""; }
   // ⚠ expander: a failed change offers "show the model's reply" — the raw content + thinking behind
@@ -12220,8 +12228,8 @@ RULES for the diff:
     const prevSimple = toSimple(prevInternal);
     dbAbort = new AbortController();
     lastReply = null; hideDetail();
-    setBusy(true); resetUsage(); setStatus(`<span class="db-spin"></span>planning your change…`);
-    const clients = { gen: meteredCallLlm("planning your change"), apply: meteredCallLlm("applying the change") };
+    setBusy(true); resetUsage(); setStatus(`<span class="db-spin"></span>✏️ planning edits to your workflow…`);
+    const clients = { gen: meteredCallLlm("✏️ planning edits to your workflow"), apply: meteredCallLlm("✏️ applying edits to your workflow") };
     try{
       const { next } = await runGptdiff(prevSimple, text, descModel, clients);
       const valid = validate(next);
@@ -12231,7 +12239,7 @@ RULES for the diff:
       // that nets to nothing must read as a no-op — not "✓ updated 1 setting" + a duplicate version.
       const appliedInternal = fromSimple(next, prevInternal);   // pure → safe to compute once and reuse
       const dif = diff(prevSimple, toSimple(appliedInternal));
-      if(dif.count===0){ setStatus(`No change needed — try being more specific. ${usageMeter()}`); return; }
+      if(dif.count===0){ setStatus(`<span class="done">✓ Done — no change was needed.</span> Try being more specific. ${usageMeter()}`); return; }
       applyGraphData(appliedInternal, {carryResults:true}); save();
       // record versions: seed v0 from the pre-change graph on the first change. Append-only —
       // a change applied from an older version lands at the END and becomes current; we never
@@ -12241,10 +12249,13 @@ RULES for the diff:
       curVer = versions.length-1;
       renderVersions();
       input.value = "";
-      const addedIds = dif.added.map(n=>n.id);
-      revealNodes(addedIds);   // scroll the freshly-added nodes into view before the pulse lands
-      pulse(addedIds);
-      setStatus(`✓ ${esc(summarize(dif))}. ${usageMeter()}`, "ok");
+      // The done moment must be unmissable: pulse EVERY node the edit touched (changed too, not
+      // just added), scroll them into view first, flash the bar green, and headline the recap.
+      const touchedIds = [...new Set([...dif.added.map(n=>n.id), ...dif.changed.map(c=>c.id)])];
+      revealNodes(touchedIds);
+      pulse(touchedIds);
+      bar.classList.remove("db-done"); void bar.offsetWidth; bar.classList.add("db-done");
+      setStatus(`<span class="done">✓ Done — ${esc(summarize(dif))}.</span> ${usageMeter()}`, "ok");
     }catch(e){
       if(e && e.name==="AbortError") setStatus(`Stopped. ${usageMeter()}`);   // you hit ■ Stop — neutral, not an error
       else{
