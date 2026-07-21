@@ -36,8 +36,7 @@ it (runbook: Nano crowd loves receipts). Handles are in.
 > 🛠 **Most Useful — LOST, and I need your help.** Someone submitted a video
 > security-camera workflow and automod removed the comment before I could save
 > it. If that was you: reply here or DM me — your 133 XNO and gallery spot are
-> waiting. (Mods, if you can see the removed comment in the queue, a restore
-> would be heroic.)
+> waiting.
 >
 > Winners are now featured in-app — 📚 Examples → "From the community", credited
 > — so anyone can open, run, and remix them. Thank you all for cooking. 👨‍🍳
