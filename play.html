@@ -112,7 +112,7 @@
   /* empty landing (no app loaded): the app-scoped actions would act on a blank default app
      — Share would mint a link to nothing, Export would bundle it. Hide them until an app exists.
      (My apps + auth stay, so you can still open a saved app or sign in.) */
-  body.empty #share, body.empty #export, body.empty #openeditor, body.empty #sharehint{ display:none; }
+  body.empty #share, body.empty #export, body.empty #openeditor, body.empty #sharehint, body.empty #agentbtn{ display:none; }
   /* ...and the title isn't editable while empty (wireTitle early-returns), so drop the edit cues. */
   body.empty #bar-title{ cursor:default; }
   body.empty #bar-title::after{ content:none; }
@@ -163,6 +163,36 @@
               border-radius:.7rem; box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.55rem .6rem; }
   #sharemenu[hidden], #shareback[hidden]{ display:none; }
   .sm-urlrow{ display:flex; gap:.4rem; align-items:center; }
+  /* ---------- 🤖 use-in-your-agent popover — the editor pill's /play twin, scoped to the open app ---------- */
+  #agentpop{ position:fixed; right:.6rem; top:3rem; z-index:91; width:min(440px,94vw);
+             background:var(--panel); border:1px solid var(--line); border-radius:.7rem;
+             box-shadow:0 18px 50px rgba(0,0,0,.5); padding:.55rem .6rem; }
+  #agentpop[hidden]{ display:none; }
+  #agentpop .ap-note{ font-size:.78rem; color:var(--ink); line-height:1.45; margin:.2rem .15rem .5rem; }
+  #agentpop .ap-agents{ font-size:.72rem; color:var(--dim); line-height:1.5; margin:.45rem .15rem .1rem; }
+  #agentpop .ap-agents b{ color:var(--ink); font-weight:600; }
+  #agentpop .ap-links{ font-size:.72rem; color:var(--dim); line-height:1.5; margin:.35rem .15rem .1rem; }
+  #agentpop a{ color:var(--dim); }
+  #agentpop a:hover{ color:var(--ink); }
+  #agentpop details{ margin:.55rem .15rem .1rem; border:1px solid var(--line); border-radius:.55rem;
+                     padding:.1rem .55rem; transition:border-color .15s; }
+  #agentpop details:hover{ border-color:color-mix(in srgb, var(--accent) 40%, var(--line)); }
+  #agentpop details[open]{ padding-bottom:.5rem; }
+  #agentpop summary{ list-style:none; cursor:pointer; font-size:.75rem; color:var(--dim); line-height:1.45;
+                     display:flex; align-items:center; gap:.55rem; padding:.35rem 0; }
+  #agentpop summary::-webkit-details-marker{ display:none; }
+  #agentpop summary::after{ content:"›"; margin-left:auto; flex:none; color:var(--accent);
+                            font-size:1.05rem; line-height:1; transition:transform .15s; }
+  #agentpop details[open] summary::after{ transform:rotate(90deg); }
+  #agentpop summary:hover, #agentpop details[open] summary{ color:var(--ink); }
+  /* the command wraps in full view (a clipped <input> would hide the highlighted key mid-string);
+     the variable part — the masked key or the your-key swap token — is the one highlighted bit */
+  #agentpop .ap-cmd{ flex:1; min-width:0; font-size:.72rem; font-family:ui-monospace,monospace; color:var(--dim);
+                     background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.4rem .5rem;
+                     line-height:1.55; white-space:pre-wrap; overflow-wrap:anywhere; user-select:all; }
+  #agentpop .ap-cmd .ap-key{ background:var(--accent-soft); color:var(--ink);
+                             border-radius:.25rem; padding:0 .15rem; }
+  #agentpop .ap-keyhint{ font-size:.72rem; color:var(--dim); line-height:1.5; margin:.35rem .15rem .1rem; }
   .sm-url{ flex:1; min-width:0; font-size:.78rem; font-family:ui-monospace,monospace; color:var(--dim);
            background:var(--panel2); border:1px solid var(--line); border-radius:.45rem; padding:.4rem .5rem; }
   .sm-copy{ flex:none; }
@@ -408,6 +438,7 @@
   <button id="share" aria-haspopup="true" aria-expanded="false" title="Copy a link that loads this exact app — recipients sign in with their own key">🔗 Share</button>
   <button id="export" title="Download this app as one self-contained .html (no key inside)">⭳ Export</button>
   <button id="openeditor" title="Edit this app's underlying workflow in the nanoodle editor — your app UI is kept">✎ Edit workflow</button>
+  <button id="agentbtn" aria-haspopup="true" aria-expanded="false" title="Run this app from your coding agent — one command, your own key">🤖 Agent</button>
   </div>
   <button id="barmore" class="link" title="More" aria-label="More" aria-expanded="false">⋯</button>
 </div>
@@ -461,6 +492,35 @@
   </div>
 </div>
 <div id="shareback" hidden></div>
+
+<!-- 🤖 "use in your agent" popover — the editor pill's /play twin, but scoped to THE APP on
+     screen: the hero is one paste-ready command that runs this exact app from a terminal or
+     coding agent (nanoodle CLI, URL-is-the-package), with the app's real input names baked in
+     and — when signed in — the viewer's key (masked on screen; Copy grabs the full command;
+     the key never leaves the browser except onto their clipboard). The permanent-tool path
+     (download the graph, serve the folder with nanoodle-mcp) folds behind a <details> like the
+     editor's MCP row. Built per-open by renderAgentPop(); the baked share URL is graph-only
+     (files-less, sample-less) — the CLI ignores the app shell, and it keeps the command small.
+     A quiet popover, not a modal: closes on outside click or Esc (same idiom as the editor). -->
+<div id="agentpop" hidden role="dialog" aria-label="Use this app in your coding agent">
+  <div class="am-head">🤖 <span>This app in your coding agent</span></div>
+  <p class="ap-note">One command runs this exact app — from your agent or terminal, on your own NanoGPT key.</p>
+  <div class="sm-urlrow">
+    <code id="agentcmd" class="ap-cmd" aria-label="run command" data-no-i18n></code>
+    <button id="agentcopy" class="sm-copy">Copy</button>
+  </div>
+  <p class="ap-keyhint" id="agenthint"></p>
+  <details id="agentmcp">
+    <summary>Want it as a permanent named tool? Serve a folder of graphs with the MCP server.</summary>
+    <p class="ap-note"><a id="agentgraphdl" href="#">⭳ Download this app's graph</a> <span>into a folder — every graph there becomes a typed tool your agent can call.</span></p>
+    <div class="sm-urlrow">
+      <code id="agentmcpcmd" class="ap-cmd" aria-label="MCP install command" data-no-i18n>claude mcp add nanoodle --env NANOGPT_API_KEY=<mark class="ap-key">your-key</mark> -- npx -y nanoodle-mcp --graphs ~/noodles</code>
+      <button id="agentmcpcopy" class="sm-copy">Copy</button>
+    </div>
+  </details>
+  <p class="ap-agents"><span>works in</span> <b data-no-i18n>Claude Code, Grok build, Cursor, Gemini CLI</b> <a href="https://agentskills.io" target="_blank" rel="noopener">&amp; more</a></p>
+  <p class="ap-links"><a href="https://github.com/nanoodlecom/nanoodle-js#cli" target="_blank" rel="noopener">CLI docs</a> · <a href="https://github.com/nanoodlecom/nanoodle-mcp#install" target="_blank" rel="noopener">MCP setup</a></p>
+</div>
 
 <!-- paste-key row (hidden until "paste key") — same pattern as index.html -->
 <div id="key">
@@ -5177,6 +5237,22 @@ const PLAY_I18N_B = {
   "✨ Like it? Make it yours — customize this app or export it.":{es:"✨ ¿Te gusta? Hazla tuya — personaliza esta app o expórtala.",fr:"✨ Ça vous plaît ? Faites-la vôtre — personnalisez cette app ou exportez-la.",de:"✨ Gefällt sie dir? Mach sie zu deiner — passe diese App an oder exportiere sie.",pt:"✨ Gostou? Torne-a sua — personalize este app ou exporte-o.",ja:"✨ 気に入りましたか？ 自分のものに — このアプリをカスタマイズするかエクスポートしましょう。"},
   "Someone built this mini AI app with nanoodle and shared it with you. It runs right here in your browser with your own NanoGPT key — there's no nanoodle server in the middle.":{es:"Alguien creó esta mini app de IA con nanoodle y la compartió contigo. Se ejecuta aquí mismo, en tu navegador, con tu propia clave de NanoGPT — no hay ningún servidor de nanoodle de por medio.",fr:"Quelqu'un a créé cette mini app d'IA avec nanoodle et l'a partagée avec vous. Elle s'exécute directement ici, dans votre navigateur, avec votre propre clé NanoGPT — il n'y a aucun serveur nanoodle au milieu.",de:"Jemand hat diese Mini-KI-App mit nanoodle gebaut und mit dir geteilt. Sie läuft direkt hier in deinem Browser mit deinem eigenen NanoGPT-Schlüssel — es gibt keinen nanoodle-Server dazwischen.",pt:"Alguém criou este mini app de IA com o nanoodle e compartilhou com você. Ele roda aqui mesmo, no seu navegador, com a sua própria chave da NanoGPT — não há nenhum servidor nanoodle no meio.",ja:"誰かが nanoodle でこのミニAIアプリを作り、あなたに共有しました。あなた自身の NanoGPT キーを使って、このブラウザー内でそのまま動きます — 間に nanoodle のサーバーはありません。"},
   "Build your own →":{es:"Crea la tuya →",fr:"Créez la vôtre →",de:"Bau deine eigene →",pt:"Crie o seu →",ja:"自分のアプリを作る →"},
+  "🤖 Agent":{es:"🤖 Agente",fr:"🤖 Agent",de:"🤖 Agent",pt:"🤖 Agente",ja:"🤖 エージェント"},
+  "Run this app from your coding agent — one command, your own key":{es:"Ejecuta esta app desde tu agente de código — un solo comando, con tu propia clave",fr:"Exécutez cette app depuis votre agent de code — une seule commande, avec votre propre clé",de:"Führe diese App aus deinem Coding-Agenten aus — ein Befehl, mit deinem eigenen Schlüssel",pt:"Execute este app do seu agente de código — um único comando, com a sua própria chave",ja:"コーディングエージェントからこのアプリを実行 — コマンド1つ、あなた自身のキーで"},
+  "Use this app in your coding agent":{es:"Usa esta app en tu agente de código",fr:"Utiliser cette app dans votre agent de code",de:"Diese App in deinem Coding-Agenten nutzen",pt:"Use este app no seu agente de código",ja:"このアプリをコーディングエージェントで使う"},
+  "This app in your coding agent":{es:"Esta app en tu agente de código",fr:"Cette app dans votre agent de code",de:"Diese App in deinem Coding-Agenten",pt:"Este app no seu agente de código",ja:"このアプリをコーディングエージェントで"},
+  "One command runs this exact app — from your agent or terminal, on your own NanoGPT key.":{es:"Un solo comando ejecuta exactamente esta app — desde tu agente o terminal, con tu propia clave de NanoGPT.",fr:"Une seule commande exécute exactement cette app — depuis votre agent ou terminal, avec votre propre clé NanoGPT.",de:"Ein Befehl führt genau diese App aus — aus deinem Agenten oder Terminal, mit deinem eigenen NanoGPT-Schlüssel.",pt:"Um único comando executa exatamente este app — do seu agente ou terminal, com a sua própria chave NanoGPT.",ja:"コマンド1つでこのアプリをそのまま実行 — エージェントやターミナルから、あなた自身の NanoGPT キーで。"},
+  "Want it as a permanent named tool? Serve a folder of graphs with the MCP server.":{es:"¿La quieres como herramienta permanente con nombre? Sirve una carpeta de grafos con el servidor MCP.",fr:"Vous la voulez comme outil nommé permanent ? Servez un dossier de graphes avec le serveur MCP.",de:"Als dauerhaftes benanntes Tool? Serviere einen Ordner voller Graphen mit dem MCP-Server.",pt:"Quer como ferramenta permanente com nome? Sirva uma pasta de grafos com o servidor MCP.",ja:"名前付きの常設ツールにしたい？ MCPサーバーでグラフのフォルダを提供しましょう。"},
+  "⭳ Download this app's graph":{es:"⭳ Descarga el grafo de esta app",fr:"⭳ Téléchargez le graphe de cette app",de:"⭳ Lade den Graphen dieser App herunter",pt:"⭳ Baixe o grafo deste app",ja:"⭳ このアプリのグラフをダウンロード"},
+  "into a folder — every graph there becomes a typed tool your agent can call.":{es:"a una carpeta — cada grafo ahí se convierte en una herramienta tipada que tu agente puede llamar.",fr:"dans un dossier — chaque graphe devient un outil typé que votre agent peut appeler.",de:"in einen Ordner — jeder Graph dort wird zu einem typisierten Tool, das dein Agent aufrufen kann.",pt:"para uma pasta — cada grafo ali vira uma ferramenta tipada que seu agente pode chamar.",ja:"フォルダへ — そこにある各グラフが、エージェントが呼び出せる型付きツールになります。"},
+  "works in":{es:"funciona en",fr:"fonctionne dans",de:"funktioniert in",pt:"funciona no",ja:"対応:"},
+  "& more":{es:"y más",fr:"et plus",de:"& mehr",pt:"e mais",ja:"ほか多数"},
+  "CLI docs":{es:"docs de la CLI",fr:"docs CLI",de:"CLI-Doku",pt:"docs da CLI",ja:"CLIドキュメント"},
+  "run command":{es:"comando de ejecución",fr:"commande d’exécution",de:"Ausführungsbefehl",pt:"comando de execução",ja:"実行コマンド"},
+  "MCP install command":{es:"comando de instalación MCP",fr:"commande d’installation MCP",de:"MCP-Installationsbefehl",pt:"comando de instalação MCP",ja:"MCPインストールコマンド"},
+  "MCP setup":{es:"configurar MCP",fr:"config MCP",de:"MCP einrichten",pt:"configurar MCP",ja:"MCP設定"},
+  "your key is filled in (shortened on screen — Copy grabs the full command, ready to paste)":{es:"tu clave ya está puesta (abreviada en pantalla — Copiar toma el comando completo, listo para pegar)",fr:"votre clé est déjà en place (raccourcie à l’écran — Copier prend la commande complète, prête à coller)",de:"dein Schlüssel ist schon eingesetzt (am Bildschirm gekürzt — Kopieren nimmt den vollständigen Befehl, bereit zum Einfügen)",pt:"sua chave já está preenchida (encurtada na tela — Copiar pega o comando completo, pronto para colar)",ja:"あなたのキーは入力済みです（画面では短縮表示 — コピーで完全なコマンドが取れます。貼り付けるだけ）"},
+  "swap your-key for your NanoGPT API key — or sign in here first and it's filled in for you":{es:"cambia your-key por tu clave API de NanoGPT — o inicia sesión aquí primero y se rellena sola",fr:"remplacez your-key par votre clé API NanoGPT — ou connectez-vous d’abord ici et elle se remplit toute seule",de:"ersetze your-key durch deinen NanoGPT-API-Schlüssel — oder melde dich zuerst hier an, dann wird er automatisch eingesetzt",pt:"troque your-key pela sua chave de API NanoGPT — ou entre aqui primeiro e ela se preenche sozinha",ja:"your-key をあなたの NanoGPT API キーに置き換えてください — 先にここでサインインすれば自動で入ります"},
 };
 const PLAY_B_LANGS = ["en","es","fr","de","pt","ja"];
 const PLAY_B_ENDONYM = { en:"English", es:"Español", fr:"Français", de:"Deutsch", pt:"Português", ja:"日本語" };
@@ -12892,6 +12968,87 @@ $("recwelcome-x").onclick = dismissRecipientWelcome;
 $("shareback").onclick = closeShareMenu;
 $("sm-copy").onclick = async ()=>{ const ok = await copyText(shareUrl); toast(ok?"✓ Copied":"copy failed", ok?"":"err"); };
 $("sm-url").onclick = ()=> $("sm-url").select();
+
+/* ---- 🤖 use-in-your-agent popover: THIS app as one agent-runnable command ---- */
+let agentCmdFull = "", agentMcpFull = "";   // full (unmasked) commands the Copy buttons grab
+// Graph-only #a= for the CLI: nanoodle-js ignores the app shell (files/samples), so the
+// smallest faithful link is {v, graph, name} — files-less like never-customized shares,
+// and sample-less always: samples only bloat a command someone pastes into a terminal.
+async function agentShareUrl(){
+  const base = { v:1, graph: shareableGraph(APP_STATE.graph) };
+  const name = titleFromFiles(APP_STATE.files); if(name) base.name = name;
+  const json = JSON.stringify(base);
+  const packed = await gzip(json).catch(()=>null);
+  return location.origin + location.pathname +
+         (packed ? "#a="+bytesToB64url(packed) : "#a=u"+bytesToB64url(new TextEncoder().encode(json)));
+}
+// The app's required inputs as --input flags with their real names, so the command reads as
+// THIS app's command, not a generic one. Media kinds get an @file placeholder the CLI understands.
+function agentInputFlags(){
+  try{
+    const m = NoodleApp.materialize(APP_STATE.graph);
+    const items = NoodleApp.deriveInputs(m).filter(i=> !i.optional);
+    // key = the node's custom name when unique (the CLI resolves it), else the always-safe
+    // nodeId.field form — mirrors nanoodle-js resolveInputKey's own lookup order
+    const names = items.map(i=> ((i.node && i.node.name) || "").trim());
+    return items.map((i, ix)=>{
+      const nm = names[ix];
+      const key = nm && names.indexOf(nm) === names.lastIndexOf(nm) ? nm : i.nodeId+"."+i.field;
+      const ph = { image:"@photo.jpg", inpaint:"@photo.jpg", audio:"@audio.mp3", video:"@video.mp4" }[i.kind];
+      return /[^A-Za-z0-9_.-]/.test(key)
+        ? `--input "${key}=${ph || "…"}"`
+        : `--input ${key}=${ph || '"…"'}`;
+    });
+  }catch(_){ return []; }
+}
+function agentSlug(){
+  const n = (titleFromFiles(APP_STATE.files) || "").toLowerCase()
+            .replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  return n || "my-app";
+}
+function agentKeyMark(key){
+  const mark = document.createElement("mark"); mark.className = "ap-key";
+  mark.textContent = key ? key.slice(0,4)+"…"+key.slice(-4) : "your-key";
+  return mark;
+}
+async function renderAgentPop(){
+  const key = getKey(), _id = CUR_ID;
+  // MCP command (sync) — same builder as the editor's renderAgentMcp: key baked in, masked on screen
+  const mEl = $("agentmcpcmd"); mEl.textContent = "";
+  mEl.append("claude mcp add nanoodle --env NANOGPT_API_KEY=", agentKeyMark(key), " -- npx -y nanoodle-mcp --graphs ~/noodles");
+  agentMcpFull = "claude mcp add nanoodle --env NANOGPT_API_KEY="+(key||"your-key")+" -- npx -y nanoodle-mcp --graphs ~/noodles";
+  // hero command (async: gzip-packs the graph into the URL)
+  const cEl = $("agentcmd"); cEl.textContent = "…";
+  const url = await agentShareUrl();
+  if($("agentpop").hidden) return;                        // closed while packing
+  if(CUR_ID !== _id){ renderAgentPop(); return; }         // switched apps mid-pack — rebuild for the app on screen
+  const flags = agentInputFlags();
+  const tail = ` npx nanoodle run "${url}"` + (flags.length ? " "+flags.join(" ") : "");
+  agentCmdFull = "NANOGPT_API_KEY=" + (key || "your-key") + tail;
+  cEl.textContent = "";
+  // the multi-kB URL is middle-ellipsized on screen only — Copy grabs it in full
+  const uSpan = document.createElement("span");
+  uSpan.textContent = url.length > 58 ? url.slice(0,40)+"…"+url.slice(-9) : url;
+  cEl.append("NANOGPT_API_KEY=", agentKeyMark(key), ' npx nanoodle run "', uSpan, '"' + (flags.length ? " "+flags.join(" ") : ""));
+  $("agenthint").textContent = tB(key
+    ? "your key is filled in (shortened on screen — Copy grabs the full command, ready to paste)"
+    : "swap your-key for your NanoGPT API key — or sign in here first and it's filled in for you");
+}
+function setAgentPop(open){ $("agentpop").hidden = !open; $("agentbtn").setAttribute("aria-expanded", String(open)); if(open) renderAgentPop(); }
+$("agentbtn").onclick = ()=> setAgentPop($("agentpop").hidden);
+document.addEventListener("click", e=>{ if(!$("agentpop").hidden && !$("agentpop").contains(e.target) && !e.target.closest("#agentbtn")) setAgentPop(false); });
+addEventListener("keydown", e=>{ if(e.key==="Escape" && !$("agentpop").hidden) setAgentPop(false); });
+$("agentcopy").onclick = async ()=>{ const ok = await copyText(agentCmdFull); toast(ok?"✓ Copied — paste it into your agent or terminal":"copy failed", ok?"":"err"); };
+$("agentmcpcopy").onclick = async ()=>{ const ok = await copyText(agentMcpFull); toast(ok?"✓ Copied":"copy failed", ok?"":"err"); };
+$("agentgraphdl").onclick = (e)=>{ e.preventDefault();
+  const blob = new Blob([JSON.stringify(shareableGraph(APP_STATE.graph), null, 2)], { type:"application/json" });
+  const href = URL.createObjectURL(blob), fname = agentSlug()+".json";
+  const a = document.createElement("a"); a.href = href; a.download = fname;
+  a.addEventListener("click", ev=> ev.stopPropagation());   // the synthetic click bubbles to the document-level closer and would shut the popover mid-flow
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=> URL.revokeObjectURL(href), 4000);
+  toast('✓ '+fname+' — served from your --graphs folder it becomes the "'+agentSlug()+'" tool');
+};
 // preview toggle: swap the popover (and clipboard) between the with-preview and no-preview
 // variants of the SAME share. Everything downstream — shorten buttons, social row, too-long
 // note — re-syncs against the swapped link, so ticking it off revives the shorteners.

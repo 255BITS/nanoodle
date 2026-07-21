@@ -1,5 +1,16 @@
 [
   {
+    "date": "2026-07-21",
+    "text": "Every nanoodle app now works in your coding agent — open any app on /play, hit 🤖 Agent, and copy one command that runs it from Claude Code, Cursor, or any terminal on your own key.",
+    "i18n": {
+      "es": "Ahora todas las apps de nanoodle funcionan en tu agente de programación — abre cualquier app en /play, pulsa 🤖 Agent, y copia un comando que la ejecuta desde Claude Code, Cursor o cualquier terminal con tu propia clave.",
+      "fr": "Chaque app nanoodle fonctionne désormais dans ton agent de code — ouvre n'importe quelle app sur /play, clique sur 🤖 Agent, et copie une commande qui l'exécute depuis Claude Code, Cursor ou n'importe quel terminal avec ta propre clé.",
+      "de": "Jede nanoodle-App funktioniert jetzt in deinem Coding-Agent — öffne eine beliebte App auf /play, klicke auf 🤖 Agent und kopiere einen Befehl, der sie aus Claude Code, Cursor oder einem beliebigen Terminal mit deinem eigenen Key ausführt.",
+      "pt": "Todo app do nanoodle agora funciona no seu agente de codificação — abra qualquer app em /play, clique em 🤖 Agent e copie um comando que o executa no Claude Code, Cursor ou qualquer terminal com a sua própria chave.",
+      "ja": "すべてのnanoodleアプリがコーディングエージェントで使えるようになりました。/playで任意のアプリを開き、🤖 Agentをクリックして、Claude Code、Cursor、または任意のターミナルから自分のキーで実行できるコマンドを1つコピーするだけです。"
+    }
+  },
+  {
     "date": "2026-07-19",
     "text": "🔍 Failed runs now tell you the real culprit — the error names the node that actually broke (the root cause), not just the output next to it saying \"upstream failed\".",
     "i18n": {
