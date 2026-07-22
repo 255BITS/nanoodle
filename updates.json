@@ -44,6 +44,17 @@
     }
   },
   {
+    "date": "2026-07-21",
+    "text": "New LLM model: LongCat 2.0 Thinking — This reasoning-enabled variant of LongCat 2.0 is built for harder coding, tool use, multi-step problem solving, and long-context agent workflows.",
+    "i18n": {
+      "es": "Nuevo modelo LLM: LongCat 2.0 Thinking — Esta variante con razonamiento de LongCat 2.0 está pensada para programación más exigente, uso de herramientas, resolución de problemas en varios pasos y flujos de trabajo de agentes con contexto largo.",
+      "fr": "Nouveau modèle LLM : LongCat 2.0 Thinking — Cette variante de LongCat 2.0 avec raisonnement est conçue pour du code plus complexe, l'utilisation d'outils, la résolution de problèmes en plusieurs étapes et les workflows d'agents à contexte long.",
+      "de": "Neues LLM-Modell: LongCat 2.0 Thinking — Diese mit Reasoning-Fähigkeiten ausgestattete Variante von LongCat 2.0 ist für anspruchsvolleres Coding, Tool-Nutzung, mehrstufige Problemlösung und Long-Context-Agent-Workflows konzipiert.",
+      "pt": "Novo modelo LLM: LongCat 2.0 Thinking — Esta variante com raciocínio do LongCat 2.0 é feita para programação mais complexa, uso de ferramentas, resolução de problemas em várias etapas e fluxos de trabalho de agentes com contexto longo.",
+      "ja": "新LLMモデル：LongCat 2.0 Thinking — LongCat 2.0の推論対応バリアントで、より高度なコーディング、ツール使用、多段階の問題解決、長文コンテキストのエージェントワークフローに向けて設計されています。"
+    }
+  },
+  {
     "date": "2026-07-19",
     "text": "🔍 Failed runs now tell you the real culprit — the error names the node that actually broke (the root cause), not just the output next to it saying \"upstream failed\".",
     "i18n": {
