@@ -6,7 +6,8 @@
       "es": "El nodo 🎨 Draw se ha retirado — su modelo dejó el catálogo de NanoGPT. Usa el nodo 🖼 Image para generar (y ✂️ Edit para editar); los grafos antiguos se cargan omitiendo el nodo Draw.",
       "fr": "Le nœud 🎨 Draw a été retiré — son modèle a quitté le catalogue NanoGPT. Utilise le nœud 🖼 Image pour générer (et ✂️ Edit pour modifier) ; les anciens graphes se chargent en ignorant le nœud Draw.",
       "pt": "O nó 🎨 Draw foi aposentado — seu modelo saiu do catálogo do NanoGPT. Use o nó 🖼 Image para gerar (e ✂️ Edit para editar); grafos antigos carregam com o nó Draw ignorado.",
-      "ja": "🎨 Draw ノードは引退しました — 対応モデルが NanoGPT カタログから外れたためです。生成には 🖼 Image ノード、編集には ✂️ Edit ノードをご利用ください。既存のグラフを読み込むと、Draw ノードはスキップされます。"
+      "ja": "🎨 Draw ノードは引退しました — 対応モデルが NanoGPT カタログから外れたためです。生成には 🖼 Image ノード、編集には ✂️ Edit ノードをご利用ください。既存のグラフを読み込むと、Draw ノードはスキップされます。",
+      "de": "Der 🎨 Draw-Knoten hat sich verabschiedet — sein Modell hat den NanoGPT-Katalog verlassen. Nutze den 🖼 Image-Knoten zum Generieren (und ✂️ Edit zum Bearbeiten); alte Graphen laden ohne den Draw-Knoten."
     }
   },
   {
