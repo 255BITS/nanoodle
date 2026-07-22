@@ -3799,6 +3799,17 @@ const CHAT_IMAGE_OUT = new Set([
   "gemini-3-pro-image-preview",
 ]);
 
+// Chat models that take NO temperature — OpenAI's reasoning line (gpt-5 family + o-series)
+// rejects any non-default value, and NanoGPT quietly strips the param before forwarding
+// (live-verified 2026-07-21: gpt-5-nano accepts temperature 0.8 through NanoGPT while OpenAI
+// itself 400s it), so the slider was a dead knob on these models. Family regex rather than an
+// id list so new gpt-5.x / oN releases stay covered; gpt-*chat* (gpt-chat-latest) is the
+// non-reasoning branch that DOES sample and keeps the slider. -search-preview: OpenAI's web-search
+// models likewise take no sampling params. Not metadata-derivable: the
+// catalog carries no temperature/supported-params flag (checked 2026-07-21).
+const TEMP_LOCKED = /(^|\/)(azure-)?o[134](-|$)|(^|\/)gpt-5(?![.\d-]*chat)|(^|\/)gpt-latest$|-search-preview$/;
+const tempLocked = id => TEMP_LOCKED.test(String(id||""));
+
 function normChat(m){
   const p = m.pricing||{}, c = m.capabilities||{};
   return { id:m.id, name:m.name||m.id, created:m.created, imageOut: CHAT_IMAGE_OUT.has(m.id),   // returns an image inline → pickable in the Draw node
@@ -5147,7 +5158,8 @@ function refreshModelOpts(n){
   });
 }
 /* ---------- LLM sampling / reasoning controls (⚙️ advanced disclosure) ----------
-   temperature + max_tokens are always offered; output-format (JSON) and reasoning effort/trace
+   max_tokens is always offered; temperature hides on TEMP_LOCKED models (which ignore it), and
+   output-format (JSON) and reasoning effort/trace
    light up only when the selected model's catalog flags (structured_output / reasoning) allow it.
    Values live in n.fields and pass through genChat, omitted at their default so request bodies stay
    clean. Rebuilt on model-pick (like the LoRA / model-options blocks); stale flag-gated fields are
@@ -5167,6 +5179,10 @@ function refreshLlmOpts(n){
     if(!it.structured_output) delete f.format;                       // drop a knob the new model can't use
     if(!it.reasoning){ delete f.reasoningEffort; delete f.showThinking; }
   }
+  // id-pattern gate (no catalog needed, so no permissive fallback): temperature-locked models
+  // lose the slider AND any stored value, so saves/exports don't carry a setting that's ignored.
+  const noTemp = tempLocked(f.model);
+  if(noTemp) delete f.temperature;
   // Show gated rows when known-capable, OR when unknown and the field is already set
   // (preserves the UI for a typed-in / offline model that had JSON mode enabled).
   const showFormat = it ? !!it.structured_output : (f.format === "JSON");
@@ -5180,10 +5196,12 @@ function refreshLlmOpts(n){
     ? `<div style="margin:3px 0"><label>reasoning effort</label><select data-lf="reasoningEffort">${
         REASONING_EFFORTS.map(o=>`<option value="${esc(o)}"${(f.reasoningEffort||"default")===o?" selected":""}>${esc(o)}</option>`).join("")}</select></div>
        <label class="setbool" style="margin:3px 0"><input type="checkbox" data-lf="showThinking"${(f.showThinking===true||f.showThinking==="true")?" checked":""}/> show thinking</label>` : "";
+  const tempRow = noTemp ? "" :   // temperature-locked model (TEMP_LOCKED): the API ignores it, so no slider
+    `<div style="margin:3px 0"><label><span data-ltlab>${esc(t("temperature"))} · ${temp.toFixed(1)}</span> <span class="dim lblhint">${esc(t("· higher = more creative"))}</span></label><input type="range" data-lf="temperature" min="0" max="2" step="0.1" value="${esc(temp)}" style="width:100%"/></div>`;
   const open = (f.temperature!=null && +f.temperature!==0.8) || (f.maxTokens||"") || f.format==="JSON"
             || (f.reasoningEffort && f.reasoningEffort!=="default") || f.showThinking===true || f.showThinking==="true" ? " open" : "";
   box.innerHTML = `<details class="adv"${open}><summary>⚙️ ${esc(t("advanced"))}</summary>
-    <div style="margin:3px 0"><label><span data-ltlab>${esc(t("temperature"))} · ${temp.toFixed(1)}</span> <span class="dim lblhint">${esc(t("· higher = more creative"))}</span></label><input type="range" data-lf="temperature" min="0" max="2" step="0.1" value="${esc(temp)}" style="width:100%"/></div>
+    ${tempRow}
     <div style="margin:3px 0"><label>${esc(t("max tokens"))}${it&&it.maxOut?` (≤ ${it.maxOut})`:""}</label><input type="number" data-lf="maxTokens" min="1"${it&&it.maxOut?` max="${it.maxOut}"`:""} value="${esc(f.maxTokens??"")}" placeholder="default"/></div>
     ${fmtRow}${reasonRows}</details>`;
   translateTree(box);   // localize plain labels (output format / reasoning effort / show thinking / max-tokens placeholder)
