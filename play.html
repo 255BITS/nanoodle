@@ -8173,6 +8173,14 @@ function mp4ParamsMatch(bufs){
   // flag). The Draw node filters the swap list on this; without it, modelSuits falls into default:true
   // and every chat model is offered (a paid dead-end for non-image chat ids).
   const CHAT_IMAGE_OUT = { "gemini-3-pro-image-preview":1 };
+  // Chat models that take NO temperature (index.html TEMP_LOCKED — keep in lockstep): OpenAI's
+  // reasoning line (gpt-5 family + o-series) rejects any non-default value and NanoGPT strips the
+  // param before forwarding (live-verified 2026-07-21), so a Temperature knob on these is a dead
+  // control. Family regex, not an id list, so new gpt-5.x / oN releases stay covered; gpt-*chat*
+  // is the non-reasoning branch that DOES sample; -search-preview = OpenAI web-search models,
+  // which also take no sampling params. Not metadata-derivable (no catalog params flag).
+  const TEMP_LOCKED = /(^|\/)(azure-)?o[134](-|$)|(^|\/)gpt-5(?![.\d-]*chat)|(^|\/)gpt-latest$|-search-preview$/;
+  const tempLocked = id => TEMP_LOCKED.test(String(id||""));
   // Edit models verified to honor a brushed mask (index.html INPAINT_OK) — plus true *inpaint* ids.
   // Keep in lockstep with the editor allowlist; not metadata-derivable (many advertise inpainting yet
   // regenerate the whole image when handed a mask).
@@ -8346,6 +8354,17 @@ function mp4ParamsMatch(bufs){
           ? [[String(cur),String(cur)], ...opts] : opts;   // keep a stored (e.g. baked-in) value pickable
         el.innerHTML = list.map(o=> '<option value="'+esc(o[0])+'"'+(String(o[0])===String(cur)?" selected":"")+'>'+esc(o[1])+'</option>').join("");
       }).catch(()=>{});
+    });
+  }
+  // Hide the Temperature knob when the LLM node's current model ignores it (TEMP_LOCKED).
+  // Pure id check — no catalog fetch — so it's instant; re-run on model pick (like fillDimLists)
+  // so swapping to/from a temperature-locked model shows/hides the row. The stored field value
+  // stays on the graph (play never prunes author data); NanoGPT strips it server-side anyway.
+  function refreshTempRows(){
+    (STATE.settings || []).forEach((it,i)=>{
+      if(it.node.type!=="llm" || it.field!=="temperature") return;
+      const el = document.getElementById("set_"+i), row = el && el.closest(".field");
+      if(row) row.hidden = tempLocked(it.node.fields.model);
     });
   }
   // Best-effort: STT models that advertise a fixed language list (supported_parameters.supported_languages)
@@ -8723,6 +8742,7 @@ function mp4ParamsMatch(bufs){
     fillModelLists();
     fillDimLists();   // rewrite size/resolution/aspect/duration options from each model's live catalog
     fillLangLists();  // swap the Transcribe language box for a <select> when the model lists supported languages
+    refreshTempRows();// hide Temperature on models that ignore it (TEMP_LOCKED)
     box.querySelectorAll(".inpaint-ctl").forEach(ctl=> wireInpaintControl(box, ctl));
   }
   // Best-effort: pull each model field's catalog into its dropdown so the user can
@@ -8758,10 +8778,10 @@ function mp4ParamsMatch(bufs){
       menu.hidden = false; input.setAttribute("aria-expanded","true");
     }
     function close(){ menu.hidden = true; input.setAttribute("aria-expanded","false"); active = -1; }
-    function pick(id){ input.value = id; it.node.fields[it.field] = id; close(); fillDimLists(); fillLangLists(); checkDirty(); refreshRunCost(); }   // new model → refresh its dim/language options + price
+    function pick(id){ input.value = id; it.node.fields[it.field] = id; close(); fillDimLists(); fillLangLists(); refreshTempRows(); checkDirty(); refreshRunCost(); }   // new model → refresh its dim/language options + temperature row + price
     input.addEventListener("focus", ()=> open(true));
     input.addEventListener("modelrefresh", ()=> open(true));   // catalog arrived while focused
-    input.addEventListener("input", ()=>{ it.node.fields[it.field] = input.value.trim(); open(false); checkDirty(); refreshRunCost(); });
+    input.addEventListener("input", ()=>{ it.node.fields[it.field] = input.value.trim(); open(false); refreshTempRows(); checkDirty(); refreshRunCost(); });   // temp row is a pure id check → cheap enough per keystroke (dim/lang rewrites wait for a pick)
     input.addEventListener("blur", ()=> setTimeout(close, 120));   // let a menu click land first
     // mousedown (not click) so the pick fires before the input blurs
     menu.addEventListener("mousedown", (e)=>{ const b = e.target.closest(".modelopt"); if(!b) return; e.preventDefault(); pick(b.dataset.id); });
