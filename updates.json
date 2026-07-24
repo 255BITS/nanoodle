@@ -11,6 +11,39 @@
     }
   },
   {
+    "date": "2026-07-24",
+    "text": "New LLM models: Gembrain & Novelist & Pantheon Reasoning 1.1 & Blossom V6.4 Derestricted & Dark Nexus v3.0 Derestricted Lite & QuettaLLMs Koreasoner V3 Derestricted — We've added 34 new ArliAI creative models across the Gemma 4 31B and Qwen3.5 27B families.",
+    "i18n": {
+      "es": "Nuevos modelos LLM: Gembrain, Novelist, Pantheon Reasoning 1.1, Blossom V6.4 Derestricted y Dark Nexus v3.0 Derestricted Lite y QuettaLLMs Koreasoner V3 Derestricted — Hemos añadido 34 modelos creativos nuevos de ArliAI de las familias Gemma 4 31B y Qwen3.5 27B.",
+      "fr": "Nouveaux modèles LLM : Gembrain, Novelist, Pantheon Reasoning 1.1, Blossom V6.4 Derestricted, Dark Nexus v3.0 Derestricted Lite et QuettaLLMs Koreasoner V3 Derestricted — Nous avons ajouté 34 nouveaux modèles créatifs ArliAI des familles Gemma 4 31B et Qwen3.5 27B.",
+      "de": "Neue LLM-Modelle: Gembrain & Novelist & Pantheon Reasoning 1.1 & Blossom V6.4 Derestricted & Dark Nexus v3.0 Derestricted Lite & QuettaLLMs Koreasoner V3 Derestricted — Wir haben 34 neue ArliAI-Kreativmodelle aus den Gemma 4 31B- und Qwen3.5 27B-Familien hinzugefügt.",
+      "pt": "Novos modelos de LLM: Gembrain, Novelist, Pantheon Reasoning 1.1, Blossom V6.4 Derestricted, Dark Nexus v3.0 Derestricted Lite e QuettaLLMs Koreasoner V3 Derestricted — Adicionamos 34 novos modelos criativos da ArliAI nas famílias Gemma 4 31B e Qwen3.5 27B.",
+      "ja": "新規LLMモデル: Gembrain & Novelist & Pantheon Reasoning 1.1 & Blossom V6.4 Derestricted & Dark Nexus v3.0 Derestricted Lite & QuettaLLMs Koreasoner V3 Derestricted — Gemma 4 31BおよびQwen3.5 27Bファミリーを中心に、ArliAIのクリエイティブモデルを34種類新しく追加したよ。"
+    }
+  },
+  {
+    "date": "2026-07-24",
+    "text": "New LLM models: Kimi K2.7 Code & Qwen3.5 397B A17B & GLM 5.2 — Mixlayer is now available as an opt-in provider for supported Kimi K2.7 Code, Qwen3.5 397B A17B, Qwen3.6, and GLM 5.2 models, including thinking variants where applicable.",
+    "i18n": {
+      "es": "Nuevos modelos LLM: Kimi K2.7 Code, Qwen3.5 397B A17B y GLM 5.2 — Mixlayer ya está disponible como proveedor opcional para los modelos compatibles Kimi K2.7 Code, Qwen3.5 397B A17B, Qwen3.6 y GLM 5.2, incluyendo variantes con razonamiento cuando corresponda.",
+      "fr": "Nouveaux modèles LLM : Kimi K2.7 Code, Qwen3.5 397B A17B et GLM 5.2 — Mixlayer est désormais disponible comme fournisseur optionnel pour les modèles Kimi K2.7 Code, Qwen3.5 397B A17B, Qwen3.6 et GLM 5.2 pris en charge, y compris les variantes « thinking » le cas échéant.",
+      "de": "Neue LLM-Modelle: Kimi K2.7 Code & Qwen3.5 397B A17B & GLM 5.2 — Mixlayer ist jetzt als optionaler Provider für unterstützte Kimi K2.7 Code-, Qwen3.5 397B A17B-, Qwen3.6- und GLM 5.2-Modelle verfügbar, inklusive Thinking-Varianten wo zutreffend.",
+      "pt": "Novos modelos de LLM: Kimi K2.7 Code, Qwen3.5 397B A17B e GLM 5.2 — Mixlayer agora está disponível como provedor opcional para os modelos Kimi K2.7 Code, Qwen3.5 397B A17B, Qwen3.6 e GLM 5.2 suportados, incluindo variantes com raciocínio quando aplicável.",
+      "ja": "新規LLMモデル: Kimi K2.7 Code & Qwen3.5 397B A17B & GLM 5.2 — Mixlayerをオプトインプロバイダーとして追加し、対応するKimi K2.7 Code、Qwen3.5 397B A17B、Qwen3.6、GLM 5.2モデル（該当する場合はthinkingバリアントも）で利用できるようにしたよ。"
+    }
+  },
+  {
+    "date": "2026-07-24",
+    "text": "New LLM model: Fugu Ultra v1.1 — It improves coding, agentic task execution, and advanced reasoning while dynamically orchestrating the best models for complex multi-step work.",
+    "i18n": {
+      "es": "Nuevo modelo LLM: Fugu Ultra v1.1 — Mejora la programación, la ejecución de tareas agénticas y el razonamiento avanzado, y orquesta dinámicamente los mejores modelos para trabajos complejos de varios pasos.",
+      "fr": "Nouveau modèle LLM : Fugu Ultra v1.1 — Il améliore le codage, l'exécution de tâches agentiques et le raisonnement avancé, tout en orchestrant dynamiquement les meilleurs modèles pour les travaux complexes en plusieurs étapes.",
+      "de": "Neues LLM-Modell: Fugu Ultra v1.1 — Es verbessert Coding, agentische Aufgabenausführung und fortgeschrittenes Reasoning und orchestriert dynamisch die besten Modelle für komplexe mehrstufige Aufgaben.",
+      "pt": "Novo modelo de LLM: Fugu Ultra v1.1 — Ele melhora codificação, execução de tarefas agentic e raciocínio avançado, além de orquestrar dinamicamente os melhores modelos para trabalhos complexos de múltiplas etapas.",
+      "ja": "新規LLMモデル: Fugu Ultra v1.1 — コーディング、エージェントタスクの実行、高度な推論を改善し、複雑なマルチステップの作業には最適なモデルを動的に切り替えて実行するよ。"
+    }
+  },
+  {
     "date": "2026-07-23",
     "text": "🎉 Say hello to https://mcp.nanoodle.com — nanoodle workflows, hosted as a paid MCP server! Point your coding agent at it and every awesome-noodles workflow becomes a tool it can call — no install, no key, no signup, paid per run in Nano.",
     "i18n": {
